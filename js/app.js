@@ -4,16 +4,18 @@
  */
 
 import { parseGPX } from './parser.js';
-import { processTrackSignal } from './signal.js';
-import { renderProfileSVG } from './renderer.js';
+import { processTrackSignal, matchWaypointsToTrack } from './signal.js';
+import { renderProfileSVG, WAYPOINT_CONFIG, escapeXml } from './renderer.js';
 import { exportSVG, exportPNG, copySVG, updatePrintMatrix } from './export.js';
 
 const appState = {
   rawCoords: [],
+  rawWaypoints: [],
   points: [],
   stats: null,
   climbs: [],
   blocks: [],
+  waypoints: [],
   settings: {
     widthMm: 110,
     heightMm: 35,
@@ -28,6 +30,8 @@ const appState = {
     showDistanceTicks: true,
     showElevationLabels: true,
     showClimbs: true,
+    showWaypoints: true,
+    showWaypointLabels: true,
     showCutGuidelines: true,
     printCopies: 2
   }
@@ -42,14 +46,15 @@ function handleGPXFile(file) {
   const reader = new FileReader();
   reader.onload = function(evt) {
     try {
-      const { title, coords } = parseGPX(evt.target.result);
+      const { title, coords, rawWaypoints } = parseGPX(evt.target.result);
       appState.rawCoords = coords;
+      appState.rawWaypoints = rawWaypoints || [];
       appState.settings.title = title || file.name.replace(/\.gpx$/i, '');
       
       document.getElementById('input-title').value = appState.settings.title;
       document.getElementById('dropzone-filename').textContent = `${file.name} (${coords.length} pts)`;
 
-      reprocessAndRender();
+      reprocessAndRender(true);
     } catch (err) {
       alert('Error parsing GPX: ' + err.message);
     }
@@ -57,7 +62,7 @@ function handleGPXFile(file) {
   reader.readAsText(file);
 }
 
-function reprocessAndRender() {
+function reprocessAndRender(isNewGPX = false) {
   if (appState.rawCoords.length >= 2) {
     const { points, stats, climbs, blocks } = processTrackSignal(
       appState.rawCoords, 
@@ -68,9 +73,116 @@ function reprocessAndRender() {
     appState.stats = stats;
     appState.climbs = climbs;
     appState.blocks = blocks;
+
+    if (isNewGPX && appState.rawWaypoints && appState.rawWaypoints.length > 0) {
+      const matched = matchWaypointsToTrack(appState.rawWaypoints, appState.rawCoords, points);
+      appState.waypoints = matched;
+    }
   }
   updateUI();
   renderClimbsTable();
+  renderWaypointsList();
+}
+
+function addWaypoint(distM, type = 'feed', label = '') {
+  const id = `wpt-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+  const wpt = {
+    id,
+    distM: Math.max(0, distM),
+    type,
+    label: label.trim(),
+    enabled: true
+  };
+  appState.waypoints.push(wpt);
+  appState.waypoints.sort((a, b) => a.distM - b.distM);
+  updateUI();
+  renderWaypointsList();
+}
+
+function removeWaypoint(id) {
+  appState.waypoints = appState.waypoints.filter(w => w.id !== id);
+  updateUI();
+  renderWaypointsList();
+}
+
+function toggleWaypoint(id) {
+  const wpt = appState.waypoints.find(w => w.id === id);
+  if (wpt) {
+    wpt.enabled = !wpt.enabled;
+    updateUI();
+    renderWaypointsList();
+  }
+}
+
+function renderWaypointsList() {
+  const listEl = document.getElementById('wpt-list');
+  const emptyHint = document.getElementById('wpt-empty-hint');
+  const countBadge = document.getElementById('wpt-count-badge');
+  if (!listEl || !emptyHint || !countBadge) return;
+
+  const wpts = appState.waypoints;
+  countBadge.textContent = `${wpts.length}`;
+
+  if (wpts.length === 0) {
+    emptyHint.style.display = 'block';
+    listEl.innerHTML = '';
+    return;
+  }
+
+  emptyHint.style.display = 'none';
+  const isMetric = appState.settings.units === 'metric';
+  const dFactor = isMetric ? 1 / 1000 : 0.000621371;
+  const distUnit = isMetric ? 'km' : 'mi';
+
+  let html = '';
+  wpts.forEach(w => {
+    const typeCfg = WAYPOINT_CONFIG[w.type] || WAYPOINT_CONFIG['feed'];
+    const distStr = (w.distM * dFactor).toFixed(1);
+    const labelStr = w.label || typeCfg.label;
+    const disabledClass = w.enabled === false ? 'disabled' : '';
+
+    html += `
+      <div class="wpt-item ${disabledClass}" data-id="${w.id}">
+        <div class="wpt-info">
+          <div class="wpt-icon-badge" style="background:${typeCfg.color}; color:${typeCfg.textColor};">
+            ${getTypeEmoji(w.type)}
+          </div>
+          <div class="wpt-details">
+            <div class="wpt-dist-tag">${distStr} ${distUnit}</div>
+            <div class="wpt-label-tag" title="${escapeXml(labelStr)}">${escapeXml(labelStr)}</div>
+          </div>
+        </div>
+        <div class="wpt-actions">
+          <button class="wpt-toggle-btn" data-action="toggle" title="${w.enabled ? 'Hide from sticker' : 'Show on sticker'}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              ${w.enabled ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>' : '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>'}
+            </svg>
+          </button>
+          <button class="wpt-del-btn" data-action="delete" title="Delete waypoint">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    `;
+  });
+  listEl.innerHTML = html;
+}
+
+function getTypeEmoji(type) {
+  switch (type) {
+    case 'water': return '💧';
+    case 'food': return '🥪';
+    case 'feed': return '🍽️';
+    case 'sprint': return '🟢';
+    case 'summit': return '⛰️';
+    case 'caution': return '⚠️';
+    case 'mech': return '🔧';
+    case 'checkpoint': return '🏁';
+    default: return '📍';
+  }
 }
 
 function updateUI() {
@@ -79,12 +191,13 @@ function updateUI() {
   const pts = appState.points;
   const climbs = appState.climbs;
   const blocks = appState.blocks;
+  const waypoints = appState.waypoints;
   const hasData = pts.length >= 2 && stats !== null;
 
   // 1. Render Preview
   const svgHost = document.getElementById('svg-host');
   if (hasData) {
-    svgHost.innerHTML = renderProfileSVG(pts, stats, climbs, blocks, cfg, false);
+    svgHost.innerHTML = renderProfileSVG(pts, stats, climbs, blocks, waypoints, cfg, false);
   } else {
     svgHost.innerHTML = `
       <div class="empty-msg">
@@ -129,7 +242,7 @@ function updateUI() {
     document.getElementById('stat-climbs').textContent = '--';
   }
 
-  updatePrintMatrix(pts, stats, climbs, blocks, cfg);
+  updatePrintMatrix(pts, stats, climbs, blocks, waypoints, cfg);
   bindTooltipHover();
 }
 
@@ -260,10 +373,28 @@ export function initApp() {
     if (e.target.files.length > 0) handleGPXFile(e.target.files[0]);
   });
 
-  // Clicking empty preview area opens file picker
-  svgHost.addEventListener('click', () => {
-    if (appState.points.length < 2) {
+  // Clicking SVG: if empty opens file picker; if loaded pre-fills distance for waypoint
+  svgHost.addEventListener('click', e => {
+    if (appState.points.length < 2 || !appState.stats) {
       fin.click();
+      return;
+    }
+    const svg = document.getElementById('profile-svg-elem');
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const ratio = Math.max(0, Math.min(1, mouseX / rect.width));
+    const targetDistM = ratio * appState.stats.totalDist;
+
+    const isMetric = appState.settings.units === 'metric';
+    const dFactor = isMetric ? 1 / 1000 : 0.000621371;
+    const distVal = (targetDistM * dFactor).toFixed(1);
+
+    const distInput = document.getElementById('input-wpt-dist');
+    const labelInput = document.getElementById('input-wpt-label');
+    if (distInput) {
+      distInput.value = distVal;
+      if (labelInput) labelInput.focus();
     }
   });
 
@@ -308,7 +439,7 @@ export function initApp() {
 
   document.getElementById('input-copies').addEventListener('change', e => {
     appState.settings.printCopies = parseInt(e.target.value, 10) || 1;
-    updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.blocks, appState.settings);
+    updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.blocks, appState.waypoints, appState.settings);
   });
 
   // Segment Block Size
@@ -335,13 +466,65 @@ export function initApp() {
 
   document.getElementById('select-units').addEventListener('change', e => {
     appState.settings.units = e.target.value;
+    const unitLabel = document.getElementById('label-wpt-unit');
+    if (unitLabel) unitLabel.textContent = e.target.value === 'metric' ? 'km' : 'mi';
     updateUI();
+    renderWaypointsList();
   });
 
   document.getElementById('input-title').addEventListener('input', e => {
     appState.settings.title = e.target.value;
     updateUI();
   });
+
+  // Waypoint Form & Actions
+  const btnAddWpt = document.getElementById('btn-add-wpt');
+  if (btnAddWpt) {
+    btnAddWpt.addEventListener('click', () => {
+      if (!appState.stats) {
+        alert('Please load a GPX track first.');
+        return;
+      }
+      const distInput = document.getElementById('input-wpt-dist');
+      const typeSelect = document.getElementById('select-wpt-type');
+      const labelInput = document.getElementById('input-wpt-label');
+
+      const enteredDist = parseFloat(distInput.value);
+      if (isNaN(enteredDist) || enteredDist < 0) {
+        alert('Please enter a valid distance.');
+        distInput.focus();
+        return;
+      }
+
+      const isMetric = appState.settings.units === 'metric';
+      const dFactor = isMetric ? 1 / 1000 : 0.000621371;
+      const distM = enteredDist / dFactor;
+      const type = typeSelect.value;
+      const label = labelInput.value;
+
+      addWaypoint(distM, type, label);
+      distInput.value = '';
+      labelInput.value = '';
+    });
+  }
+
+  const wptListEl = document.getElementById('wpt-list');
+  if (wptListEl) {
+    wptListEl.addEventListener('click', e => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      const item = btn.closest('.wpt-item');
+      if (!item) return;
+      const id = item.dataset.id;
+      const action = btn.dataset.action;
+
+      if (action === 'delete') {
+        removeWaypoint(id);
+      } else if (action === 'toggle') {
+        toggleWaypoint(id);
+      }
+    });
+  }
 
   // Checkbox Toggles
   document.getElementById('chk-block-pct').addEventListener('change', e => {
@@ -352,6 +535,20 @@ export function initApp() {
     appState.settings.showClimbs = e.target.checked;
     updateUI();
   });
+  const chkWpt = document.getElementById('chk-waypoints');
+  if (chkWpt) {
+    chkWpt.addEventListener('change', e => {
+      appState.settings.showWaypoints = e.target.checked;
+      updateUI();
+    });
+  }
+  const chkWptLabels = document.getElementById('chk-wpt-labels');
+  if (chkWptLabels) {
+    chkWptLabels.addEventListener('change', e => {
+      appState.settings.showWaypointLabels = e.target.checked;
+      updateUI();
+    });
+  }
   document.getElementById('chk-header').addEventListener('change', e => {
     appState.settings.showHeader = e.target.checked;
     updateUI();
@@ -371,7 +568,7 @@ export function initApp() {
 
   // Exports
   document.getElementById('btn-copy-svg').addEventListener('click', () => {
-    copySVG(appState.points, appState.stats, appState.climbs, appState.blocks, appState.settings, err => {
+    copySVG(appState.points, appState.stats, appState.climbs, appState.blocks, appState.waypoints, appState.settings, err => {
       if (!err) {
         const btn = document.getElementById('btn-copy-svg');
         const orig = btn.textContent;
@@ -382,21 +579,21 @@ export function initApp() {
   });
 
   document.getElementById('btn-export-svg').addEventListener('click', () => {
-    exportSVG(appState.points, appState.stats, appState.climbs, appState.blocks, appState.settings);
+    exportSVG(appState.points, appState.stats, appState.climbs, appState.blocks, appState.waypoints, appState.settings);
   });
 
   document.getElementById('btn-export-png').addEventListener('click', () => {
-    exportPNG(appState.points, appState.stats, appState.climbs, appState.blocks, appState.settings);
+    exportPNG(appState.points, appState.stats, appState.climbs, appState.blocks, appState.waypoints, appState.settings);
   });
 
   document.getElementById('btn-print').addEventListener('click', () => {
-    updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.blocks, appState.settings);
+    updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.blocks, appState.waypoints, appState.settings);
     window.print();
   });
 
   window.addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'p') {
-      updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.blocks, appState.settings);
+      updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.blocks, appState.waypoints, appState.settings);
     }
   });
 

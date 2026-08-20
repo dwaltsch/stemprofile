@@ -45,5 +45,30 @@ export function parseGPX(xmlText) {
     throw new Error("GPX file must contain at least 2 valid coordinates.");
   }
 
-  return { title, coords };
+  // Extract separate waypoints (<wpt>) if trkpt or rtept were used for track
+  const rawWaypoints = [];
+  const hasTrackElements = xmlDoc.querySelectorAll("trkpt, rtept").length > 0;
+  if (hasTrackElements) {
+    const wptNodes = xmlDoc.querySelectorAll("wpt");
+    for (let i = 0; i < wptNodes.length; i++) {
+      const node = wptNodes[i];
+      const lat = parseFloat(node.getAttribute("lat"));
+      const lon = parseFloat(node.getAttribute("lon"));
+      const nameNode = node.querySelector("name");
+      const symNode = node.querySelector("sym");
+      const descNode = node.querySelector("desc");
+      const typeNode = node.querySelector("type");
+
+      const name = nameNode ? nameNode.textContent.trim() : "";
+      const sym = symNode ? symNode.textContent.trim() : "";
+      const desc = descNode ? descNode.textContent.trim() : "";
+      const typeStr = typeNode ? typeNode.textContent.trim() : "";
+
+      if (!isNaN(lat) && !isNaN(lon)) {
+        rawWaypoints.push({ lat, lon, name, sym, desc, typeStr });
+      }
+    }
+  }
+
+  return { title, coords, rawWaypoints };
 }

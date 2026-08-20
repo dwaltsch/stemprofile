@@ -147,6 +147,14 @@
               <span>Climb summit badges</span>
             </label>
             <label class="checkbox-row">
+              <input type="checkbox" id="chk-waypoints" checked>
+              <span>Waypoints & feed cues</span>
+            </label>
+            <label class="checkbox-row">
+              <input type="checkbox" id="chk-wpt-labels" checked>
+              <span>Waypoint text labels</span>
+            </label>
+            <label class="checkbox-row">
               <input type="checkbox" id="chk-header" checked>
               <span>Title & stats header</span>
             </label>
@@ -163,6 +171,56 @@
               <span>Outer cut guides</span>
             </label>
           </div>
+        </div>
+      </div>
+
+      <!-- 4. Waypoints & Feed Zones -->
+      <div>
+        <div class="section-title" style="display:flex; justify-content:space-between; align-items:center;">
+          <span>Waypoints & Feed Zones</span>
+          <span id="wpt-count-badge" class="count-badge">0</span>
+        </div>
+        <div class="control-group">
+          
+          <div class="field-grid">
+            <div class="field">
+              <label class="field-label" for="select-wpt-type">Type</label>
+              <select id="select-wpt-type">
+                <option value="feed" selected>🍽️ Feed Zone</option>
+                <option value="water">💧 Water / H2O</option>
+                <option value="food">🥪 Food / Fuel</option>
+                <option value="sprint">🟢 Sprint (S)</option>
+                <option value="summit">⛰️ Summit</option>
+                <option value="caution">⚠️ Caution</option>
+                <option value="mech">🔧 Tech / Mech</option>
+                <option value="checkpoint">🏁 Checkpoint</option>
+                <option value="custom">📍 Custom Pin</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label" for="input-wpt-dist">Dist (<span id="label-wpt-unit">km</span>)</label>
+              <input type="number" id="input-wpt-dist" min="0" max="1000" step="0.1" placeholder="e.g. 45.0">
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="input-wpt-label">Label (optional)</label>
+            <input type="text" id="input-wpt-label" placeholder="e.g. Feed 1, Bottle Drop" maxlength="16">
+          </div>
+
+          <button class="btn btn-primary" id="btn-add-wpt" style="width:100%; justify-content:center;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Add Waypoint
+          </button>
+
+          <div class="wpt-list-wrapper" id="wpt-list-wrapper">
+            <div class="wpt-empty-hint" id="wpt-empty-hint">No waypoints yet. Add cues above, click on the profile preview, or load a GPX with markers.</div>
+            <div class="wpt-list" id="wpt-list"></div>
+          </div>
+
         </div>
       </div>
 

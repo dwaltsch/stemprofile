@@ -3,6 +3,8 @@
  * Supports both Block-Segmented (1000m, 500m, 250m, 100m) and Smooth Continuous modes
  */
 
+import { getInterpolatedEle } from './signal.js';
+
 export const THEMES = {
   'dark': {
     bg: '#0d1117',
@@ -40,14 +42,101 @@ export const THEMES = {
   }
 };
 
+export const WAYPOINT_CONFIG = {
+  feed: {
+    label: 'Feed Zone',
+    color: '#f97316',      // Vivid Orange
+    textColor: '#ffffff',
+    shortCode: 'FEED'
+  },
+  water: {
+    label: 'Water / H2O',
+    color: '#0284c7',      // Bright Sky Blue
+    textColor: '#ffffff',
+    shortCode: 'H2O'
+  },
+  food: {
+    label: 'Food / Fuel',
+    color: '#eab308',      // Amber Yellow
+    textColor: '#000000',
+    shortCode: 'GEL'
+  },
+  sprint: {
+    label: 'Sprint',
+    color: '#16a34a',      // Emerald Green
+    textColor: '#ffffff',
+    shortCode: 'SPRINT'
+  },
+  summit: {
+    label: 'Summit',
+    color: '#dc2626',      // Red
+    textColor: '#ffffff',
+    shortCode: 'SUMMIT'
+  },
+  caution: {
+    label: 'Caution / Hazard',
+    color: '#f59e0b',      // Warning Amber
+    textColor: '#000000',
+    shortCode: 'CAUTION'
+  },
+  mech: {
+    label: 'Tech / Mech',
+    color: '#06b6d4',      // Cyan
+    textColor: '#ffffff',
+    shortCode: 'TECH'
+  },
+  checkpoint: {
+    label: 'Checkpoint',
+    color: '#9333ea',      // Purple
+    textColor: '#ffffff',
+    shortCode: 'CP'
+  },
+  custom: {
+    label: 'Pin',
+    color: '#db2777',      // Pink / Magenta
+    textColor: '#ffffff',
+    shortCode: 'PIN'
+  }
+};
+
+function renderWaypointGlyph(type, textColor = '#ffffff') {
+  switch (type) {
+    case 'water':
+      return `<path d="M 0,-1.3 C 0,-1.3 1.0,0.1 1.0,0.8 C 1.0,1.4 0.5,1.8 0,1.8 C -0.5,1.8 -1.0,1.4 -1.0,0.8 C -1.0,0.1 0,-1.3 0,-1.3 Z" fill="${textColor}"/>`;
+    case 'food':
+      return `<path d="M 0.2,-1.4 L -0.9,0.1 L 0,0.1 L -0.2,1.4 L 0.9,-0.1 L 0,-0.1 Z" fill="${textColor}"/>`;
+    case 'feed':
+      return `<path d="M -1.1,-0.5 L 1.1,-0.5 L 0.9,1.3 L -0.9,1.3 Z" fill="${textColor}"/><path d="M -1.1,-0.5 L 0,-1.4 L 1.1,-0.5" fill="none" stroke="${textColor}" stroke-width="0.3"/>`;
+    case 'sprint':
+      return `<text x="0" y="1.0" font-size="2.7" font-weight="900" font-family="sans-serif" text-anchor="middle" fill="${textColor}">S</text>`;
+    case 'summit':
+      return `<polygon points="0,-1.4 1.4,1.2 -1.4,1.2" fill="${textColor}"/>`;
+    case 'caution':
+      return `<polygon points="0,-1.4 1.3,1.2 -1.3,1.2" fill="${textColor}"/><line x1="0" y1="-0.5" x2="0" y2="0.3" stroke="#000000" stroke-width="0.38" stroke-linecap="round"/><circle cx="0" cy="0.8" r="0.22" fill="#000000"/>`;
+    case 'mech':
+      return `<path d="M -0.7,-1.0 L 0.7,0.4 L 0.4,0.7 L -1.0,-0.7 Z" fill="${textColor}" stroke="${textColor}" stroke-width="0.2"/><circle cx="0.7" cy="0.7" r="0.5" fill="${textColor}"/>`;
+    case 'checkpoint':
+      return `<path d="M -0.8,-1.2 L 1.0,-0.7 L -0.8,-0.2 Z" fill="${textColor}"/><line x1="-0.8" y1="-1.2" x2="-0.8" y2="1.3" stroke="${textColor}" stroke-width="0.32"/>`;
+    default:
+      return `<circle cx="0" cy="-0.2" r="1.0" fill="${textColor}"/><line x1="0" y1="0.8" x2="0" y2="1.4" stroke="${textColor}" stroke-width="0.32"/>`;
+  }
+}
+
 export function escapeXml(s) {
   const map = { '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' };
   return (s || '').replace(/[<>&'"]/g, c => map[c] || c);
 }
 
-export function renderProfileSVG(points, stats, climbs = [], blocks = [], settings, isPrint = false) {
-  const W = settings.widthMm;
-  const H = settings.heightMm;
+export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoints = [], settings = {}, isPrint = false) {
+  // Support polymorphic parameter calls: (points, stats, climbs, blocks, settings, isPrint)
+  if (!Array.isArray(waypoints) && typeof waypoints === 'object') {
+    isPrint = settings === true;
+    settings = waypoints;
+    waypoints = settings.waypoints || [];
+  }
+
+  const W = settings.widthMm || 110;
+  const H = settings.heightMm || 35;
   const radius = settings.radiusMm || 0;
   const themeKey = isPrint ? 'white' : (settings.theme === 'white' ? 'white' : 'dark');
   const theme = THEMES[themeKey] || THEMES['dark'];
@@ -229,7 +318,84 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], settin
     });
   }
 
-  // 6. Stats Header
+  // 6. Waypoints & Race Cues
+  let waypointsMarkup = '';
+  const showWaypoints = settings.showWaypoints !== false;
+  const showWptLabels = settings.showWaypointLabels !== false;
+  const activeWaypoints = (waypoints || []).filter(w => w && w.enabled !== false && w.distM >= 0 && w.distM <= stats.totalDist);
+
+  if (showWaypoints && activeWaypoints.length > 0) {
+    const sortedWpts = [...activeWaypoints].sort((a, b) => a.distM - b.distM);
+
+    sortedWpts.forEach((wpt, idx) => {
+      const typeCfg = WAYPOINT_CONFIG[wpt.type] || WAYPOINT_CONFIG['feed'];
+      const wptX = toX(wpt.distM);
+      const profEle = getInterpolatedEle(points, wpt.distM);
+      const profY = toY(profEle);
+
+      const distVal = (wpt.distM * dFactor).toFixed(1);
+      const distStr = `${distVal}${isMetric ? 'k' : 'm'}`;
+      const customLabel = (wpt.label || '').trim();
+
+      // Staggering: if near previous waypoint, alternate height tier
+      let isStaggered = false;
+      if (idx > 0) {
+        const prevWptX = toX(sortedWpts[idx - 1].distM);
+        if (Math.abs(wptX - prevWptX) < 9.0) {
+          isStaggered = (idx % 2 === 1);
+        }
+      }
+
+      const badgeR = 2.0; // 4.0mm diameter pin
+      let badgeY = isStaggered ? (padTop - 2.6) : Math.max(padTop - 3.6, profY - 7.5);
+      if (badgeY < 2.5) badgeY = 2.5;
+      if (badgeY > H - 6.0) badgeY = H - 6.0;
+
+      // Drop Line from pin badge down to profile surface
+      const dropLine = `
+        <line x1="${wptX.toFixed(2)}" y1="${(badgeY + badgeR).toFixed(2)}" x2="${wptX.toFixed(2)}" y2="${profY.toFixed(2)}" stroke="${typeCfg.color}" stroke-width="0.35" stroke-dasharray="0.6,0.4" opacity="0.95"/>
+        <circle cx="${wptX.toFixed(2)}" cy="${profY.toFixed(2)}" r="0.75" fill="${typeCfg.color}" stroke="${theme.bg}" stroke-width="0.25"/>
+      `;
+
+      // Icon Pin
+      const glyph = renderWaypointGlyph(wpt.type, typeCfg.textColor);
+      const pinMarkup = `
+        <g transform="translate(${wptX.toFixed(2)}, ${badgeY.toFixed(2)})">
+          <circle cx="0" cy="0" r="${badgeR}" fill="${typeCfg.color}" stroke="${isPrint ? '#000000' : theme.bg}" stroke-width="0.35"/>
+          ${glyph}
+        </g>
+      `;
+
+      // High contrast label
+      let textMarkup = '';
+      if (showWptLabels) {
+        const tagText = customLabel ? `${distStr} ${customLabel}` : `${distStr} ${typeCfg.shortCode}`;
+        const tagW = Math.min(26, tagText.length * 1.35 + 2.4);
+        const tagX = Math.max(padLeft, Math.min(W - padRight - tagW, wptX - (tagW / 2)));
+        let tagY = badgeY + badgeR + 0.6;
+        if (tagY + 2.6 > profY && badgeY - 3.2 >= 1.0) {
+          tagY = badgeY - badgeR - 2.8;
+        }
+
+        textMarkup = `
+          <g transform="translate(${tagX.toFixed(2)}, ${tagY.toFixed(2)})">
+            <rect width="${tagW.toFixed(2)}" height="2.6" rx="0.5" fill="${theme.badgeBg}" stroke="${typeCfg.color}" stroke-width="0.25"/>
+            <text x="${(tagW / 2).toFixed(2)}" y="1.85" fill="${theme.badgeText}" font-size="1.5" font-weight="800" font-family="monospace, sans-serif" text-anchor="middle">${tagText}</text>
+          </g>
+        `;
+      }
+
+      waypointsMarkup += `
+        <g class="wpt-marker" data-wpt-id="${escapeXml(wpt.id)}">
+          ${dropLine}
+          ${pinMarkup}
+          ${textMarkup}
+        </g>
+      `;
+    });
+  }
+
+  // 7. Stats Header
   let headerMarkup = '';
   if (settings.showHeader) {
     const title = escapeXml(settings.title || 'StemProfile');
@@ -246,7 +412,7 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], settin
     `;
   }
 
-  // 7. Cut Guidelines
+  // 8. Cut Guidelines
   let cutMarkup = '';
   if (settings.showCutGuidelines) {
     cutMarkup = `<rect x="0.2" y="0.2" width="${(W - 0.4).toFixed(2)}" height="${(H - 0.4).toFixed(2)}" rx="${radius}" fill="none" stroke="${theme.cutLine}" stroke-width="0.3" stroke-dasharray="1,1"/>`;
@@ -260,6 +426,7 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], settin
       <path d="${topPath}" fill="none" stroke="${theme.topStroke}" stroke-width="0.75" stroke-linejoin="round" stroke-linecap="round"/>
       ${eleMarkup}
       ${climbsMarkup}
+      ${waypointsMarkup}
       ${headerMarkup}
       ${cutMarkup}
     </svg>

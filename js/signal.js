@@ -260,3 +260,67 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
 
   return { points, stats, climbs, blocks };
 }
+
+/**
+ * Matches raw GPX waypoints to track distances and infers waypoint types for racing
+ */
+export function matchWaypointsToTrack(rawWaypoints, coords, points) {
+  if (!rawWaypoints || rawWaypoints.length === 0 || !coords || coords.length < 2 || !points || points.length < 2) {
+    return [];
+  }
+
+  const results = [];
+  const totalDist = points[points.length - 1].dist;
+
+  rawWaypoints.forEach((wpt, index) => {
+    let bestDistM = 0;
+    let minDistToTrack = Infinity;
+
+    for (let i = 0; i < coords.length; i++) {
+      const d = calcHaversine(wpt.lat, wpt.lon, coords[i].lat, coords[i].lon);
+      if (d < minDistToTrack) {
+        minDistToTrack = d;
+        bestDistM = points[i] ? points[i].dist : 0;
+      }
+    }
+
+    // Only include if waypoint is near the route (< 5000m)
+    if (minDistToTrack <= 5000) {
+      const combinedText = `${wpt.name} ${wpt.sym} ${wpt.desc} ${wpt.typeStr}`.toLowerCase();
+      let inferredType = 'feed';
+
+      if (/(water|h2o|bottle|drink|fountain|source|bidon|eau|wasser)/i.test(combinedText)) {
+        inferredType = 'water';
+      } else if (/(gel|nutrition|energy|snack|bar|banana|food|bakery|cafe)/i.test(combinedText)) {
+        inferredType = 'food';
+      } else if (/(feed|ravito|verpflegung|aid|zone|resupply|refreshment)/i.test(combinedText)) {
+        inferredType = 'feed';
+      } else if (/(sprint|intermediate|hotspot|green)/i.test(combinedText)) {
+        inferredType = 'sprint';
+      } else if (/(summit|pass|col|peak|berg|climb|kom|qom|côte)/i.test(combinedText)) {
+        inferredType = 'summit';
+      } else if (/(danger|caution|hazard|gravel|pave|cobble|warning|sharp|descent)/i.test(combinedText)) {
+        inferredType = 'caution';
+      } else if (/(mech|repair|tech|bike|shop|service|neutral)/i.test(combinedText)) {
+        inferredType = 'mech';
+      } else if (/(checkpoint|cp|control|timing|timecheck|finish)/i.test(combinedText)) {
+        inferredType = 'checkpoint';
+      } else {
+        inferredType = 'custom';
+      }
+
+      const cleanLabel = (wpt.name || wpt.sym || `WP ${index + 1}`).trim();
+
+      results.push({
+        id: `wpt-gpx-${index + 1}`,
+        distM: Math.max(0, Math.min(totalDist, bestDistM)),
+        type: inferredType,
+        label: cleanLabel,
+        enabled: true
+      });
+    }
+  });
+
+  results.sort((a, b) => a.distM - b.distM);
+  return results;
+}

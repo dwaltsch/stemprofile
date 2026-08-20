@@ -20,6 +20,17 @@
   - **Zone 3 (8% – 12%)**: Steep (`#db6d28` Orange)
   - **Zone 4 (> 12%)**: Wall (`#f85149` Red)
 - **Automatic Climb Segmentation**: Detects sustained climbs (HC, Cat 1, Cat 2, Cat 3, Cat 4) and renders summit badges (`Cat • Length @ Avg %`).
+- **High-Glanceability Race Waypoints & Feed Cues**: Ultra-readable custom markers for race pacing and nutrition:
+  - 🍽️ **Feed Zone** (`FEED`)
+  - 💧 **Water / Hydration** (`H2O`)
+  - 🥪 **Food / Gels / Fuel** (`GEL`)
+  - 🟢 **Intermediate Sprints** (`SPRINT`)
+  - ⛰️ **Summits & Mountain Passes** (`SUMMIT`)
+  - ⚠️ **Caution / Hazards / Gravel** (`CAUTION`)
+  - 🔧 **Tech Support / Mechanical** (`TECH`)
+  - 🏁 **Checkpoints / Timing** (`CP`)
+  - Vertical pin-drop line to exact profile elevation terrain with collision-avoidance height staggering.
+  - Automatic extraction of `<wpt>` elements from GPX files (Komoot, RideWithGPS, Strava, Garmin) + instant click-to-place on profile preview.
 
 ### 2. Client-Side Ingestion & Processing
 - **Private & 100% Offline**: Parses GPX XML via the native browser `DOMParser()`.
