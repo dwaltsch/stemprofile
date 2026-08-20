@@ -1,0 +1,1932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StemProfile — Top Tube & Stem Elevation Sticker Studio</title>
+  <style>
+    :root {
+      /* Palette: Engineered Precision / Cockpit Dark */
+      --bg-canvas: #090c10;
+      --bg-panel: #11161f;
+      --bg-panel-trans: rgba(17, 22, 31, 0.78);
+      --bg-surface: rgba(22, 30, 43, 0.65);
+      --bg-surface-active: rgba(30, 42, 60, 0.9);
+      --bg-input: #0b0f16;
+      
+      --border-base: rgba(255, 255, 255, 0.08);
+      --border-subtle: rgba(255, 255, 255, 0.04);
+      --border-focus: #38bdf8;
+      
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --text-brand: #38bdf8;
+
+      /* Gradient Zones (<5%, 5-8%, 8-12%, >12%) */
+      --z1-color: #10b981; /* Flat / Rolling < 5% */
+      --z2-color: #eab308; /* Moderate 5-8% */
+      --z3-color: #f97316; /* Steep 8-12% */
+      --z4-color: #ef4444; /* Wall > 12% */
+
+      /* Sticker Physical Dimensions (Configurable, 110x35mm default) */
+      --sticker-width-mm: 110mm;
+      --sticker-height-mm: 35mm;
+
+      /* Typography */
+      --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, "SF Mono", Menlo, Monaco, "Cascadia Mono", monospace;
+      
+      --blur-glass: blur(20px);
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+    }
+
+    /* Reset & Base Setup */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-ui);
+      background-color: var(--bg-canvas);
+      background-image: 
+        radial-gradient(ellipse at 15% 0%, rgba(56, 189, 248, 0.06) 0%, transparent 60%),
+        radial-gradient(ellipse at 85% 100%, rgba(16, 185, 129, 0.04) 0%, transparent 60%);
+      background-attachment: fixed;
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.45;
+      font-size: 13px;
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.22);
+    }
+
+    /* Header */
+    header {
+      background: var(--bg-panel-trans);
+      backdrop-filter: var(--blur-glass);
+      -webkit-backdrop-filter: var(--blur-glass);
+      border-bottom: 1px solid var(--border-base);
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      background: #0f172a;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
+    }
+
+    .brand-mark svg {
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: var(--text-brand);
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .brand-info h1 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      color: var(--text-main);
+    }
+
+    .badge-tag {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 1px 6px;
+      border-radius: 3px;
+      background: rgba(56, 189, 248, 0.12);
+      color: var(--text-brand);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+
+    .brand-info p {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    .action-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-family: var(--font-ui);
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 0.45rem 0.8rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-base);
+      background: var(--bg-surface);
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-decoration: none;
+      user-select: none;
+      backdrop-filter: var(--blur-glass);
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      background: var(--bg-surface-active);
+      border-color: rgba(255, 255, 255, 0.18);
+      color: #ffffff;
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .btn-primary {
+      background: #0284c7;
+      border-color: #38bdf8;
+      color: #ffffff;
+      box-shadow: 0 0 14px rgba(2, 132, 199, 0.35);
+    }
+
+    .btn-primary:hover {
+      background: #0369a1;
+      border-color: #7dd3fc;
+      box-shadow: 0 0 18px rgba(56, 189, 248, 0.45);
+    }
+
+    /* Layout */
+    .app-workspace {
+      display: grid;
+      grid-template-columns: 350px 1fr;
+      gap: 1.25rem;
+      padding: 1.25rem;
+      flex: 1;
+      max-width: 1650px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    @media (max-width: 1024px) {
+      .app-workspace {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Glass Panels */
+    .glass-box {
+      background: var(--bg-panel-trans);
+      backdrop-filter: var(--blur-glass);
+      -webkit-backdrop-filter: var(--blur-glass);
+      border: 1px solid var(--border-base);
+      border-radius: var(--radius-md);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      overflow: hidden;
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .panel-block {
+      padding: 1rem 1.15rem;
+      border-bottom: 1px solid var(--border-base);
+    }
+
+    .panel-block:last-child {
+      border-bottom: none;
+    }
+
+    .block-header {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-brand);
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Drag and Drop Zone */
+    .dropzone {
+      border: 1.5px dashed rgba(56, 189, 248, 0.35);
+      border-radius: var(--radius-sm);
+      padding: 1.25rem 0.85rem;
+      text-align: center;
+      background: rgba(11, 15, 22, 0.6);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--text-brand);
+      background: rgba(56, 189, 248, 0.08);
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.15);
+    }
+
+    .dropzone-icon {
+      width: 32px;
+      height: 32px;
+      margin: 0 auto 0.45rem auto;
+      color: var(--text-brand);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: rgba(56, 189, 248, 0.1);
+    }
+
+    .dropzone-title {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 2px;
+    }
+
+    .dropzone-sub {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+    }
+
+    #file-input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .demo-bar {
+      display: flex;
+      gap: 0.4rem;
+      margin-top: 0.65rem;
+    }
+
+    /* Form Controls */
+    .field {
+      margin-bottom: 0.75rem;
+    }
+
+    .field:last-child {
+      margin-bottom: 0;
+    }
+
+    .field-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 0.3rem;
+    }
+
+    .field-label .val-tag {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-brand);
+      font-weight: 600;
+    }
+
+    .input-text, .input-select {
+      width: 100%;
+      padding: 0.45rem 0.65rem;
+      font-family: var(--font-ui);
+      font-size: 0.78rem;
+      color: var(--text-main);
+      background: var(--bg-input);
+      border: 1px solid var(--border-base);
+      border-radius: var(--radius-sm);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .input-text:focus, .input-select:focus {
+      border-color: var(--text-brand);
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+
+    /* Sliders */
+    .range-input {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.12);
+      outline: none;
+      margin: 0.4rem 0;
+    }
+
+    .range-input::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--text-brand);
+      cursor: pointer;
+      box-shadow: 0 0 6px rgba(56, 189, 248, 0.6);
+      transition: transform 0.1s;
+    }
+
+    .range-input::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* Toggles */
+    .switch-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.25rem 0;
+      font-size: 0.76rem;
+      color: var(--text-muted);
+    }
+
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 32px;
+      height: 18px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: rgba(255, 255, 255, 0.12);
+      transition: 0.2s;
+      border-radius: 18px;
+    }
+
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 12px;
+      width: 12px;
+      left: 3px;
+      bottom: 3px;
+      background-color: #cbd5e1;
+      transition: 0.2s;
+      border-radius: 50%;
+    }
+
+    input:checked + .toggle-slider {
+      background-color: var(--text-brand);
+    }
+
+    input:checked + .toggle-slider:before {
+      transform: translateX(14px);
+      background-color: #090c10;
+    }
+
+    /* 4 Gradient Zones Mini Pills */
+    .zones-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.35rem;
+      margin-top: 0.5rem;
+    }
+
+    .zone-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.25rem 0.45rem;
+      border-radius: var(--radius-sm);
+      background: var(--bg-input);
+      border: 1px solid var(--border-base);
+      font-size: 0.68rem;
+      font-family: var(--font-mono);
+    }
+
+    .zone-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    /* Main Display Area */
+    .main-canvas-area {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* Preview Card */
+    .preview-card {
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .preview-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .preview-meta h2 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .preview-meta p {
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+
+    .stage-box {
+      width: 100%;
+      overflow-x: auto;
+      padding: 2.5rem 1.25rem 1.75rem 1.25rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: radial-gradient(circle at center, rgba(17, 24, 39, 0.7) 0%, rgba(9, 12, 16, 0.95) 100%);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-base);
+      min-height: 240px;
+      position: relative;
+    }
+
+    .stage-ruler {
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      background: rgba(11, 15, 22, 0.85);
+      border: 1px solid var(--border-base);
+      padding: 2px 8px;
+      border-radius: 12px;
+      letter-spacing: 0.02em;
+    }
+
+    .sticker-container {
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      border-radius: 3px;
+      transition: transform 0.15s ease;
+      position: relative;
+      background: #090c10;
+      display: inline-block;
+      user-select: none;
+      cursor: crosshair;
+    }
+
+    .sticker-container:hover {
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(56, 189, 248, 0.4);
+    }
+
+    #svg-host {
+      display: block;
+      line-height: 0;
+    }
+
+    /* Live Cursor Tooltip */
+    #cursor-tip {
+      position: absolute;
+      display: none;
+      pointer-events: none;
+      background: rgba(9, 12, 16, 0.94);
+      border: 1px solid var(--text-brand);
+      border-radius: var(--radius-sm);
+      padding: 0.35rem 0.55rem;
+      font-size: 0.7rem;
+      font-family: var(--font-mono);
+      color: var(--text-main);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
+      backdrop-filter: var(--blur-glass);
+      z-index: 50;
+      white-space: nowrap;
+      transform: translate(-50%, -125%);
+    }
+
+    #cursor-tip .tip-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 2px;
+    }
+    #cursor-tip .tip-row:last-child { margin-bottom: 0; }
+    #cursor-tip .tip-val { font-weight: 700; color: var(--text-brand); }
+
+    /* Stat Cards Dashboard */
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0.85rem;
+    }
+
+    .telemetry-card {
+      background: var(--bg-panel-trans);
+      backdrop-filter: var(--blur-glass);
+      -webkit-backdrop-filter: var(--blur-glass);
+      border: 1px solid var(--border-base);
+      border-radius: var(--radius-md);
+      padding: 0.85rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .telemetry-label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    .telemetry-val {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      font-family: var(--font-ui);
+      color: var(--text-main);
+    }
+
+    .telemetry-sub {
+      font-size: 0.68rem;
+      font-family: var(--font-mono);
+      color: var(--text-dim);
+    }
+
+    /* Slope Analysis Bar */
+    .slope-card {
+      padding: 1.15rem;
+    }
+
+    .stacked-bar {
+      display: flex;
+      height: 10px;
+      border-radius: 5px;
+      overflow: hidden;
+      margin: 0.75rem 0;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-base);
+    }
+
+    .stacked-segment {
+      height: 100%;
+      transition: width 0.3s ease;
+    }
+
+    .breakdown-cols {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5rem;
+    }
+
+    @media (max-width: 640px) {
+      .breakdown-cols {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .breakdown-col {
+      padding: 0.45rem 0.6rem;
+      border-radius: var(--radius-sm);
+      background: var(--bg-input);
+      border: 1px solid var(--border-base);
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .breakdown-col-header {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .breakdown-col-dist {
+      font-size: 0.95rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--text-main);
+    }
+
+    .breakdown-col-pct {
+      font-size: 0.66rem;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+
+    /* Print Ready Sheet */
+    #print-output-sheet {
+      display: none;
+    }
+
+    @media print {
+      @page {
+        size: auto;
+        margin: 10mm;
+      }
+
+      body {
+        background: #ffffff !important;
+        color: #000000 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      header, .sidebar, .telemetry-grid, .slope-card, .preview-meta, .stage-ruler, #cursor-tip, .action-group, .preview-card {
+        display: none !important;
+      }
+
+      .app-workspace {
+        display: block !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: none !important;
+      }
+
+      #print-output-sheet {
+        display: block !important;
+      }
+
+      .print-matrix {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(var(--sticker-width-mm), 1fr));
+        gap: 10mm;
+        page-break-inside: avoid;
+      }
+
+      .print-cell {
+        page-break-inside: avoid;
+        position: relative;
+        display: inline-block;
+        width: var(--sticker-width-mm);
+        height: var(--sticker-height-mm);
+      }
+
+      .cut-line {
+        position: absolute;
+        inset: 0;
+        border: 0.5pt dashed #475569;
+        pointer-events: none;
+        box-sizing: border-box;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header -->
+  <header>
+    <div class="brand-group">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+        </svg>
+      </div>
+      <div class="brand-info">
+        <h1>StemProfile <span class="badge-tag">Sticker Studio</span></h1>
+        <p>Pro Top-Tube & Stem Elevation Profile Visualizer</p>
+      </div>
+    </div>
+
+    <div class="action-group">
+      <button class="btn btn-sm" id="btn-copy-svg" title="Copy clean SVG code to clipboard">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        Copy SVG
+      </button>
+      <button class="btn btn-sm" id="btn-export-svg" title="Export pure vector SVG file">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Download SVG
+      </button>
+      <button class="btn btn-sm" id="btn-export-png" title="Export 300 DPI high-resolution PNG for vinyl printing">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+        Download PNG (300 DPI)
+      </button>
+      <button class="btn btn-primary btn-sm" id="btn-print" title="Trigger print dialog with physical millimeter scale">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+        Print Sticker
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Body Layout -->
+  <main class="app-workspace">
+    <!-- Left Configuration Sidebar -->
+    <aside class="sidebar">
+      <div class="glass-box">
+        
+        <!-- 1. GPX File Upload -->
+        <div class="panel-block">
+          <div class="block-header">
+            <span>1. Track Ingestion</span>
+            <span id="pts-count-badge" style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted);">Ready</span>
+          </div>
+
+          <div class="dropzone" id="dropzone">
+            <input type="file" id="file-input" accept=".gpx" />
+            <div class="dropzone-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+            </div>
+            <div class="dropzone-title">Drop GPX track here</div>
+            <div class="dropzone-sub">or click to browse • Native DOMParser()</div>
+          </div>
+
+          <div class="demo-bar">
+            <select id="select-demo" class="input-select" style="font-size: 0.72rem;">
+              <option value="alpe">Demo: Alpe d'Huez (13.8 km, +1110m)</option>
+              <option value="stelvio">Demo: Passo dello Stelvio (24.3 km, +1850m)</option>
+              <option value="gravel">Demo: Rolling Gravel Stage (65.2 km, +940m)</option>
+            </select>
+            <button class="btn btn-sm" id="btn-load-demo" style="padding: 0.35rem 0.6rem;">Load</button>
+          </div>
+        </div>
+
+        <!-- 2. Physical Dimensions -->
+        <div class="panel-block">
+          <div class="block-header">
+            <span>2. Dimensions & Fit</span>
+            <span style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-brand);">Preset 35x110mm</span>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="preset-size">Sizing Template</label>
+            <select id="preset-size" class="input-select">
+              <option value="110x35" selected>Standard Top Tube (110 × 35 mm)</option>
+              <option value="100x28">Slim Stem (100 × 28 mm)</option>
+              <option value="75x30">Compact Stem (75 × 30 mm)</option>
+              <option value="130x35">Long Top Tube (130 × 35 mm)</option>
+              <option value="custom">Custom Dimensions (mm)...</option>
+            </select>
+          </div>
+
+          <div class="field-grid" id="custom-size-row">
+            <div class="field">
+              <label class="field-label" for="input-w-mm">Width (mm)</label>
+              <input type="number" id="input-w-mm" class="input-text" value="110" min="30" max="300" step="1">
+            </div>
+            <div class="field">
+              <label class="field-label" for="input-h-mm">Height (mm)</label>
+              <input type="number" id="input-h-mm" class="input-text" value="35" min="15" max="150" step="1">
+            </div>
+          </div>
+
+          <div class="field-grid">
+            <div class="field">
+              <label class="field-label" for="input-radius">Corner Radius</label>
+              <select id="input-radius" class="input-select">
+                <option value="0">Square (0 mm)</option>
+                <option value="2" selected>Rounded (2 mm)</option>
+                <option value="4">Pill (4 mm)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label" for="input-copies">Print Sheet</label>
+              <select id="input-copies" class="input-select">
+                <option value="1">1 Sticker</option>
+                <option value="2" selected>2 Copies</option>
+                <option value="4">4 Copies</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Signal Processing -->
+        <div class="panel-block">
+          <div class="block-header">
+            <span>3. Signal Smoothing</span>
+            <span style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--z1-color);">Haversine + 7-pt MA</span>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <span>Moving Average Filter</span>
+              <span class="val-tag" id="label-smoothing">7-point</span>
+            </div>
+            <input type="range" id="slider-smoothing" class="range-input" min="1" max="21" step="2" value="7">
+            <div style="display:flex; justify-content:space-between; font-size:0.65rem; font-family:var(--font-mono); color:var(--text-dim);">
+              <span>1 pt (Raw)</span>
+              <span>7 pt (Default)</span>
+              <span>21 pt (Ultra)</span>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="select-units">Units Format</label>
+            <select id="select-units" class="input-select">
+              <option value="metric" selected>Metric (km / meters / %)</option>
+              <option value="imperial">Imperial (miles / feet / %)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 4. Visual Styles & Overlays -->
+        <div class="panel-block">
+          <div class="block-header">
+            <span>4. Style & Elements</span>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="select-theme">Sticker Theme</label>
+            <select id="select-theme" class="input-select">
+              <option value="dark-cockpit" selected>Dark Cockpit (Stealth Slate)</option>
+              <option value="high-contrast-light">Pure White (Ink-Saver Print)</option>
+              <option value="neon-cyber">Neon Cyber (High-Vis Night)</option>
+              <option value="nordic-mono">Nordic Carbon (Minimal Monochrome)</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="input-title">Custom Header Title</label>
+            <input type="text" id="input-title" class="input-text" placeholder="e.g. Stage 14 - Col du Tourmalet" value="Alpe d'Huez Climb">
+          </div>
+
+          <div class="switch-row">
+            <span>Show Route Statistics Header</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="chk-header" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="switch-row">
+            <span>Show Distance Axis & Ticks</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="chk-distance" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="switch-row">
+            <span>Show Min / Max Elevation Labels</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="chk-ele-labels" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="switch-row">
+            <span>Show Gradient Zone Legend</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="chk-legend" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="switch-row">
+            <span>Show Outer Cut Guidelines</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="chk-cut" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <!-- 4 Zones Legend -->
+          <div style="margin-top: 0.85rem;">
+            <div class="field-label"><span>4 Gradient Buckets (Δele / Δdist)</span></div>
+            <div class="zones-grid">
+              <div class="zone-badge"><div class="zone-indicator" style="background: var(--z1-color);"></div> &lt; 5% Flat/Roll</div>
+              <div class="zone-badge"><div class="zone-indicator" style="background: var(--z2-color);"></div> 5 - 8% Moderate</div>
+              <div class="zone-badge"><div class="zone-indicator" style="background: var(--z3-color);"></div> 8 - 12% Steep</div>
+              <div class="zone-badge"><div class="zone-indicator" style="background: var(--z4-color);"></div> &gt; 12% Extreme</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <section class="main-canvas-area">
+      
+      <!-- Interactive Preview Box -->
+      <div class="glass-box preview-card">
+        <div class="preview-meta">
+          <div>
+            <h2>Vector Elevation Profile Canvas</h2>
+            <p id="label-aspect">Exact Physical Dimensions: 110 mm × 35 mm</p>
+          </div>
+          <div style="display: flex; gap: 0.4rem;">
+            <button class="btn btn-sm" id="btn-zoom-reset">Zoom 100%</button>
+            <button class="btn btn-sm" id="btn-zoom-toggle">Zoom 150%</button>
+          </div>
+        </div>
+
+        <div class="stage-box" id="stage-box">
+          <div class="stage-ruler">
+            ↔ Physical Print Width: <span id="ruler-val">110</span> mm
+          </div>
+
+          <div class="sticker-container" id="sticker-container">
+            <div id="svg-host">
+              <!-- SVG Output Injected Here -->
+            </div>
+            <!-- Live Crosshair Hover Tooltip -->
+            <div id="cursor-tip">
+              <div class="tip-row"><span>Dist:</span> <span class="tip-val" id="tip-dist">--</span></div>
+              <div class="tip-row"><span>Ele:</span> <span class="tip-val" id="tip-ele">--</span></div>
+              <div class="tip-row"><span>Grade:</span> <span class="tip-val" id="tip-grade">--</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Telemetry Dashboard -->
+      <div class="telemetry-grid">
+        <div class="telemetry-card">
+          <div class="telemetry-label">Total Distance</div>
+          <div class="telemetry-val" id="val-tot-dist">--</div>
+          <div class="telemetry-sub">Haversine Great-Circle</div>
+        </div>
+
+        <div class="telemetry-card">
+          <div class="telemetry-label">Elevation Gain</div>
+          <div class="telemetry-val" style="color: var(--z1-color);" id="val-tot-gain">--</div>
+          <div class="telemetry-sub" id="val-tot-loss">-- Loss</div>
+        </div>
+
+        <div class="telemetry-card">
+          <div class="telemetry-label">Max Gradient</div>
+          <div class="telemetry-val" style="color: var(--z4-color);" id="val-max-grade">--</div>
+          <div class="telemetry-sub" id="val-avg-grade">Avg: --</div>
+        </div>
+
+        <div class="telemetry-card">
+          <div class="telemetry-label">Elevation Range</div>
+          <div class="telemetry-val" id="val-ele-range">--</div>
+          <div class="telemetry-sub" id="val-min-max-ele">Min: -- / Max: --</div>
+        </div>
+      </div>
+
+      <!-- Gradient Zone Distribution -->
+      <div class="glass-box slope-card">
+        <div class="block-header" style="margin-bottom: 0.25rem;">
+          <span>Gradient Zone Distribution</span>
+          <span style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-dim);">4-Tier Breakdown</span>
+        </div>
+
+        <div class="stacked-bar">
+          <div class="stacked-segment" id="bar-seg-1" style="background: var(--z1-color); width: 25%;"></div>
+          <div class="stacked-segment" id="bar-seg-2" style="background: var(--z2-color); width: 25%;"></div>
+          <div class="stacked-segment" id="bar-seg-3" style="background: var(--z3-color); width: 25%;"></div>
+          <div class="stacked-segment" id="bar-seg-4" style="background: var(--z4-color); width: 25%;"></div>
+        </div>
+
+        <div class="breakdown-cols">
+          <div class="breakdown-col" style="border-left: 2px solid var(--z1-color);">
+            <div class="breakdown-col-header">
+              <span class="zone-indicator" style="background: var(--z1-color);"></span>
+              <span>Zone 1 (&lt; 5%)</span>
+            </div>
+            <div class="breakdown-col-dist" id="z1-dist-txt">--</div>
+            <div class="breakdown-col-pct" id="z1-pct-txt">--%</div>
+          </div>
+
+          <div class="breakdown-col" style="border-left: 2px solid var(--z2-color);">
+            <div class="breakdown-col-header">
+              <span class="zone-indicator" style="background: var(--z2-color);"></span>
+              <span>Zone 2 (5 - 8%)</span>
+            </div>
+            <div class="breakdown-col-dist" id="z2-dist-txt">--</div>
+            <div class="breakdown-col-pct" id="z2-pct-txt">--%</div>
+          </div>
+
+          <div class="breakdown-col" style="border-left: 2px solid var(--z3-color);">
+            <div class="breakdown-col-header">
+              <span class="zone-indicator" style="background: var(--z3-color);"></span>
+              <span>Zone 3 (8 - 12%)</span>
+            </div>
+            <div class="breakdown-col-dist" id="z3-dist-txt">--</div>
+            <div class="breakdown-col-pct" id="z3-pct-txt">--%</div>
+          </div>
+
+          <div class="breakdown-col" style="border-left: 2px solid var(--z4-color);">
+            <div class="breakdown-col-header">
+              <span class="zone-indicator" style="background: var(--z4-color);"></span>
+              <span>Zone 4 (&gt; 12%)</span>
+            </div>
+            <div class="breakdown-col-dist" id="z4-dist-txt">--</div>
+            <div class="breakdown-col-pct" id="z4-pct-txt">--%</div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- Print Sheet Matrix -->
+  <div id="print-output-sheet">
+    <div class="print-matrix" id="print-matrix"></div>
+  </div>
+
+  <script>
+    /**
+     * StemProfile Core Engine
+     * Zero external dependencies - Single File Application
+     */
+
+    const appState = {
+      rawCoords: [],        // [{lat, lon, ele}, ...]
+      points: [],           // [{dist, rawEle, smoothEle, grade, zone}, ...]
+      stats: {
+        totalDist: 0,
+        elevGain: 0,
+        elevLoss: 0,
+        minEle: 0,
+        maxEle: 0,
+        maxGrade: 0,
+        avgGrade: 0,
+        zoneDists: [0, 0, 0, 0]
+      },
+      settings: {
+        widthMm: 110,
+        heightMm: 35,
+        radiusMm: 2,
+        smoothingWindow: 7,
+        units: 'metric',
+        theme: 'dark-cockpit',
+        title: "Alpe d'Huez Climb",
+        showHeader: true,
+        showDistanceTicks: true,
+        showElevationLabels: true,
+        showGradientLegend: true,
+        showCutGuidelines: true,
+        printCopies: 2,
+        zoomFactor: 1.0
+      }
+    };
+
+    const THEME_DEFS = {
+      'dark-cockpit': {
+        bg: '#090d14',
+        cardBg: '#121824',
+        text: '#f8fafc',
+        textMuted: '#94a3b8',
+        grid: 'rgba(255, 255, 255, 0.08)',
+        z1: '#10b981',
+        z2: '#eab308',
+        z3: '#f97316',
+        z4: '#ef4444',
+        stroke: '#38bdf8'
+      },
+      'high-contrast-light': {
+        bg: '#ffffff',
+        cardBg: '#f8fafc',
+        text: '#090d14',
+        textMuted: '#475569',
+        grid: 'rgba(0, 0, 0, 0.12)',
+        z1: '#059669',
+        z2: '#d97706',
+        z3: '#ea580c',
+        z4: '#dc2626',
+        stroke: '#090d14'
+      },
+      'neon-cyber': {
+        bg: '#04050a',
+        cardBg: '#0b0e1b',
+        text: '#00f0ff',
+        textMuted: '#9333ea',
+        grid: 'rgba(0, 240, 255, 0.14)',
+        z1: '#00ff66',
+        z2: '#ffea00',
+        z3: '#ff0055',
+        z4: '#bd00ff',
+        stroke: '#00f0ff'
+      },
+      'nordic-mono': {
+        bg: '#14171c',
+        cardBg: '#1c2128',
+        text: '#f1f5f9',
+        textMuted: '#8b949e',
+        grid: 'rgba(255, 255, 255, 0.06)',
+        z1: '#34d399',
+        z2: '#fbbf24',
+        z3: '#fb923c',
+        z4: '#f87171',
+        stroke: '#e2e8f0'
+      }
+    };
+
+    // --- 1. Haversine Great-Circle Distance (Meters) ---
+    function calcHaversine(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const rad = d => (d * Math.PI) / 180;
+      const dLat = rad(lat2 - lat1);
+      const dLon = rad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(rad(lat1)) * Math.cos(rad(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    // --- 2. GPX Ingestion via DOMParser() ---
+    function parseGPXString(xmlText) {
+      try {
+        const domParser = new DOMParser();
+        const xmlDoc = domParser.parseFromString(xmlText, "text/xml");
+
+        const err = xmlDoc.querySelector("parsererror");
+        if (err) {
+          throw new Error("Invalid GPX syntax: " + err.textContent);
+        }
+
+        const nameNode = xmlDoc.querySelector("trk > name, metadata > name");
+        if (nameNode && nameNode.textContent.trim()) {
+          appState.settings.title = nameNode.textContent.trim();
+          document.getElementById('input-title').value = appState.settings.title;
+        }
+
+        let ptsNodes = xmlDoc.querySelectorAll("trkpt");
+        if (ptsNodes.length === 0) ptsNodes = xmlDoc.querySelectorAll("rtept");
+        if (ptsNodes.length === 0) ptsNodes = xmlDoc.querySelectorAll("wpt");
+
+        if (ptsNodes.length === 0) {
+          throw new Error("No trackpoints found in GPX.");
+        }
+
+        const coords = [];
+        for (let i = 0; i < ptsNodes.length; i++) {
+          const node = ptsNodes[i];
+          const lat = parseFloat(node.getAttribute("lat"));
+          const lon = parseFloat(node.getAttribute("lon"));
+          const eleNode = node.querySelector("ele");
+          const ele = eleNode ? parseFloat(eleNode.textContent) : (coords.length > 0 ? coords[coords.length - 1].ele : 0);
+
+          if (!isNaN(lat) && !isNaN(lon) && !isNaN(ele)) {
+            coords.push({ lat, lon, ele });
+          }
+        }
+
+        if (coords.length < 2) {
+          throw new Error("GPX must contain at least 2 valid points.");
+        }
+
+        appState.rawCoords = coords;
+        executeSignalProcessing();
+        updateUI();
+
+        document.getElementById('pts-count-badge').textContent = `${coords.length} pts`;
+        document.getElementById('pts-count-badge').style.color = 'var(--z1-color)';
+      } catch (e) {
+        alert("GPX Parsing Error: " + e.message);
+      }
+    }
+
+    // --- 3. Signal Processing (Haversine, 7-point Moving Average, Gradient Zones) ---
+    function executeSignalProcessing() {
+      const coords = appState.rawCoords;
+      const N = coords.length;
+      if (N < 2) return;
+
+      // Cumulative Haversine
+      const cumDistances = [0];
+      let runningDist = 0;
+      for (let i = 1; i < N; i++) {
+        const step = calcHaversine(coords[i - 1].lat, coords[i - 1].lon, coords[i].lat, coords[i].lon);
+        runningDist += step;
+        cumDistances.push(runningDist);
+      }
+
+      // Moving Average Filter
+      const W = Math.max(1, appState.settings.smoothingWindow);
+      const halfW = Math.floor(W / 2);
+      const smoothedEles = new Array(N);
+
+      for (let i = 0; i < N; i++) {
+        let sum = 0;
+        let count = 0;
+        const start = Math.max(0, i - halfW);
+        const end = Math.min(N - 1, i + halfW);
+        for (let j = start; j <= end; j++) {
+          sum += coords[j].ele;
+          count++;
+        }
+        smoothedEles[i] = sum / count;
+      }
+
+      // Slope and 4-tier Gradient Zone Calculation (<5%, 5-8%, 8-12%, >12%)
+      const points = [];
+      let totalGain = 0;
+      let totalLoss = 0;
+      let minEle = smoothedEles[0];
+      let maxEle = smoothedEles[0];
+      let maxGrade = 0;
+      let sumGrade = 0;
+      const zoneDists = [0, 0, 0, 0];
+
+      for (let i = 0; i < N; i++) {
+        const d = cumDistances[i];
+        const rawE = coords[i].ele;
+        const smoothE = smoothedEles[i];
+
+        if (smoothE < minEle) minEle = smoothE;
+        if (smoothE > maxEle) maxEle = smoothE;
+
+        let grade = 0;
+        if (i > 0) {
+          const deltaD = d - cumDistances[i - 1];
+          const deltaE = smoothE - smoothedEles[i - 1];
+
+          if (deltaE > 0) totalGain += deltaE;
+          else totalLoss += Math.abs(deltaE);
+
+          // Calculate gradient using window to stabilize GPS discretization
+          const bIdx = Math.max(0, i - 2);
+          const fIdx = Math.min(N - 1, i + 2);
+          const baseD = cumDistances[fIdx] - cumDistances[bIdx];
+          const baseE = smoothedEles[fIdx] - smoothedEles[bIdx];
+
+          if (baseD > 4) {
+            grade = (baseE / baseD) * 100;
+          } else if (deltaD > 0.5) {
+            grade = (deltaE / deltaD) * 100;
+          }
+
+          if (grade > 35) grade = 35;
+          if (grade < -35) grade = -35;
+
+          const absG = Math.abs(grade);
+          if (absG > maxGrade) maxGrade = absG;
+          sumGrade += absG;
+
+          // 4 Gradient Zones (<5%, 5-8%, 8-12%, >12%)
+          let zone = 0;
+          if (absG < 5) zone = 0;
+          else if (absG < 8) zone = 1;
+          else if (absG < 12) zone = 2;
+          else zone = 3;
+
+          zoneDists[zone] += deltaD;
+          points.push({ dist: d, rawEle: rawE, smoothEle: smoothE, grade, zone });
+        } else {
+          points.push({ dist: 0, rawEle: rawE, smoothEle: smoothE, grade: 0, zone: 0 });
+        }
+      }
+
+      appState.points = points;
+      appState.stats = {
+        totalDist: runningDist,
+        elevGain: totalGain,
+        elevLoss: totalLoss,
+        minEle,
+        maxEle,
+        maxGrade,
+        avgGrade: N > 1 ? (sumGrade / (N - 1)) : 0,
+        zoneDists
+      };
+    }
+
+    // --- 4. Render Profile SVG (Physical MM Fitting) ---
+    function renderProfileSVG(wMm, hMm, themeKey, isPrint = false) {
+      const pts = appState.points;
+      const stats = appState.stats;
+      const cfg = appState.settings;
+      const theme = THEME_DEFS[themeKey] || THEME_DEFS['dark-cockpit'];
+
+      if (!pts || pts.length < 2) {
+        return `<svg viewBox="0 0 ${wMm} ${hMm}" width="${wMm}mm" height="${hMm}mm" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100%" height="100%" fill="${theme.bg}"/>
+          <text x="50%" y="50%" fill="${theme.textMuted}" text-anchor="middle" font-size="3.5" font-family="sans-serif">Load GPX Track</text>
+        </svg>`;
+      }
+
+      const isMetric = cfg.units === 'metric';
+      const distUnit = isMetric ? 'km' : 'mi';
+      const eleUnit = isMetric ? 'm' : 'ft';
+      const dFactor = isMetric ? 1 / 1000 : 0.000621371;
+      const eFactor = isMetric ? 1 : 3.28084;
+
+      const totalDistU = stats.totalDist * dFactor;
+      const elevGainU = stats.elevGain * eFactor;
+      const minEleU = stats.minEle * eFactor;
+      const maxEleU = stats.maxEle * eFactor;
+
+      const W = wMm;
+      const H = hMm;
+      const radius = cfg.radiusMm;
+
+      const padLeft = 8.0;
+      const padRight = 6.0;
+      const padTop = cfg.showHeader ? 9.2 : 4.5;
+      const padBottom = cfg.showDistanceTicks ? 6.2 : 3.5;
+
+      const plotW = W - padLeft - padRight;
+      const plotH = H - padTop - padBottom;
+
+      const eleDelta = Math.max(15, stats.maxEle - stats.minEle);
+      const minElePadded = Math.max(0, stats.minEle - (eleDelta * 0.07));
+      const maxElePadded = stats.maxEle + (eleDelta * 0.07);
+      const spanEle = maxElePadded - minElePadded;
+
+      const toX = d => padLeft + ((d / stats.totalDist) * plotW);
+      const toY = e => padTop + plotH - (((e - minElePadded) / spanEle) * plotH);
+
+      // 1. Multi-zone polygon slices
+      const colors = [theme.z1, theme.z2, theme.z3, theme.z4];
+      let slicesMarkup = '';
+      for (let i = 1; i < pts.length; i++) {
+        const p1 = pts[i - 1];
+        const p2 = pts[i];
+        const x1 = toX(p1.dist).toFixed(2);
+        const x2 = toX(p2.dist).toFixed(2);
+        const y1 = toY(p1.smoothEle).toFixed(2);
+        const y2 = toY(p2.smoothEle).toFixed(2);
+        const yBase = (padTop + plotH).toFixed(2);
+
+        slicesMarkup += `<polygon points="${x1},${yBase} ${x1},${y1} ${x2},${y2} ${x2},${yBase}" fill="${colors[p2.zone]}" fill-opacity="${isPrint && themeKey === 'high-contrast-light' ? '0.88' : '0.8'}"/>`;
+      }
+
+      // 2. Profile top stroke line
+      let pathD = `M ${toX(pts[0].dist).toFixed(2)} ${toY(pts[0].smoothEle).toFixed(2)}`;
+      for (let i = 1; i < pts.length; i++) {
+        pathD += ` L ${toX(pts[i].dist).toFixed(2)} ${toY(pts[i].smoothEle).toFixed(2)}`;
+      }
+      const topStroke = isPrint && themeKey === 'high-contrast-light' ? '#090d14' : '#ffffff';
+      const strokeMarkup = `<path d="${pathD}" fill="none" stroke="${topStroke}" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+
+      // 3. Grid lines & Distance axis
+      let gridMarkup = '';
+      if (cfg.showDistanceTicks) {
+        let stepKm = 5;
+        if (totalDistU > 120) stepKm = 25;
+        else if (totalDistU > 60) stepKm = 10;
+        else if (totalDistU > 20) stepKm = 5;
+        else if (totalDistU > 8) stepKm = 2;
+        else stepKm = 1;
+
+        const stepMeters = stepKm / dFactor;
+        const count = Math.floor(stats.totalDist / stepMeters);
+
+        for (let t = 1; t <= count; t++) {
+          const tickD = t * stepMeters;
+          const x = toX(tickD).toFixed(2);
+          const y1 = padTop.toFixed(2);
+          const y2 = (padTop + plotH).toFixed(2);
+
+          gridMarkup += `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${theme.grid}" stroke-width="0.25" stroke-dasharray="0.6,0.6"/>`;
+          gridMarkup += `<text x="${x}" y="${(padTop + plotH + 3.0).toFixed(2)}" fill="${theme.textMuted}" font-size="2.1" font-family="monospace" font-weight="600" text-anchor="middle">${t * stepKm}</text>`;
+        }
+
+        gridMarkup += `<text x="${(padLeft + plotW).toFixed(2)}" y="${(padTop + plotH + 3.0).toFixed(2)}" fill="${theme.textMuted}" font-size="1.9" font-weight="700" font-family="sans-serif" text-anchor="end">${distUnit}</text>`;
+        gridMarkup += `<text x="${padLeft.toFixed(2)}" y="${(padTop + plotH + 3.0).toFixed(2)}" fill="${theme.textMuted}" font-size="2.1" font-weight="600" font-family="sans-serif" text-anchor="start">0</text>`;
+      }
+
+      // 4. Min / Max Altitude labels
+      let eleMarkup = '';
+      if (cfg.showElevationLabels) {
+        const minStr = `${Math.round(minEleU)}${eleUnit}`;
+        const maxStr = `${Math.round(maxEleU)}${eleUnit}`;
+        const yMin = toY(stats.minEle).toFixed(2);
+        const yMax = toY(stats.maxEle).toFixed(2);
+
+        eleMarkup += `<text x="${(padLeft - 1.2).toFixed(2)}" y="${(parseFloat(yMax) + 1.1).toFixed(2)}" fill="${theme.textMuted}" font-size="2.0" font-weight="700" font-family="sans-serif" text-anchor="end">${maxStr}</text>`;
+        eleMarkup += `<text x="${(padLeft - 1.2).toFixed(2)}" y="${(parseFloat(yMin) + 0.8).toFixed(2)}" fill="${theme.textMuted}" font-size="2.0" font-weight="600" font-family="sans-serif" text-anchor="end">${minStr}</text>`;
+      }
+
+      // 5. Header Title & Stats Badge
+      let headerMarkup = '';
+      if (cfg.showHeader) {
+        const titleSafe = escapeXml(cfg.title || 'StemProfile');
+        const distStr = `${totalDistU.toFixed(1)} ${distUnit}`;
+        const gainStr = `+${Math.round(elevGainU)} ${eleUnit}`;
+        const maxGStr = `Max ${stats.maxGrade.toFixed(1)}%`;
+
+        headerMarkup += `
+          <g>
+            <text x="${padLeft}" y="5.0" fill="${theme.text}" font-size="3.2" font-weight="800" font-family="system-ui, sans-serif" letter-spacing="-0.02em">${titleSafe}</text>
+            <text x="${(W - padRight).toFixed(2)}" y="4.8" fill="${theme.textMuted}" font-size="2.4" font-weight="700" font-family="monospace" text-anchor="end">
+              <tspan fill="${theme.text}">${distStr}</tspan>  <tspan fill="${theme.z1}">${gainStr}</tspan>  <tspan fill="${theme.z4}">${maxGStr}</tspan>
+            </text>
+            <line x1="${padLeft}" y1="6.5" x2="${(W - padRight).toFixed(2)}" y2="6.5" stroke="${theme.grid}" stroke-width="0.3"/>
+          </g>
+        `;
+      }
+
+      // 6. Mini Gradient Legend
+      let legendMarkup = '';
+      if (cfg.showGradientLegend) {
+        const lx = (W - padRight - 25).toFixed(2);
+        const ly = (padTop + 1.0).toFixed(2);
+        legendMarkup += `
+          <g opacity="0.9">
+            <rect x="${lx}" y="${ly}" width="24" height="2.0" rx="0.4" fill="${theme.cardBg}" stroke="${theme.grid}" stroke-width="0.2"/>
+            <rect x="${(parseFloat(lx) + 0.8).toFixed(2)}" y="${(parseFloat(ly) + 0.4).toFixed(2)}" width="5.0" height="1.2" rx="0.2" fill="${theme.z1}"/>
+            <rect x="${(parseFloat(lx) + 6.6).toFixed(2)}" y="${(parseFloat(ly) + 0.4).toFixed(2)}" width="5.0" height="1.2" rx="0.2" fill="${theme.z2}"/>
+            <rect x="${(parseFloat(lx) + 12.4).toFixed(2)}" y="${(parseFloat(ly) + 0.4).toFixed(2)}" width="5.0" height="1.2" rx="0.2" fill="${theme.z3}"/>
+            <rect x="${(parseFloat(lx) + 18.2).toFixed(2)}" y="${(parseFloat(ly) + 0.4).toFixed(2)}" width="5.0" height="1.2" rx="0.2" fill="${theme.z4}"/>
+          </g>
+        `;
+      }
+
+      // 7. Outer Cut Guides
+      let cutMarkup = '';
+      if (cfg.showCutGuidelines) {
+        const cutColor = isPrint ? '#64748b' : 'rgba(255,255,255,0.18)';
+        cutMarkup = `<rect x="0.2" y="0.2" width="${(W - 0.4).toFixed(2)}" height="${(H - 0.4).toFixed(2)}" rx="${radius}" fill="none" stroke="${cutColor}" stroke-width="0.35" stroke-dasharray="1.0,1.0"/>`;
+      }
+
+      return `
+        <svg id="profile-svg-elem" viewBox="0 0 ${W} ${H}" width="${W}mm" height="${H}mm" xmlns="http://www.w3.org/2000/svg" style="display:block; border-radius:${radius}mm; background:${theme.bg};">
+          <defs>
+            <clipPath id="clip-bounds">
+              <rect x="0" y="0" width="${W}" height="${H}" rx="${radius}"/>
+            </clipPath>
+          </defs>
+          <g clip-path="url(#clip-bounds)">
+            <rect width="100%" height="100%" fill="${theme.bg}"/>
+            ${gridMarkup}
+            ${slicesMarkup}
+            ${strokeMarkup}
+            ${eleMarkup}
+            ${headerMarkup}
+            ${legendMarkup}
+          </g>
+          ${cutMarkup}
+        </svg>
+      `.trim();
+    }
+
+    function escapeXml(s) {
+      const map = {
+        '<': '&lt;',
+        '>': '&gt;',
+        '&': '&amp;',
+        "'": '&apos;',
+        '"': '&quot;'
+      };
+      return (s || '').replace(/[<>&'"]/g, c => map[c] || c);
+    }
+
+    // --- 5. UI Updates ---
+    function updateUI() {
+      const cfg = appState.settings;
+      const stats = appState.stats;
+      const pts = appState.points;
+
+      // Update SVG Preview
+      const svgCode = renderProfileSVG(cfg.widthMm, cfg.heightMm, cfg.theme, false);
+      document.getElementById('svg-host').innerHTML = svgCode;
+
+      // Zoom
+      const container = document.getElementById('sticker-container');
+      container.style.transform = `scale(${cfg.zoomFactor})`;
+      container.style.transformOrigin = 'center center';
+
+      document.documentElement.style.setProperty('--sticker-width-mm', `${cfg.widthMm}mm`);
+      document.documentElement.style.setProperty('--sticker-height-mm', `${cfg.heightMm}mm`);
+
+      document.getElementById('label-aspect').textContent = `Exact Physical Dimensions: ${cfg.widthMm} mm × ${cfg.heightMm} mm (Radius: ${cfg.radiusMm} mm)`;
+      document.getElementById('ruler-val').textContent = cfg.widthMm;
+
+      // Metrics
+      const isMetric = cfg.units === 'metric';
+      const distU = isMetric ? 'km' : 'mi';
+      const eleU = isMetric ? 'm' : 'ft';
+      const dFactor = isMetric ? 1 / 1000 : 0.000621371;
+      const eFactor = isMetric ? 1 : 3.28084;
+
+      if (pts.length > 0) {
+        document.getElementById('val-tot-dist').textContent = `${(stats.totalDist * dFactor).toFixed(2)} ${distU}`;
+        document.getElementById('val-tot-gain').textContent = `+${Math.round(stats.elevGain * eFactor)} ${eleU}`;
+        document.getElementById('val-tot-loss').textContent = `-${Math.round(stats.elevLoss * eFactor)} ${eleU} Loss`;
+        document.getElementById('val-max-grade').textContent = `${stats.maxGrade.toFixed(1)}%`;
+        document.getElementById('val-avg-grade').textContent = `Avg: ${stats.avgGrade.toFixed(1)}%`;
+        document.getElementById('val-ele-range').textContent = `${Math.round((stats.maxEle - stats.minEle) * eFactor)} ${eleU}`;
+        document.getElementById('val-min-max-ele').textContent = `Min: ${Math.round(stats.minEle * eFactor)} / Max: ${Math.round(stats.maxEle * eFactor)} ${eleU}`;
+
+        // Breakdown Bars
+        const totalZ = stats.zoneDists.reduce((a, b) => a + b, 0) || 1;
+        const pcts = stats.zoneDists.map(v => (v / totalZ) * 100);
+
+        document.getElementById('bar-seg-1').style.width = `${pcts[0].toFixed(1)}%`;
+        document.getElementById('bar-seg-2').style.width = `${pcts[1].toFixed(1)}%`;
+        document.getElementById('bar-seg-3').style.width = `${pcts[2].toFixed(1)}%`;
+        document.getElementById('bar-seg-4').style.width = `${pcts[3].toFixed(1)}%`;
+
+        document.getElementById('z1-dist-txt').textContent = `${(stats.zoneDists[0] * dFactor).toFixed(1)} ${distU}`;
+        document.getElementById('z1-pct-txt').textContent = `${pcts[0].toFixed(1)}% of track`;
+
+        document.getElementById('z2-dist-txt').textContent = `${(stats.zoneDists[1] * dFactor).toFixed(1)} ${distU}`;
+        document.getElementById('z2-pct-txt').textContent = `${pcts[1].toFixed(1)}% of track`;
+
+        document.getElementById('z3-dist-txt').textContent = `${(stats.zoneDists[2] * dFactor).toFixed(1)} ${distU}`;
+        document.getElementById('z3-pct-txt').textContent = `${pcts[2].toFixed(1)}% of track`;
+
+        document.getElementById('z4-dist-txt').textContent = `${(stats.zoneDists[3] * dFactor).toFixed(1)} ${distU}`;
+        document.getElementById('z4-pct-txt').textContent = `${pcts[3].toFixed(1)}% of track`;
+      }
+
+      updatePrintMatrix();
+      bindTooltipHover();
+    }
+
+    // --- 6. Tooltip Hover Engine ---
+    function bindTooltipHover() {
+      const svg = document.getElementById('profile-svg-elem');
+      const tip = document.getElementById('cursor-tip');
+      const pts = appState.points;
+      if (!svg || !tip || pts.length < 2) return;
+
+      const isMetric = appState.settings.units === 'metric';
+      const distU = isMetric ? 'km' : 'mi';
+      const eleU = isMetric ? 'm' : 'ft';
+      const dFactor = isMetric ? 1 / 1000 : 0.000621371;
+      const eFactor = isMetric ? 1 : 3.28084;
+
+      svg.onmousemove = function(e) {
+        const rect = svg.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const ratio = Math.max(0, Math.min(1, mouseX / rect.width));
+        const targetDist = ratio * appState.stats.totalDist;
+
+        let low = 0, high = pts.length - 1;
+        while (low < high) {
+          const mid = (low + high) >> 1;
+          if (pts[mid].dist < targetDist) low = mid + 1;
+          else high = mid;
+        }
+        const pt = pts[low];
+
+        tip.style.display = 'block';
+        tip.style.left = `${mouseX}px`;
+        tip.style.top = `${e.clientY - rect.top}px`;
+
+        document.getElementById('tip-dist').textContent = `${(pt.dist * dFactor).toFixed(2)} ${distU}`;
+        document.getElementById('tip-ele').textContent = `${Math.round(pt.smoothEle * eFactor)} ${eleU}`;
+        document.getElementById('tip-grade').textContent = `${pt.grade.toFixed(1)}% (Z${pt.zone + 1})`;
+      };
+
+      svg.onmouseleave = function() {
+        tip.style.display = 'none';
+      };
+    }
+
+    // --- 7. Print Sheet Matrix ---
+    function updatePrintMatrix() {
+      const host = document.getElementById('print-matrix');
+      if (!host) return;
+      host.innerHTML = '';
+
+      const count = parseInt(appState.settings.printCopies, 10) || 2;
+      const printTheme = appState.settings.theme === 'high-contrast-light' ? 'high-contrast-light' : appState.settings.theme;
+      const svgMarkup = renderProfileSVG(appState.settings.widthMm, appState.settings.heightMm, printTheme, true);
+
+      for (let i = 0; i < count; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'print-cell';
+        cell.innerHTML = `${svgMarkup}<div class="cut-line"></div>`;
+        host.appendChild(cell);
+      }
+    }
+
+    // --- 8. Export Helpers ---
+    function exportSVG() {
+      const svgCode = renderProfileSVG(appState.settings.widthMm, appState.settings.heightMm, appState.settings.theme, true);
+      const blob = new Blob([svgCode], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const filename = (appState.settings.title || 'stem_profile').toLowerCase().replace(/[^a-z0-9]/g, '_') + `_${appState.settings.widthMm}x${appState.settings.heightMm}mm.svg`;
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function copySVG() {
+      const svgCode = renderProfileSVG(appState.settings.widthMm, appState.settings.heightMm, appState.settings.theme, true);
+      navigator.clipboard.writeText(svgCode).then(() => {
+        const btn = document.getElementById('btn-copy-svg');
+        const orig = btn.innerHTML;
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.innerHTML = orig, 1400);
+      });
+    }
+
+    function exportPNG() {
+      const wMm = appState.settings.widthMm;
+      const hMm = appState.settings.heightMm;
+      const dpi = 300;
+      const mmToIn = 1 / 25.4;
+      const pxW = Math.round(wMm * mmToIn * dpi);
+      const pxH = Math.round(hMm * mmToIn * dpi);
+
+      const svgCode = renderProfileSVG(wMm, hMm, appState.settings.theme, true);
+      const blob = new Blob([svgCode], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+
+      const img = new Image();
+      img.onload = function() {
+        const cvs = document.createElement('canvas');
+        cvs.width = pxW;
+        cvs.height = pxH;
+        const ctx = cvs.getContext('2d');
+        ctx.fillStyle = THEME_DEFS[appState.settings.theme].bg;
+        ctx.fillRect(0, 0, pxW, pxH);
+        ctx.drawImage(img, 0, 0, pxW, pxH);
+
+        const pngUrl = cvs.toDataURL('image/png');
+        const a = document.createElement('a');
+        const filename = (appState.settings.title || 'stem_profile').toLowerCase().replace(/[^a-z0-9]/g, '_') + `_${wMm}x${hMm}mm_300dpi.png`;
+        a.href = pngUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+    }
+
+    // --- 9. Built-in Demos ---
+    function loadPresetDemo() {
+      const sel = document.getElementById('select-demo').value;
+      let lat = 45.0500, lon = 6.0400, ele = 720;
+      let targetEle = 1860, numPts = 180;
+      let name = "Alpe d'Huez Climb";
+
+      if (sel === 'stelvio') {
+        name = "Passo dello Stelvio (Prato)";
+        lat = 46.6180; lon = 10.5920; ele = 915; targetEle = 2758; numPts = 240;
+      } else if (sel === 'gravel') {
+        name = "Strade Bianche Gravel Ridge";
+        lat = 43.7695; lon = 11.2558; ele = 240; numPts = 250;
+      }
+
+      const pts = [];
+      for (let i = 0; i < numPts; i++) {
+        const p = i / (numPts - 1);
+        if (sel === 'gravel') {
+          lat += 0.0017; lon += 0.0021;
+          const wave = Math.sin(p * Math.PI * 2) * 160 + Math.sin(p * Math.PI * 6) * 110 + Math.sin(p * Math.PI * 10) * 50;
+          const jitter = Math.sin(i * 3.1) * 2.8;
+          pts.push(`<trkpt lat="${lat.toFixed(6)}" lon="${lon.toFixed(6)}"><ele>${(240 + wave + jitter).toFixed(1)}</ele></trkpt>`);
+        } else {
+          const angle = p * Math.PI * (sel === 'stelvio' ? 24 : 14);
+          lat += 0.00035 + Math.sin(angle) * 0.00016;
+          lon += 0.00038 + Math.cos(angle) * 0.00018;
+
+          let factor = 1.0;
+          if (p < 0.2) factor = 1.25;
+          else if (p > 0.45 && p < 0.65) factor = 1.15;
+          else if (p > 0.75 && p < 0.88) factor = 1.35;
+          else if (p > 0.92) factor = 0.55;
+
+          const jitter = (Math.sin(i * 3.7) * 2.8) + (i % 5 === 0 ? Math.sin(i) * 3.2 : 0);
+          ele += ((targetEle - (sel === 'stelvio' ? 915 : 720)) / numPts) * factor;
+          pts.push(`<trkpt lat="${lat.toFixed(6)}" lon="${lon.toFixed(6)}"><ele>${(ele + jitter).toFixed(1)}</ele></trkpt>`);
+        }
+      }
+
+      const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="StemProfile" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata><name>${name}</name></metadata>
+  <trk><name>${name}</name><trkseg>${pts.join('')}</trkseg></trk>
+</gpx>`;
+      parseGPXString(gpx);
+    }
+
+    // --- 10. Initialization ---
+    function init() {
+      // Drag & Drop
+      const dz = document.getElementById('dropzone');
+      const fin = document.getElementById('file-input');
+
+      ['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => {
+        e.preventDefault(); e.stopPropagation(); dz.classList.add('dragover');
+      }));
+      ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => {
+        e.preventDefault(); e.stopPropagation(); dz.classList.remove('dragover');
+      }));
+
+      dz.addEventListener('drop', e => {
+        const files = e.dataTransfer.files;
+        if (files.length > 0) handleUpload(files[0]);
+      });
+      fin.addEventListener('change', e => {
+        if (e.target.files.length > 0) handleUpload(e.target.files[0]);
+      });
+
+      function handleUpload(file) {
+        if (!file.name.toLowerCase().endsWith('.gpx')) {
+          alert('Please select a valid .gpx file.');
+          return;
+        }
+        const r = new FileReader();
+        r.onload = evt => parseGPXString(evt.target.result);
+        r.readAsText(file);
+      }
+
+      // Presets & Size
+      const preset = document.getElementById('preset-size');
+      const wIn = document.getElementById('input-w-mm');
+      const hIn = document.getElementById('input-h-mm');
+
+      preset.addEventListener('change', e => {
+        if (e.target.value !== 'custom') {
+          const [w, h] = e.target.value.split('x').map(Number);
+          appState.settings.widthMm = w;
+          appState.settings.heightMm = h;
+          wIn.value = w;
+          hIn.value = h;
+          updateUI();
+        }
+      });
+
+      wIn.addEventListener('input', e => {
+        const v = parseInt(e.target.value, 10);
+        if (v >= 20 && v <= 400) {
+          appState.settings.widthMm = v;
+          preset.value = 'custom';
+          updateUI();
+        }
+      });
+
+      hIn.addEventListener('input', e => {
+        const v = parseInt(e.target.value, 10);
+        if (v >= 10 && v <= 200) {
+          appState.settings.heightMm = v;
+          preset.value = 'custom';
+          updateUI();
+        }
+      });
+
+      document.getElementById('input-radius').addEventListener('change', e => {
+        appState.settings.radiusMm = parseFloat(e.target.value) || 0;
+        updateUI();
+      });
+
+      document.getElementById('input-copies').addEventListener('change', e => {
+        appState.settings.printCopies = parseInt(e.target.value, 10) || 1;
+        updatePrintMatrix();
+      });
+
+      // Smoothing Slider
+      const smSlider = document.getElementById('slider-smoothing');
+      const smLabel = document.getElementById('label-smoothing');
+      smSlider.addEventListener('input', e => {
+        const v = parseInt(e.target.value, 10);
+        appState.settings.smoothingWindow = v;
+        smLabel.textContent = `${v}-point`;
+        if (appState.rawCoords.length > 0) {
+          executeSignalProcessing();
+          updateUI();
+        }
+      });
+
+      document.getElementById('select-units').addEventListener('change', e => {
+        appState.settings.units = e.target.value;
+        updateUI();
+      });
+
+      document.getElementById('select-theme').addEventListener('change', e => {
+        appState.settings.theme = e.target.value;
+        updateUI();
+      });
+
+      document.getElementById('input-title').addEventListener('input', e => {
+        appState.settings.title = e.target.value;
+        updateUI();
+      });
+
+      // Toggles
+      document.getElementById('chk-header').addEventListener('change', e => {
+        appState.settings.showHeader = e.target.checked;
+        updateUI();
+      });
+      document.getElementById('chk-distance').addEventListener('change', e => {
+        appState.settings.showDistanceTicks = e.target.checked;
+        updateUI();
+      });
+      document.getElementById('chk-ele-labels').addEventListener('change', e => {
+        appState.settings.showElevationLabels = e.target.checked;
+        updateUI();
+      });
+      document.getElementById('chk-legend').addEventListener('change', e => {
+        appState.settings.showGradientLegend = e.target.checked;
+        updateUI();
+      });
+      document.getElementById('chk-cut').addEventListener('change', e => {
+        appState.settings.showCutGuidelines = e.target.checked;
+        updateUI();
+      });
+
+      // Zoom buttons
+      document.getElementById('btn-zoom-reset').addEventListener('click', () => {
+        appState.settings.zoomFactor = 1.0;
+        document.getElementById('btn-zoom-toggle').textContent = 'Zoom 150%';
+        updateUI();
+      });
+
+      document.getElementById('btn-zoom-toggle').addEventListener('click', () => {
+        appState.settings.zoomFactor = (appState.settings.zoomFactor === 1.5) ? 1.0 : 1.5;
+        document.getElementById('btn-zoom-toggle').textContent = appState.settings.zoomFactor === 1.5 ? 'Zoom 100%' : 'Zoom 150%';
+        updateUI();
+      });
+
+      // Action Handlers
+      document.getElementById('btn-load-demo').addEventListener('click', loadPresetDemo);
+      document.getElementById('select-demo').addEventListener('change', loadPresetDemo);
+      document.getElementById('btn-copy-svg').addEventListener('click', copySVG);
+      document.getElementById('btn-export-svg').addEventListener('click', exportSVG);
+      document.getElementById('btn-export-png').addEventListener('click', exportPNG);
+      document.getElementById('btn-print').addEventListener('click', () => {
+        updatePrintMatrix();
+        window.print();
+      });
+
+      window.addEventListener('keydown', e => {
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'p') {
+          updatePrintMatrix();
+        }
+      });
+
+      // Boot initial demo climb
+      loadPresetDemo();
+    }
+
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
