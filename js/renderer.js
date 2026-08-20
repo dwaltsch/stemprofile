@@ -1,7 +1,7 @@
 /**
  * Vector SVG Renderer Module
  * Pro-cycling race stem & top-tube profile generator
- * Optimized for glance-readability at high speed
+ * Optimized for glance-readability at high speed with bold gradient blocks
  */
 
 export const THEME_PALETTES = {
@@ -16,7 +16,9 @@ export const THEME_PALETTES = {
     z3: '#f97316',
     z4: '#ef4444',
     stroke: '#38bdf8',
-    badgeBg: 'rgba(15, 23, 42, 0.9)',
+    divider: 'rgba(0, 0, 0, 0.55)',
+    dividerLight: 'rgba(255, 255, 255, 0.3)',
+    badgeBg: 'rgba(15, 23, 42, 0.95)',
     badgeBorder: '#38bdf8',
     badgeText: '#ffffff'
   },
@@ -31,6 +33,8 @@ export const THEME_PALETTES = {
     z3: '#ea580c',
     z4: '#dc2626',
     stroke: '#090d14',
+    divider: '#090d14',
+    dividerLight: 'rgba(0, 0, 0, 0.4)',
     badgeBg: '#090d14',
     badgeBorder: '#090d14',
     badgeText: '#ffffff'
@@ -46,6 +50,8 @@ export const THEME_PALETTES = {
     z3: '#ff0055',
     z4: '#bd00ff',
     stroke: '#00f0ff',
+    divider: '#000000',
+    dividerLight: 'rgba(0, 240, 255, 0.4)',
     badgeBg: '#0b0e1b',
     badgeBorder: '#00f0ff',
     badgeText: '#00f0ff'
@@ -56,11 +62,13 @@ export const THEME_PALETTES = {
     text: '#f1f5f9',
     textMuted: '#94a3b8',
     grid: 'rgba(255, 255, 255, 0.07)',
-    z1: '#64748b',
-    z2: '#94a3b8',
-    z3: '#cbd5e1',
+    z1: '#475569',
+    z2: '#64748b',
+    z3: '#94a3b8',
     z4: '#ffffff',
     stroke: '#ffffff',
+    divider: '#090d14',
+    dividerLight: 'rgba(255, 255, 255, 0.4)',
     badgeBg: '#1e293b',
     badgeBorder: '#94a3b8',
     badgeText: '#ffffff'
@@ -78,7 +86,7 @@ export function escapeXml(s) {
   return (s || '').replace(/[<>&'"]/g, c => map[c] || c);
 }
 
-export function renderProfileSVG(points, stats, climbs = [], cues = [], settings, isPrint = false) {
+export function renderProfileSVG(points, stats, climbs = [], cues = [], blocks = [], settings, isPrint = false) {
   const W = settings.widthMm;
   const H = settings.heightMm;
   const radius = settings.radiusMm;
@@ -120,30 +128,83 @@ export function renderProfileSVG(points, stats, climbs = [], cues = [], settings
   const toX = d => padLeft + ((d / stats.totalDist) * plotW);
   const toY = e => padTop + plotH - (((e - minElePadded) / spanEle) * plotH);
 
-  // 1. Multi-tier gradient polygon slices (<5%, 5-8%, 8-12%, >12%)
+  // 1. Chunky Gradient Blocks Rendering
   const zoneColors = [theme.z1, theme.z2, theme.z3, theme.z4];
-  let slicesMarkup = '';
-  const opacity = isPrint && settings.theme === 'pro-white' ? '0.9' : '0.82';
+  let blocksMarkup = '';
+  let dividerLinesMarkup = '';
+  let blockPercentLabelsMarkup = '';
 
-  for (let i = 1; i < points.length; i++) {
-    const p1 = points[i - 1];
-    const p2 = points[i];
-    const x1 = toX(p1.dist).toFixed(2);
-    const x2 = toX(p2.dist).toFixed(2);
-    const y1 = toY(p1.smoothEle).toFixed(2);
-    const y2 = toY(p2.smoothEle).toFixed(2);
-    const yBase = (padTop + plotH).toFixed(2);
+  const dividerStroke = theme.divider;
+  const dividerWidth = settings.dividerWidth || 0.6; // Bold 0.6mm lines
+  const showDividers = settings.showGradientDividers !== false;
+  const showBlockPct = settings.showBlockPercentages !== false;
 
-    slicesMarkup += `<polygon points="${x1},${yBase} ${x1},${y1} ${x2},${y2} ${x2},${yBase}" fill="${zoneColors[p2.zone]}" fill-opacity="${opacity}"/>`;
+  // Render solid contiguous macro-blocks
+  if (blocks && blocks.length > 0) {
+    blocks.forEach((block, bIdx) => {
+      const bPts = block.points;
+      if (bPts.length < 1) return;
+
+      const xStart = toX(block.startDist);
+      const xEnd = toX(block.endDist);
+      const yBase = padTop + plotH;
+
+      // Build solid polygon path across this block's points
+      let dPath = `M ${xStart.toFixed(2)} ${yBase.toFixed(2)}`;
+      dPath += ` L ${toX(bPts[0].dist).toFixed(2)} ${toY(bPts[0].smoothEle).toFixed(2)}`;
+      for (let k = 1; k < bPts.length; k++) {
+        dPath += ` L ${toX(bPts[k].dist).toFixed(2)} ${toY(bPts[k].smoothEle).toFixed(2)}`;
+      }
+      dPath += ` L ${xEnd.toFixed(2)} ${toY(bPts[bPts.length - 1].smoothEle).toFixed(2)}`;
+      dPath += ` L ${xEnd.toFixed(2)} ${yBase.toFixed(2)} Z`;
+
+      const blockColor = zoneColors[block.zone];
+      blocksMarkup += `<path d="${dPath}" fill="${blockColor}" fill-opacity="0.95"/>`;
+
+      // Bold Divider Line at the block boundary (between different zones)
+      if (showDividers && bIdx > 0) {
+        const topY = toY(bPts[0].smoothEle).toFixed(2);
+        dividerLinesMarkup += `
+          <line x1="${xStart.toFixed(2)}" y1="${topY}" x2="${xStart.toFixed(2)}" y2="${yBase.toFixed(2)}" stroke="${dividerStroke}" stroke-width="${dividerWidth}" stroke-linecap="round"/>
+        `;
+      }
+
+      // In-Block Gradient Percentage (for prominent steep blocks >= 4.5mm wide)
+      const blockWidthMm = xEnd - xStart;
+      if (showBlockPct && blockWidthMm >= 4.5 && block.avgGrade >= 4.0) {
+        const midX = (xStart + (blockWidthMm / 2)).toFixed(2);
+        const midPt = bPts[Math.floor(bPts.length / 2)];
+        const midY = (toY(midPt.smoothEle) + (yBase - toY(midPt.smoothEle)) * 0.45).toFixed(2);
+        const labelText = `${Math.round(block.avgGrade)}%`;
+
+        blockPercentLabelsMarkup += `
+          <text x="${midX}" y="${midY}" fill="#ffffff" font-size="1.9" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle" style="text-shadow: 0 1px 2px rgba(0,0,0,0.85);">${labelText}</text>
+        `;
+      }
+    });
+  } else {
+    // Fallback if blocks not provided
+    for (let i = 1; i < points.length; i++) {
+      const p1 = points[i - 1];
+      const p2 = points[i];
+      const x1 = toX(p1.dist).toFixed(2);
+      const x2 = toX(p2.dist).toFixed(2);
+      const y1 = toY(p1.smoothEle).toFixed(2);
+      const y2 = toY(p2.smoothEle).toFixed(2);
+      const yBase = (padTop + plotH).toFixed(2);
+      blocksMarkup += `<polygon points="${x1},${yBase} ${x1},${y1} ${x2},${y2} ${x2},${yBase}" fill="${zoneColors[p2.zone]}" fill-opacity="0.95"/>`;
+    }
   }
 
-  // 2. Profile top boundary stroke
+  // 2. Bold Profile top boundary stroke
   let pathD = `M ${toX(points[0].dist).toFixed(2)} ${toY(points[0].smoothEle).toFixed(2)}`;
   for (let i = 1; i < points.length; i++) {
     pathD += ` L ${toX(points[i].dist).toFixed(2)} ${toY(points[i].smoothEle).toFixed(2)}`;
   }
   const topStroke = isPrint && settings.theme === 'pro-white' ? '#090d14' : '#ffffff';
-  const strokeMarkup = `<path d="${pathD}" fill="none" stroke="${topStroke}" stroke-width="0.55" stroke-linejoin="round" stroke-linecap="round"/>`;
+  const strokeMarkup = `
+    <path d="${pathD}" fill="none" stroke="${topStroke}" stroke-width="0.85" stroke-linejoin="round" stroke-linecap="round"/>
+  `;
 
   // 3. Highlighted Climb Segments & Summit Badges (Pro-Style)
   let climbBadgesMarkup = '';
@@ -153,24 +214,24 @@ export function renderProfileSVG(points, stats, climbs = [], cues = [], settings
       const summitX = toX(climb.summitKm * 1000);
       const summitY = toY(climb.summitEle);
 
-      // Climb under-bracket or baseline indicator
+      // Climb under-bracket indicator
       const baseLineY = (padTop + plotH + 0.6).toFixed(2);
       climbBadgesMarkup += `
-        <line x1="${startX.toFixed(2)}" y1="${baseLineY}" x2="${summitX.toFixed(2)}" y2="${baseLineY}" stroke="${theme.z3}" stroke-width="0.8"/>
-        <circle cx="${summitX.toFixed(2)}" cy="${summitY.toFixed(2)}" r="1.0" fill="${theme.z4}" stroke="#ffffff" stroke-width="0.3"/>
+        <line x1="${startX.toFixed(2)}" y1="${baseLineY}" x2="${summitX.toFixed(2)}" y2="${baseLineY}" stroke="${theme.z4}" stroke-width="0.9"/>
+        <circle cx="${summitX.toFixed(2)}" cy="${summitY.toFixed(2)}" r="1.1" fill="${theme.z4}" stroke="#ffffff" stroke-width="0.35"/>
       `;
 
       // Summit Banner Badge
-      const badgeY = Math.max(padTop - 4.2, summitY - 5.5).toFixed(2);
+      const badgeY = Math.max(padTop - 4.5, summitY - 5.8).toFixed(2);
       const labelText = `${climb.category} • ${climb.lengthKm.toFixed(1)}k @ ${climb.avgGrade}%`;
-      const badgeW = Math.min(28, labelText.length * 1.7 + 4);
+      const badgeW = Math.min(29, labelText.length * 1.75 + 4.5);
 
       climbBadgesMarkup += `
         <g transform="translate(${Math.max(padLeft, Math.min(W - padRight - badgeW, summitX - (badgeW / 2))).toFixed(2)}, ${badgeY})">
-          <rect width="${badgeW}" height="3.6" rx="0.8" fill="${theme.badgeBg}" stroke="${theme.z4}" stroke-width="0.35"/>
-          <text x="${badgeW / 2}" y="2.5" fill="${theme.badgeText}" font-size="1.9" font-weight="800" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${labelText}</text>
+          <rect width="${badgeW}" height="3.8" rx="0.8" fill="${theme.badgeBg}" stroke="${theme.z4}" stroke-width="0.4"/>
+          <text x="${badgeW / 2}" y="2.6" fill="${theme.badgeText}" font-size="2.0" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${labelText}</text>
         </g>
-        <line x1="${summitX.toFixed(2)}" y1="${(parseFloat(badgeY) + 3.6).toFixed(2)}" x2="${summitX.toFixed(2)}" y2="${(summitY - 1.2).toFixed(2)}" stroke="${theme.z4}" stroke-width="0.25" stroke-dasharray="0.5,0.5"/>
+        <line x1="${summitX.toFixed(2)}" y1="${(parseFloat(badgeY) + 3.8).toFixed(2)}" x2="${summitX.toFixed(2)}" y2="${(summitY - 1.3).toFixed(2)}" stroke="${theme.z4}" stroke-width="0.3" stroke-dasharray="0.6,0.6"/>
       `;
     });
   }
@@ -193,9 +254,9 @@ export function renderProfileSVG(points, stats, climbs = [], cues = [], settings
 
         cuesMarkup += `
           <g>
-            <line x1="${cx}" y1="${cy1}" x2="${cx}" y2="${cy2}" stroke="${theme.stroke}" stroke-width="0.35" stroke-dasharray="0.8,0.8"/>
-            <circle cx="${cx}" cy="${(padTop - 1.2).toFixed(2)}" r="1.4" fill="${theme.cardBg}" stroke="${theme.stroke}" stroke-width="0.3"/>
-            <text x="${cx}" y="${(padTop - 0.5).toFixed(2)}" font-size="1.8" text-anchor="middle">${iconSymbol}</text>
+            <line x1="${cx}" y1="${cy1}" x2="${cx}" y2="${cy2}" stroke="${theme.stroke}" stroke-width="0.4" stroke-dasharray="0.8,0.8"/>
+            <circle cx="${cx}" cy="${(padTop - 1.3).toFixed(2)}" r="1.5" fill="${theme.cardBg}" stroke="${theme.stroke}" stroke-width="0.35"/>
+            <text x="${cx}" y="${(padTop - 0.5).toFixed(2)}" font-size="1.9" text-anchor="middle">${iconSymbol}</text>
           </g>
         `;
       }
@@ -293,7 +354,9 @@ export function renderProfileSVG(points, stats, climbs = [], cues = [], settings
       <g clip-path="url(#clip-bounds)">
         <rect width="100%" height="100%" fill="${theme.bg}"/>
         ${gridMarkup}
-        ${slicesMarkup}
+        ${blocksMarkup}
+        ${dividerLinesMarkup}
+        ${blockPercentLabelsMarkup}
         ${strokeMarkup}
         ${climbBadgesMarkup}
         ${cuesMarkup}

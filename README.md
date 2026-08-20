@@ -2,14 +2,18 @@
 
 **StemProfile** is a zero-dependency web studio designed for endurance cyclists, racers, and bikepackers to convert GPX files into glance-ready, millimeter-accurate elevation stickers for bicycle stems and top-tubes.
 
-Inspired by the physical roadbook stickers used in the professional peloton (Tour de France, Giro d'Italia, Spring Classics), StemProfile declutters course data into high-contrast elevation profiles with **segmented climb callouts** and **race cue points** that can be read instantly at 40+ km/h.
+Inspired by the physical roadbook stickers used in the professional peloton (Tour de France, Giro d'Italia, Spring Classics), StemProfile declutters course data into high-contrast elevation profiles with **bold segmented gradient blocks**, **prominent boundary divider lines**, **segmented climb callouts**, and **race cue points** that can be read instantly at 40+ km/h.
 
 ---
 
 ## Key Features
 
-### 1. Glance-Ready Pro Stem Design
-- **Climb Segmentation**: Automatically detects and categorizes major climbs (HC, Cat 1, Cat 2, Cat 3, Cat 4) along the route, displaying clean summit badges (`Cat • Length @ Avg %`) and start/summit markers directly over the profile.
+### 1. Glance-Ready Pro Stem Design & Bold Gradient Blocks
+- **Chunky Gradient Block Segmentation**: Aggregates continuous gradient sections into bold, legible color blocks rather than microscopic hairline slices, with configurable chunk resolutions (500m TdF Macro Chunks, 250m Standard Roadbook Blocks, or 100m Granular).
+- **Bold Boundary Divider Lines**: Renders crisp vertical boundary divider lines ($0.6\,\text{mm}$ thickness) between gradient zone transitions for immediate visual contrast.
+- **In-Block Gradient % Badges**: Directly prints the average gradient percentage (e.g. `8%`, `12%`, `14%`) centered inside major climb blocks.
+- **Bolder Profile Contour Silhouette**: Thickened $0.85\,\text{mm}$ road top stroke for high legibility in vibration-heavy riding conditions.
+- **Climb Segmentation & Summit Badges**: Automatically detects and categorizes major climbs (HC, Cat 1, Cat 2, Cat 3, Cat 4) along the route, displaying clean summit badges (`Cat • Length @ Avg %`) and start/summit markers directly over the profile.
 - **Race Cue Points**: Add custom markers for **Feed Zones (🥛)**, **Intermediate Sprints (⚡)**, **Gravel Sectors (🪨)**, and **Hazards (⚠️)** at precise kilometer marks.
 - **High-Contrast Themes**: Includes **Pro Roadbook White** (solid color-blocked climbs on pure white background—standard in Grand Tour roadbooks) and **Dark Cockpit** (stealth dark mode).
 
@@ -47,7 +51,7 @@ toptube/
 │   └── styles.css      # Cockpit UI, CSS variables, & @media print styles
 ├── js/
 │   ├── parser.js       # GPX ingestion via native DOMParser()
-│   ├── signal.js       # Haversine distance, 7-pt MA, & climb segmentation
+│   ├── signal.js       # Haversine distance, 7-pt MA, & gradient block chunking
 │   ├── renderer.js     # Exact millimeter SVG profile & climb badge generator
 │   ├── export.js       # Print sheet builder, SVG/PNG export, clipboard
 │   └── app.js          # Main application controller & state manager
@@ -70,7 +74,8 @@ npx serve
 
 Open `http://localhost:8000` in your browser:
 1. Drop your `.gpx` route file onto the ingestion dropzone.
-2. Review auto-detected climbs in the **Categorized Climb Segments** panel.
-3. Add custom race cues (feed zones, sprints, gravel) if desired.
-4. Select your stem/top-tube physical sizing preset.
-5. Print (`⌘P` / `Ctrl+P`) or export to **SVG** / **PNG (300 DPI)**.
+2. Adjust gradient block chunking (e.g. 500m or 250m) and toggle bold divider lines.
+3. Review auto-detected climbs in the **Categorized Climb Segments** panel.
+4. Add custom race cues (feed zones, sprints, gravel) if desired.
+5. Select your stem/top-tube physical sizing preset.
+6. Print (`⌘P` / `Ctrl+P`) or export to **SVG** / **PNG (300 DPI)**.

@@ -4,6 +4,7 @@
  * - 7-point Moving Average elevation jitter filter
  * - Gradient percentage (Δele / Δdist)
  * - 4-tier Gradient Zone classification (<5%, 5-8%, 8-12%, >12%)
+ * - Pro Macro Gradient Block Segmentation & Chunking
  * - Automated Pro Climb Segmentation & Categorization (HC, Cat 1-4)
  */
 
@@ -17,6 +18,69 @@ export function calcHaversine(lat1, lon1, lat2, lon2) {
             Math.cos(rad(lat1)) * Math.cos(rad(lat2)) *
             Math.sin(dLon / 2) * Math.sin(dLon / 2);
   return EARTH_RADIUS_METERS * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/**
+ * Builds chunky, readable gradient blocks by aggregating adjacent points
+ * into distinct, bold gradient segments with minimum run-length.
+ */
+export function buildGradientBlocks(points, minChunkM = 250) {
+  const N = points.length;
+  if (N < 2) return [];
+
+  const blocks = [];
+  let blockPts = [points[0]];
+  let blockStartDist = points[0].dist;
+  let currentZone = points[0].zone;
+
+  for (let i = 1; i < N; i++) {
+    const pt = points[i];
+    blockPts.push(pt);
+    const distSpan = pt.dist - blockStartDist;
+
+    // Check if zone changed and chunk length satisfies minimum threshold
+    if (pt.zone !== currentZone && distSpan >= minChunkM) {
+      const eleDiff = pt.smoothEle - blockPts[0].smoothEle;
+      const avgG = distSpan > 0 ? (eleDiff / distSpan) * 100 : 0;
+
+      blocks.push({
+        id: blocks.length + 1,
+        zone: currentZone,
+        startDist: blockStartDist,
+        endDist: pt.dist,
+        lengthM: distSpan,
+        avgGrade: Math.abs(parseFloat(avgG.toFixed(1))),
+        startEle: blockPts[0].smoothEle,
+        endEle: pt.smoothEle,
+        points: [...blockPts]
+      });
+
+      currentZone = pt.zone;
+      blockStartDist = pt.dist;
+      blockPts = [pt];
+    }
+  }
+
+  if (blockPts.length > 0) {
+    const lastPt = blockPts[blockPts.length - 1];
+    const distSpan = Math.max(1, lastPt.dist - blockStartDist);
+    const eleDiff = lastPt.smoothEle - blockPts[0].smoothEle;
+    const avgG = distSpan > 0 ? (eleDiff / distSpan) * 100 : 0;
+
+    blocks.push({
+      id: blocks.length + 1,
+      zone: currentZone,
+      startDist: blockStartDist,
+      endDist: lastPt.dist,
+      lengthM: distSpan,
+      avgGrade: Math.abs(parseFloat(avgG.toFixed(1))),
+      startEle: blockPts[0].smoothEle,
+      endEle: lastPt.smoothEle,
+      points: [...blockPts]
+    });
+  }
+
+  return blocks;
 }
 
 export function detectClimbs(points, minGainM = 35, minLengthM = 600, minGradePct = 3.0) {
@@ -34,10 +98,8 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 600, minGradePc
     const prevE = points[i - 1].smoothEle;
     const currE = points[i].smoothEle;
     const deltaE = currE - prevE;
-    const deltaD = points[i].dist - points[i - 1].dist;
 
     if (!inClimb) {
-      // Look for the start of a climb
       if (deltaE > 0.3 && points[i].grade >= minGradePct) {
         inClimb = true;
         startIdx = i - 1;
@@ -54,7 +116,6 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 600, minGradePc
         dipAccumulator += (points[i - 1].smoothEle - currE);
       }
 
-      // End climb if descent exceeds threshold or flat extends
       const distFromPeak = points[i].dist - points[climbPeakIdx].dist;
       if (dipAccumulator > 25 || distFromPeak > 1200 || i === N - 1) {
         const climbLen = points[climbPeakIdx].dist - points[startIdx].dist;
@@ -62,13 +123,11 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 600, minGradePc
         const avgGrade = climbLen > 0 ? (climbGain / climbLen) * 100 : 0;
 
         if (climbGain >= minGainM && climbLen >= minLengthM && avgGrade >= minGradePct) {
-          // Find max gradient inside the climb
           let maxG = 0;
           for (let k = startIdx; k <= climbPeakIdx; k++) {
             if (points[k].grade > maxG) maxG = points[k].grade;
           }
 
-          // UCI Climb Categorization Score: Length (m) * (Grade %)^2 / 1000
           const uciScore = (climbLen / 1000) * Math.pow(avgGrade, 2);
           let category = 'Cat 4';
           if (climbGain >= 900 || uciScore > 180) category = 'HC';
@@ -94,7 +153,7 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 600, minGradePc
         }
 
         inClimb = false;
-        i = climbPeakIdx; // Resume search from summit
+        i = climbPeakIdx;
       }
     }
   }
@@ -102,10 +161,10 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 600, minGradePc
   return climbs;
 }
 
-export function processTrackSignal(coords, smoothingWindow = 7) {
+export function processTrackSignal(coords, smoothingWindow = 7, chunkResolutionM = 250) {
   const N = coords.length;
   if (N < 2) {
-    return { points: [], stats: null, climbs: [] };
+    return { points: [], stats: null, climbs: [], blocks: [] };
   }
 
   // 1. Cumulative Haversine Distance
@@ -117,7 +176,7 @@ export function processTrackSignal(coords, smoothingWindow = 7) {
     cumDistances.push(runningDist);
   }
 
-  // 2. Moving Average Elevation Smoothing (7-point default)
+  // 2. Moving Average Elevation Smoothing
   const W = Math.max(1, smoothingWindow);
   const halfW = Math.floor(W / 2);
   const smoothedEles = new Array(N);
@@ -142,7 +201,7 @@ export function processTrackSignal(coords, smoothingWindow = 7) {
   let maxEle = smoothedEles[0];
   let maxGrade = 0;
   let sumGrade = 0;
-  const zoneDists = [0, 0, 0, 0]; // Zone 1 (<5%), Zone 2 (5-8%), Zone 3 (8-12%), Zone 4 (>12%)
+  const zoneDists = [0, 0, 0, 0];
 
   for (let i = 0; i < N; i++) {
     const dist = cumDistances[i];
@@ -160,7 +219,6 @@ export function processTrackSignal(coords, smoothingWindow = 7) {
       if (deltaE > 0) totalGain += deltaE;
       else totalLoss += Math.abs(deltaE);
 
-      // Gradient calculated over localized neighborhood to eliminate GPS step discretization
       const bIdx = Math.max(0, i - 2);
       const fIdx = Math.min(N - 1, i + 2);
       const baseD = cumDistances[fIdx] - cumDistances[bIdx];
@@ -172,7 +230,6 @@ export function processTrackSignal(coords, smoothingWindow = 7) {
         grade = (deltaE / deltaD) * 100;
       }
 
-      // Bound outliers
       if (grade > 35) grade = 35;
       if (grade < -35) grade = -35;
 
@@ -180,7 +237,6 @@ export function processTrackSignal(coords, smoothingWindow = 7) {
       if (absG > maxGrade) maxGrade = absG;
       sumGrade += absG;
 
-      // 4 Gradient Zones: <5%, 5-8%, 8-12%, >12%
       let zone = 0;
       if (absG < 5) zone = 0;
       else if (absG < 8) zone = 1;
@@ -194,7 +250,8 @@ export function processTrackSignal(coords, smoothingWindow = 7) {
     }
   }
 
-  // 4. Automated Climb Detection
+  // 4. Macro Gradient Blocks & Climbs
+  const blocks = buildGradientBlocks(points, chunkResolutionM);
   const climbs = detectClimbs(points);
 
   const stats = {
@@ -206,8 +263,9 @@ export function processTrackSignal(coords, smoothingWindow = 7) {
     maxGrade,
     avgGrade: N > 1 ? (sumGrade / (N - 1)) : 0,
     zoneDists,
-    climbsCount: climbs.length
+    climbsCount: climbs.length,
+    blocksCount: blocks.length
   };
 
-  return { points, stats, climbs };
+  return { points, stats, climbs, blocks };
 }

@@ -13,14 +13,15 @@ const appState = {
   points: [],
   stats: null,
   climbs: [],
-  cues: [
-    // Sample structure: { id: 1, km: 45.0, type: 'feed', label: 'Feed Zone' }
-  ],
+  blocks: [],
+  cues: [],
   settings: {
     widthMm: 110,
     heightMm: 35,
     radiusMm: 2,
     smoothingWindow: 7,
+    chunkResolutionM: 250,
+    dividerWidth: 0.6,
     units: 'metric',
     theme: 'dark-cockpit',
     title: '',
@@ -31,6 +32,8 @@ const appState = {
     showCutGuidelines: true,
     showClimbs: true,
     showCues: true,
+    showGradientDividers: true,
+    showBlockPercentages: true,
     printCopies: 2,
     zoomFactor: 1.0
   }
@@ -63,10 +66,15 @@ function handleGPXFile(file) {
 
 function reprocessAndRender() {
   if (appState.rawCoords.length >= 2) {
-    const { points, stats, climbs } = processTrackSignal(appState.rawCoords, appState.settings.smoothingWindow);
+    const { points, stats, climbs, blocks } = processTrackSignal(
+      appState.rawCoords, 
+      appState.settings.smoothingWindow,
+      appState.settings.chunkResolutionM
+    );
     appState.points = points;
     appState.stats = stats;
     appState.climbs = climbs;
+    appState.blocks = blocks;
   }
   updateUI();
   renderClimbsList();
@@ -78,12 +86,13 @@ function updateUI() {
   const pts = appState.points;
   const climbs = appState.climbs;
   const cues = appState.cues;
+  const blocks = appState.blocks;
   const hasData = pts.length >= 2 && stats !== null;
 
   // 1. Render SVG Preview
   const svgHost = document.getElementById('svg-host');
   if (hasData) {
-    svgHost.innerHTML = renderProfileSVG(pts, stats, climbs, cues, cfg, false);
+    svgHost.innerHTML = renderProfileSVG(pts, stats, climbs, cues, blocks, cfg, false);
   } else {
     svgHost.innerHTML = `
       <div class="empty-placeholder">
@@ -174,7 +183,7 @@ function updateUI() {
     });
   }
 
-  updatePrintMatrix(pts, stats, climbs, cues, cfg);
+  updatePrintMatrix(pts, stats, climbs, cues, blocks, cfg);
   bindTooltipHover();
 }
 
@@ -189,7 +198,7 @@ function renderClimbsList() {
   }
 
   let html = '';
-  climbs.forEach((climb, idx) => {
+  climbs.forEach(climb => {
     html += `
       <div class="climb-item-card">
         <div class="climb-item-header">
@@ -310,16 +319,21 @@ export function initApp() {
 
   document.getElementById('input-copies').addEventListener('change', e => {
     appState.settings.printCopies = parseInt(e.target.value, 10) || 1;
-    updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.cues, appState.settings);
+    updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.cues, appState.blocks, appState.settings);
   });
 
-  // 3. Smoothing Slider & Units
+  // 3. Signal Smoothing & Chunking
   const smSlider = document.getElementById('slider-smoothing');
   const smLabel = document.getElementById('label-smoothing');
   smSlider.addEventListener('input', e => {
     const v = parseInt(e.target.value, 10);
     appState.settings.smoothingWindow = v;
     smLabel.textContent = `${v}-point`;
+    reprocessAndRender();
+  });
+
+  document.getElementById('select-chunking').addEventListener('change', e => {
+    appState.settings.chunkResolutionM = parseInt(e.target.value, 10) || 250;
     reprocessAndRender();
   });
 
@@ -340,6 +354,14 @@ export function initApp() {
   });
 
   // Toggles
+  document.getElementById('chk-dividers').addEventListener('change', e => {
+    appState.settings.showGradientDividers = e.target.checked;
+    updateUI();
+  });
+  document.getElementById('chk-block-pct').addEventListener('change', e => {
+    appState.settings.showBlockPercentages = e.target.checked;
+    updateUI();
+  });
   document.getElementById('chk-climbs').addEventListener('change', e => {
     appState.settings.showClimbs = e.target.checked;
     updateUI();
@@ -434,7 +456,7 @@ export function initApp() {
 
   // Export Actions
   document.getElementById('btn-copy-svg').addEventListener('click', () => {
-    copySVG(appState.points, appState.stats, appState.climbs, appState.cues, appState.settings, err => {
+    copySVG(appState.points, appState.stats, appState.climbs, appState.cues, appState.blocks, appState.settings, err => {
       if (!err) {
         const btn = document.getElementById('btn-copy-svg');
         const orig = btn.innerHTML;
@@ -445,21 +467,21 @@ export function initApp() {
   });
 
   document.getElementById('btn-export-svg').addEventListener('click', () => {
-    exportSVG(appState.points, appState.stats, appState.climbs, appState.cues, appState.settings);
+    exportSVG(appState.points, appState.stats, appState.climbs, appState.cues, appState.blocks, appState.settings);
   });
 
   document.getElementById('btn-export-png').addEventListener('click', () => {
-    exportPNG(appState.points, appState.stats, appState.climbs, appState.cues, appState.settings);
+    exportPNG(appState.points, appState.stats, appState.climbs, appState.cues, appState.blocks, appState.settings);
   });
 
   document.getElementById('btn-print').addEventListener('click', () => {
-    updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.cues, appState.settings);
+    updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.cues, appState.blocks, appState.settings);
     window.print();
   });
 
   window.addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'p') {
-      updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.cues, appState.settings);
+      updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.cues, appState.blocks, appState.settings);
     }
   });
 

@@ -118,11 +118,20 @@
           </div>
         </div>
 
-        <!-- 3. Signal Smoothing & Filters -->
+        <!-- 3. Signal Smoothing & Gradient Chunking -->
         <div class="panel-block">
           <div class="block-header">
-            <span>3. Signal Smoothing</span>
-            <span style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--z1-color);">Haversine + 7-pt MA</span>
+            <span>3. Smoothing & Blocks</span>
+            <span style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--z1-color);">Pro Block Mode</span>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="select-chunking">Gradient Chunk Resolution</label>
+            <select id="select-chunking" class="input-select">
+              <option value="500">500m (Tour de France Macro Chunks)</option>
+              <option value="250" selected>250m (Standard Roadbook Blocks)</option>
+              <option value="100">100m (High-Density Granular)</option>
+            </select>
           </div>
 
           <div class="field">
@@ -150,7 +159,7 @@
         <!-- 4. Visual Styles & Overlays -->
         <div class="panel-block">
           <div class="block-header">
-            <span>4. Style & Overlays</span>
+            <span>4. Style & Readability</span>
           </div>
 
           <div class="field">
@@ -166,6 +175,22 @@
           <div class="field">
             <label class="field-label" for="input-title">Custom Header Title</label>
             <input type="text" id="input-title" class="input-text" placeholder="e.g. Stage 14 - Col du Tourmalet" value="">
+          </div>
+
+          <div class="switch-row">
+            <span style="color: var(--text-brand); font-weight: 600;">Bold Gradient Divider Lines</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="chk-dividers" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="switch-row">
+            <span style="color: var(--z2-color); font-weight: 600;">In-Block Gradient % Badges</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="chk-block-pct" checked>
+              <span class="toggle-slider"></span>
+            </label>
           </div>
 
           <div class="switch-row">

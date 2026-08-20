@@ -8,8 +8,8 @@
 
 import { renderProfileSVG, THEME_PALETTES } from './renderer.js';
 
-export function exportSVG(points, stats, climbs, cues, settings) {
-  const svgMarkup = renderProfileSVG(points, stats, climbs, cues, settings, true);
+export function exportSVG(points, stats, climbs, cues, blocks, settings) {
+  const svgMarkup = renderProfileSVG(points, stats, climbs, cues, blocks, settings, true);
   const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -22,8 +22,8 @@ export function exportSVG(points, stats, climbs, cues, settings) {
   URL.revokeObjectURL(url);
 }
 
-export function copySVG(points, stats, climbs, cues, settings, callback) {
-  const svgMarkup = renderProfileSVG(points, stats, climbs, cues, settings, true);
+export function copySVG(points, stats, climbs, cues, blocks, settings, callback) {
+  const svgMarkup = renderProfileSVG(points, stats, climbs, cues, blocks, settings, true);
   navigator.clipboard.writeText(svgMarkup).then(() => {
     if (callback) callback(null);
   }).catch(err => {
@@ -31,7 +31,7 @@ export function copySVG(points, stats, climbs, cues, settings, callback) {
   });
 }
 
-export function exportPNG(points, stats, climbs, cues, settings, callback) {
+export function exportPNG(points, stats, climbs, cues, blocks, settings, callback) {
   const wMm = settings.widthMm;
   const hMm = settings.heightMm;
   const dpi = 300;
@@ -39,7 +39,7 @@ export function exportPNG(points, stats, climbs, cues, settings, callback) {
   const pxW = Math.round(wMm * mmToIn * dpi);
   const pxH = Math.round(hMm * mmToIn * dpi);
 
-  const svgMarkup = renderProfileSVG(points, stats, climbs, cues, settings, true);
+  const svgMarkup = renderProfileSVG(points, stats, climbs, cues, blocks, settings, true);
   const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
 
@@ -72,14 +72,14 @@ export function exportPNG(points, stats, climbs, cues, settings, callback) {
   img.src = url;
 }
 
-export function updatePrintMatrix(points, stats, climbs, cues, settings) {
+export function updatePrintMatrix(points, stats, climbs, cues, blocks, settings) {
   const host = document.getElementById('print-matrix');
   if (!host) return;
   host.innerHTML = '';
 
   const count = parseInt(settings.printCopies, 10) || 2;
   const printTheme = settings.theme === 'pro-white' ? 'pro-white' : settings.theme;
-  const printSvg = renderProfileSVG(points, stats, climbs, cues, { ...settings, theme: printTheme }, true);
+  const printSvg = renderProfileSVG(points, stats, climbs, cues, blocks, { ...settings, theme: printTheme }, true);
 
   for (let i = 0; i < count; i++) {
     const cell = document.createElement('div');
