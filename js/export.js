@@ -1,15 +1,11 @@
 /**
- * Export & Print Pipeline Module
- * - SVG File Download
- * - 300 DPI High-Resolution PNG Export (Offscreen Canvas)
- * - Clipboard SVG Copy
- * - Print Sheet Matrix Preparation (@media print)
+ * Export & Print Module
  */
 
-import { renderProfileSVG, THEME_PALETTES } from './renderer.js';
+import { renderProfileSVG, THEMES } from './renderer.js';
 
-export function exportSVG(points, stats, climbs, cues, blocks, settings) {
-  const svgMarkup = renderProfileSVG(points, stats, climbs, cues, blocks, settings, true);
+export function exportSVG(points, stats, climbs, blocks, settings) {
+  const svgMarkup = renderProfileSVG(points, stats, climbs, blocks, settings, true);
   const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -22,8 +18,8 @@ export function exportSVG(points, stats, climbs, cues, blocks, settings) {
   URL.revokeObjectURL(url);
 }
 
-export function copySVG(points, stats, climbs, cues, blocks, settings, callback) {
-  const svgMarkup = renderProfileSVG(points, stats, climbs, cues, blocks, settings, true);
+export function copySVG(points, stats, climbs, blocks, settings, callback) {
+  const svgMarkup = renderProfileSVG(points, stats, climbs, blocks, settings, true);
   navigator.clipboard.writeText(svgMarkup).then(() => {
     if (callback) callback(null);
   }).catch(err => {
@@ -31,7 +27,7 @@ export function copySVG(points, stats, climbs, cues, blocks, settings, callback)
   });
 }
 
-export function exportPNG(points, stats, climbs, cues, blocks, settings, callback) {
+export function exportPNG(points, stats, climbs, blocks, settings, callback) {
   const wMm = settings.widthMm;
   const hMm = settings.heightMm;
   const dpi = 300;
@@ -39,7 +35,7 @@ export function exportPNG(points, stats, climbs, cues, blocks, settings, callbac
   const pxW = Math.round(wMm * mmToIn * dpi);
   const pxH = Math.round(hMm * mmToIn * dpi);
 
-  const svgMarkup = renderProfileSVG(points, stats, climbs, cues, blocks, settings, true);
+  const svgMarkup = renderProfileSVG(points, stats, climbs, blocks, settings, true);
   const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
 
@@ -49,7 +45,7 @@ export function exportPNG(points, stats, climbs, cues, blocks, settings, callbac
     canvas.width = pxW;
     canvas.height = pxH;
     const ctx = canvas.getContext('2d');
-    const theme = THEME_PALETTES[settings.theme] || THEME_PALETTES['dark-cockpit'];
+    const theme = THEMES[settings.theme] || THEMES['dark'];
     ctx.fillStyle = theme.bg;
     ctx.fillRect(0, 0, pxW, pxH);
     ctx.drawImage(img, 0, 0, pxW, pxH);
@@ -72,14 +68,13 @@ export function exportPNG(points, stats, climbs, cues, blocks, settings, callbac
   img.src = url;
 }
 
-export function updatePrintMatrix(points, stats, climbs, cues, blocks, settings) {
+export function updatePrintMatrix(points, stats, climbs, blocks, settings) {
   const host = document.getElementById('print-matrix');
   if (!host) return;
   host.innerHTML = '';
 
   const count = parseInt(settings.printCopies, 10) || 2;
-  const printTheme = settings.theme === 'pro-white' ? 'pro-white' : settings.theme;
-  const printSvg = renderProfileSVG(points, stats, climbs, cues, blocks, { ...settings, theme: printTheme }, true);
+  const printSvg = renderProfileSVG(points, stats, climbs, blocks, { ...settings, theme: 'white' }, true);
 
   for (let i = 0; i < count; i++) {
     const cell = document.createElement('div');

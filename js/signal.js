@@ -1,11 +1,9 @@
 /**
  * Signal Processing Module
- * - Cumulative Haversine great-circle distance (meters)
- * - 7-point Moving Average elevation jitter filter
- * - Gradient percentage (Δele / Δdist)
- * - 4-tier Gradient Zone classification (<5%, 5-8%, 8-12%, >12%)
- * - Pro Macro Gradient Block Segmentation & Chunking
- * - Automated Pro Climb Segmentation & Categorization (HC, Cat 1-4)
+ * - Cumulative Haversine distance
+ * - 7-point Moving Average elevation filter
+ * - Uniform Spatial Discretization (Configurable Block Segments: 1000m, 500m, 250m, 100m)
+ * - Pro Climb Segmentation & Categorization (HC, Cat 1-4)
  */
 
 export const EARTH_RADIUS_METERS = 6371000;
@@ -21,62 +19,65 @@ export function calcHaversine(lat1, lon1, lat2, lon2) {
 }
 
 /**
- * Builds chunky, readable gradient blocks by aggregating adjacent points
- * into distinct, bold gradient segments with minimum run-length.
+ * Helper to interpolate smoothed elevation at exact distance d
  */
-export function buildGradientBlocks(points, minChunkM = 250) {
-  const N = points.length;
-  if (N < 2) return [];
+export function getInterpolatedEle(points, targetDist) {
+  if (!points || points.length === 0) return 0;
+  if (targetDist <= points[0].dist) return points[0].smoothEle;
+  if (targetDist >= points[points.length - 1].dist) return points[points.length - 1].smoothEle;
 
-  const blocks = [];
-  let blockPts = [points[0]];
-  let blockStartDist = points[0].dist;
-  let currentZone = points[0].zone;
-
-  for (let i = 1; i < N; i++) {
-    const pt = points[i];
-    blockPts.push(pt);
-    const distSpan = pt.dist - blockStartDist;
-
-    // Check if zone changed and chunk length satisfies minimum threshold
-    if (pt.zone !== currentZone && distSpan >= minChunkM) {
-      const eleDiff = pt.smoothEle - blockPts[0].smoothEle;
-      const avgG = distSpan > 0 ? (eleDiff / distSpan) * 100 : 0;
-
-      blocks.push({
-        id: blocks.length + 1,
-        zone: currentZone,
-        startDist: blockStartDist,
-        endDist: pt.dist,
-        lengthM: distSpan,
-        avgGrade: Math.abs(parseFloat(avgG.toFixed(1))),
-        startEle: blockPts[0].smoothEle,
-        endEle: pt.smoothEle,
-        points: [...blockPts]
-      });
-
-      currentZone = pt.zone;
-      blockStartDist = pt.dist;
-      blockPts = [pt];
-    }
+  let low = 0, high = points.length - 1;
+  while (low < high) {
+    const mid = (low + high) >> 1;
+    if (points[mid].dist < targetDist) low = mid + 1;
+    else high = mid;
   }
+  const p1 = points[low - 1];
+  const p2 = points[low];
+  const span = p2.dist - p1.dist;
+  if (span <= 0) return p1.smoothEle;
+  const ratio = (targetDist - p1.dist) / span;
+  return p1.smoothEle + ratio * (p2.smoothEle - p1.smoothEle);
+}
 
-  if (blockPts.length > 0) {
-    const lastPt = blockPts[blockPts.length - 1];
-    const distSpan = Math.max(1, lastPt.dist - blockStartDist);
-    const eleDiff = lastPt.smoothEle - blockPts[0].smoothEle;
-    const avgG = distSpan > 0 ? (eleDiff / distSpan) * 100 : 0;
+/**
+ * Builds discrete, uniform spatial blocks (e.g. 1000m, 500m, 250m, 100m)
+ */
+export function buildSpatialBlocks(points, totalDist, blockSizeM = 1000) {
+  if (!points || points.length < 2 || totalDist <= 0) return [];
+  if (blockSizeM <= 0) return []; // 0 = continuous mode
+
+  const numBlocks = Math.max(1, Math.ceil(totalDist / blockSizeM));
+  const blocks = [];
+
+  for (let k = 0; k < numBlocks; k++) {
+    const dStart = k * blockSizeM;
+    const dEnd = Math.min(totalDist, (k + 1) * blockSizeM);
+    const spanM = dEnd - dStart;
+    if (spanM <= 0) break;
+
+    const eStart = getInterpolatedEle(points, dStart);
+    const eEnd = getInterpolatedEle(points, dEnd);
+
+    const grade = ((eEnd - eStart) / spanM) * 100;
+    const absGrade = Math.abs(grade);
+
+    let zone = 0;
+    if (absGrade < 5) zone = 0;
+    else if (absGrade < 8) zone = 1;
+    else if (absGrade < 12) zone = 2;
+    else zone = 3;
 
     blocks.push({
-      id: blocks.length + 1,
-      zone: currentZone,
-      startDist: blockStartDist,
-      endDist: lastPt.dist,
-      lengthM: distSpan,
-      avgGrade: Math.abs(parseFloat(avgG.toFixed(1))),
-      startEle: blockPts[0].smoothEle,
-      endEle: lastPt.smoothEle,
-      points: [...blockPts]
+      index: k + 1,
+      startDist: dStart,
+      endDist: dEnd,
+      lengthM: spanM,
+      startEle: eStart,
+      endEle: eEnd,
+      grade: parseFloat(grade.toFixed(1)),
+      absGrade: parseFloat(absGrade.toFixed(1)),
+      zone
     });
   }
 
@@ -137,15 +138,11 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 600, minGradePc
 
           climbs.push({
             id: climbs.length + 1,
-            name: `Climb ${climbs.length + 1}`,
             category,
-            startIdx,
-            endIdx: climbPeakIdx,
             startKm: points[startIdx].dist / 1000,
             summitKm: points[climbPeakIdx].dist / 1000,
             lengthKm: climbLen / 1000,
             gainM: Math.round(climbGain),
-            startEle: Math.round(points[startIdx].smoothEle),
             summitEle: Math.round(points[climbPeakIdx].smoothEle),
             avgGrade: parseFloat(avgGrade.toFixed(1)),
             maxGrade: parseFloat(maxG.toFixed(1))
@@ -161,7 +158,7 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 600, minGradePc
   return climbs;
 }
 
-export function processTrackSignal(coords, smoothingWindow = 7, chunkResolutionM = 250) {
+export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 1000) {
   const N = coords.length;
   if (N < 2) {
     return { points: [], stats: null, climbs: [], blocks: [] };
@@ -200,8 +197,6 @@ export function processTrackSignal(coords, smoothingWindow = 7, chunkResolutionM
   let minEle = smoothedEles[0];
   let maxEle = smoothedEles[0];
   let maxGrade = 0;
-  let sumGrade = 0;
-  const zoneDists = [0, 0, 0, 0];
 
   for (let i = 0; i < N; i++) {
     const dist = cumDistances[i];
@@ -235,7 +230,6 @@ export function processTrackSignal(coords, smoothingWindow = 7, chunkResolutionM
 
       const absG = Math.abs(grade);
       if (absG > maxGrade) maxGrade = absG;
-      sumGrade += absG;
 
       let zone = 0;
       if (absG < 5) zone = 0;
@@ -243,15 +237,14 @@ export function processTrackSignal(coords, smoothingWindow = 7, chunkResolutionM
       else if (absG < 12) zone = 2;
       else zone = 3;
 
-      zoneDists[zone] += deltaD;
       points.push({ dist, rawEle, smoothEle, grade, zone });
     } else {
       points.push({ dist: 0, rawEle, smoothEle, grade: 0, zone: 0 });
     }
   }
 
-  // 4. Macro Gradient Blocks & Climbs
-  const blocks = buildGradientBlocks(points, chunkResolutionM);
+  // 4. Discretize into configurable spatial blocks (e.g. 1000m, 500m, 250m, 100m)
+  const blocks = buildSpatialBlocks(points, runningDist, blockSizeM);
   const climbs = detectClimbs(points);
 
   const stats = {
@@ -261,8 +254,6 @@ export function processTrackSignal(coords, smoothingWindow = 7, chunkResolutionM
     minEle,
     maxEle,
     maxGrade,
-    avgGrade: N > 1 ? (sumGrade / (N - 1)) : 0,
-    zoneDists,
     climbsCount: climbs.length,
     blocksCount: blocks.length
   };

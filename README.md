@@ -1,43 +1,42 @@
 # StemProfile (toptube)
 
-**StemProfile** is a zero-dependency web studio designed for endurance cyclists, racers, and bikepackers to convert GPX files into glance-ready, millimeter-accurate elevation stickers for bicycle stems and top-tubes.
-
-Inspired by the physical roadbook stickers used in the professional peloton (Tour de France, Giro d'Italia, Spring Classics), StemProfile declutters course data into high-contrast elevation profiles with **bold segmented gradient blocks**, **prominent boundary divider lines**, **segmented climb callouts**, and **race cue points** that can be read instantly at 40+ km/h.
+**StemProfile** is a clean, zero-dependency web studio designed for cyclists and racers to convert GPX tracks into millimeter-accurate elevation stickers for bicycle stems and top tubes.
 
 ---
 
-## Key Features
+## Features
 
-### 1. Glance-Ready Pro Stem Design & Bold Gradient Blocks
-- **Chunky Gradient Block Segmentation**: Aggregates continuous gradient sections into bold, legible color blocks rather than microscopic hairline slices, with configurable chunk resolutions (500m TdF Macro Chunks, 250m Standard Roadbook Blocks, or 100m Granular).
-- **Bold Boundary Divider Lines**: Renders crisp vertical boundary divider lines ($0.6\,\text{mm}$ thickness) between gradient zone transitions for immediate visual contrast.
-- **In-Block Gradient % Badges**: Directly prints the average gradient percentage (e.g. `8%`, `12%`, `14%`) centered inside major climb blocks.
-- **Bolder Profile Contour Silhouette**: Thickened $0.85\,\text{mm}$ road top stroke for high legibility in vibration-heavy riding conditions.
-- **Climb Segmentation & Summit Badges**: Automatically detects and categorizes major climbs (HC, Cat 1, Cat 2, Cat 3, Cat 4) along the route, displaying clean summit badges (`Cat • Length @ Avg %`) and start/summit markers directly over the profile.
-- **Race Cue Points**: Add custom markers for **Feed Zones (🥛)**, **Intermediate Sprints (⚡)**, **Gravel Sectors (🪨)**, and **Hazards (⚠️)** at precise kilometer marks.
-- **High-Contrast Themes**: Includes **Pro Roadbook White** (solid color-blocked climbs on pure white background—standard in Grand Tour roadbooks) and **Dark Cockpit** (stealth dark mode).
+### 1. Block-Segmented Pro Elevation Profile
+- **Configurable Spatial Block Sizes**: Discretizes route elevation into uniform, blocky segments like Grand Tour roadbooks:
+  - **1.0 km (1000m Blocks)** — Standard Grand Tour roadbook style
+  - **500m Blocks** — Detailed roadbook segments
+  - **250m Blocks** — Fine granularity
+  - **100m Blocks** — Micro segments
+  - **Smooth** — Continuous gradient curve
+- **In-Block Gradient %**: Prints the exact average gradient percentage (e.g. `8%`, `11%`, `5%`) directly inside each kilometer/block column.
+- **4 Gradient Color Zones**:
+  - **Zone 1 (< 5%)**: Flat / Rolling (`#2ea043` Green)
+  - **Zone 2 (5% – 8%)**: Moderate (`#d29922` Yellow)
+  - **Zone 3 (8% – 12%)**: Steep (`#db6d28` Orange)
+  - **Zone 4 (> 12%)**: Wall (`#f85149` Red)
+- **Automatic Climb Segmentation**: Detects sustained climbs (HC, Cat 1, Cat 2, Cat 3, Cat 4) and renders summit badges (`Cat • Length @ Avg %`).
 
-### 2. Client-Side Ingestion & Signal Processing
-- **100% Client-Side GPX Ingestion**: Parsed via the native browser `DOMParser()` without external dependencies or server uploads (fully private & offline).
-- **Haversine Distance**: Computes cumulative distance using the Earth radius $R = 6,371,000\,\text{m}$.
+### 2. Client-Side Ingestion & Processing
+- **Private & 100% Offline**: Parses GPX XML via the native browser `DOMParser()`.
+- **Haversine Distance**: Computes cumulative distance using Earth radius $R = 6,371,000\,\text{m}$.
 - **7-Point Moving Average Filter**: Removes barometric GPS quantization jitter while preserving true road gradients.
-- **4-Tier Gradient Zones**:
-  - **Zone 1 (< 5%)**: Flat / False Flat / Recovery (`#10b981` Emerald)
-  - **Zone 2 (5% – 8%)**: Moderate Climbing (`#eab308` Amber)
-  - **Zone 3 (8% – 12%)**: Steep Climbing (`#f97316` Orange)
-  - **Zone 4 (> 12%)**: Wall / Extreme Pitch (`#ef4444` Crimson)
 
-### 3. Physical Millimeter Sizing & Presets
-- **Standard Top Tube**: `110 × 35 mm` (Default)
+### 3. Physical Sizing & Presets
+- **Top Tube**: `110 × 35 mm` (Default)
 - **Slim Stem**: `100 × 28 mm`
 - **Compact Stem**: `75 × 30 mm`
 - **Long Top Tube**: `130 × 35 mm`
-- **Custom**: User-defined width and height in millimeters with adjustable corner radius.
+- **Custom**: User-defined width and height in millimeters.
 
 ### 4. Export & Print Options
 - **Print-Ready `@media print`**: Exact millimeter scaling with dashed scissor cut guides and multi-sticker sheet layout (1, 2, or 4 copies).
 - **Download SVG**: Pure vector `.svg` export.
-- **Download PNG (300 DPI)**: High-resolution raster export via an offscreen canvas for vinyl label printers and cutting plotters.
+- **Download PNG (300 DPI)**: High-resolution raster export via an offscreen canvas for vinyl label printers.
 - **Copy SVG**: Instant clipboard copy.
 
 ---
@@ -46,15 +45,15 @@ Inspired by the physical roadbook stickers used in the professional peloton (Tou
 
 ```
 toptube/
-├── index.html          # Clean application layout and shell
+├── index.html          # Minimalist application layout
 ├── css/
-│   └── styles.css      # Cockpit UI, CSS variables, & @media print styles
+│   └── styles.css      # Clean dark theme & @media print styles
 ├── js/
 │   ├── parser.js       # GPX ingestion via native DOMParser()
-│   ├── signal.js       # Haversine distance, 7-pt MA, & gradient block chunking
-│   ├── renderer.js     # Exact millimeter SVG profile & climb badge generator
+│   ├── signal.js       # Haversine distance, 7-pt MA, spatial block discretization, & climb detection
+│   ├── renderer.js     # Vector SVG block & curve profile generator
 │   ├── export.js       # Print sheet builder, SVG/PNG export, clipboard
-│   └── app.js          # Main application controller & state manager
+│   └── app.js          # Application controller & state manager
 └── README.md           # Documentation
 ```
 
@@ -72,10 +71,8 @@ python3 -m http.server 8000
 npx serve
 ```
 
-Open `http://localhost:8000` in your browser:
-1. Drop your `.gpx` route file onto the ingestion dropzone.
-2. Adjust gradient block chunking (e.g. 500m or 250m) and toggle bold divider lines.
-3. Review auto-detected climbs in the **Categorized Climb Segments** panel.
-4. Add custom race cues (feed zones, sprints, gravel) if desired.
-5. Select your stem/top-tube physical sizing preset.
-6. Print (`⌘P` / `Ctrl+P`) or export to **SVG** / **PNG (300 DPI)**.
+Open `http://localhost:8000` in any web browser:
+1. Drop your `.gpx` route file onto the track dropzone.
+2. Select your desired **Segment Block Size** (e.g. `1.0 km`, `500m`, `250m`, `100m`).
+3. Select your stem/top-tube physical dimensions.
+4. Print (`⌘P` / `Ctrl+P`) or export to **SVG** / **PNG (300 DPI)**.

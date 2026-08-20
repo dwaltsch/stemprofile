@@ -1,6 +1,6 @@
 /**
- * StemProfile Main Application Controller
- * Pro Race Stem Profile & Climb Segmentation Studio
+ * StemProfile App Controller
+ * Block-Segmented Pro Elevation Profile Studio
  */
 
 import { parseGPX } from './parser.js';
@@ -14,28 +14,22 @@ const appState = {
   stats: null,
   climbs: [],
   blocks: [],
-  cues: [],
   settings: {
     widthMm: 110,
     heightMm: 35,
     radiusMm: 2,
     smoothingWindow: 7,
-    chunkResolutionM: 250,
-    dividerWidth: 0.6,
+    blockSizeM: 1000,
+    showBlockPct: true,
     units: 'metric',
-    theme: 'dark-cockpit',
+    theme: 'dark',
     title: '',
     showHeader: true,
     showDistanceTicks: true,
     showElevationLabels: true,
-    showGradientLegend: true,
-    showCutGuidelines: true,
     showClimbs: true,
-    showCues: true,
-    showGradientDividers: true,
-    showBlockPercentages: true,
-    printCopies: 2,
-    zoomFactor: 1.0
+    showCutGuidelines: true,
+    printCopies: 2
   }
 };
 
@@ -53,8 +47,7 @@ function handleGPXFile(file) {
       appState.settings.title = title || file.name.replace(/\.gpx$/i, '');
       
       document.getElementById('input-title').value = appState.settings.title;
-      document.getElementById('pts-count-badge').textContent = `${coords.length} pts`;
-      document.getElementById('pts-count-badge').style.color = 'var(--z1-color)';
+      document.getElementById('dropzone-filename').textContent = `${file.name} (${coords.length} pts)`;
 
       reprocessAndRender();
     } catch (err) {
@@ -69,7 +62,7 @@ function reprocessAndRender() {
     const { points, stats, climbs, blocks } = processTrackSignal(
       appState.rawCoords, 
       appState.settings.smoothingWindow,
-      appState.settings.chunkResolutionM
+      appState.settings.blockSizeM
     );
     appState.points = points;
     appState.stats = stats;
@@ -77,7 +70,7 @@ function reprocessAndRender() {
     appState.blocks = blocks;
   }
   updateUI();
-  renderClimbsList();
+  renderClimbsTable();
 }
 
 function updateUI() {
@@ -85,51 +78,37 @@ function updateUI() {
   const stats = appState.stats;
   const pts = appState.points;
   const climbs = appState.climbs;
-  const cues = appState.cues;
   const blocks = appState.blocks;
   const hasData = pts.length >= 2 && stats !== null;
 
-  // 1. Render SVG Preview
+  // 1. Render Preview
   const svgHost = document.getElementById('svg-host');
   if (hasData) {
-    svgHost.innerHTML = renderProfileSVG(pts, stats, climbs, cues, blocks, cfg, false);
+    svgHost.innerHTML = renderProfileSVG(pts, stats, climbs, blocks, cfg, false);
   } else {
     svgHost.innerHTML = `
-      <div class="empty-placeholder">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-          <polyline points="17 8 12 3 7 8"></polyline>
-          <line x1="12" y1="3" x2="12" y2="15"></line>
+      <div class="empty-msg">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
         </svg>
-        <h3>No GPX Track Loaded</h3>
-        <p>Drop a .gpx file to generate your glance-ready pro stem profile</p>
+        <h3>No GPX Loaded</h3>
+        <p>Drop a .gpx route on the left sidebar</p>
       </div>
     `;
   }
 
-  // 2. Sizing & Zoom
-  const container = document.getElementById('sticker-container');
-  container.style.transform = `scale(${cfg.zoomFactor})`;
-  container.style.transformOrigin = 'center center';
+  document.documentElement.style.setProperty('--sticker-w', `${cfg.widthMm}mm`);
+  document.documentElement.style.setProperty('--sticker-h', `${cfg.heightMm}mm`);
+  document.getElementById('stage-size-label').textContent = `${cfg.widthMm} × ${cfg.heightMm} mm`;
 
-  document.documentElement.style.setProperty('--sticker-width-mm', `${cfg.widthMm}mm`);
-  document.documentElement.style.setProperty('--sticker-height-mm', `${cfg.heightMm}mm`);
-
-  document.getElementById('label-aspect').textContent = `Exact Physical Dimensions: ${cfg.widthMm} mm × ${cfg.heightMm} mm (Radius: ${cfg.radiusMm} mm)`;
-  document.getElementById('ruler-val').textContent = cfg.widthMm;
-
-  // 3. Action Buttons Disabled / Enabled
-  const exportBtns = [
-    document.getElementById('btn-copy-svg'),
-    document.getElementById('btn-export-svg'),
-    document.getElementById('btn-export-png'),
-    document.getElementById('btn-print')
-  ];
-  exportBtns.forEach(btn => {
-    if (btn) btn.disabled = !hasData;
+  // 2. Buttons
+  const buttons = ['btn-copy-svg', 'btn-export-svg', 'btn-export-png', 'btn-print'];
+  buttons.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !hasData;
   });
 
-  // 4. Metrics & Telemetry
+  // 3. Stats Strip
   const isMetric = cfg.units === 'metric';
   const distU = isMetric ? 'km' : 'mi';
   const eleU = isMetric ? 'm' : 'ft';
@@ -137,85 +116,48 @@ function updateUI() {
   const eFactor = isMetric ? 1 : 3.28084;
 
   if (hasData) {
-    document.getElementById('val-tot-dist').textContent = `${(stats.totalDist * dFactor).toFixed(1)} ${distU}`;
-    document.getElementById('val-tot-gain').textContent = `+${Math.round(stats.elevGain * eFactor)} ${eleU}`;
-    document.getElementById('val-tot-loss').textContent = `-${Math.round(stats.elevLoss * eFactor)} ${eleU} Loss`;
-    document.getElementById('val-max-grade').textContent = `${stats.maxGrade.toFixed(1)}%`;
-    document.getElementById('val-avg-grade').textContent = `Avg: ${stats.avgGrade.toFixed(1)}%`;
-    document.getElementById('val-climbs-count').textContent = `${climbs.length} Climbs`;
-    document.getElementById('val-min-max-ele').textContent = `Min: ${Math.round(stats.minEle * eFactor)} / Max: ${Math.round(stats.maxEle * eFactor)} ${eleU}`;
-
-    // Gradient Zone Distribution
-    const totalZ = stats.zoneDists.reduce((a, b) => a + b, 0) || 1;
-    const pcts = stats.zoneDists.map(v => (v / totalZ) * 100);
-
-    document.getElementById('bar-seg-1').style.width = `${pcts[0].toFixed(1)}%`;
-    document.getElementById('bar-seg-2').style.width = `${pcts[1].toFixed(1)}%`;
-    document.getElementById('bar-seg-3').style.width = `${pcts[2].toFixed(1)}%`;
-    document.getElementById('bar-seg-4').style.width = `${pcts[3].toFixed(1)}%`;
-
-    document.getElementById('z1-dist-txt').textContent = `${(stats.zoneDists[0] * dFactor).toFixed(1)} ${distU}`;
-    document.getElementById('z1-pct-txt').textContent = `${pcts[0].toFixed(1)}%`;
-
-    document.getElementById('z2-dist-txt').textContent = `${(stats.zoneDists[1] * dFactor).toFixed(1)} ${distU}`;
-    document.getElementById('z2-pct-txt').textContent = `${pcts[1].toFixed(1)}%`;
-
-    document.getElementById('z3-dist-txt').textContent = `${(stats.zoneDists[2] * dFactor).toFixed(1)} ${distU}`;
-    document.getElementById('z3-pct-txt').textContent = `${pcts[2].toFixed(1)}%`;
-
-    document.getElementById('z4-dist-txt').textContent = `${(stats.zoneDists[3] * dFactor).toFixed(1)} ${distU}`;
-    document.getElementById('z4-pct-txt').textContent = `${pcts[3].toFixed(1)}%`;
+    document.getElementById('stat-dist').textContent = `${(stats.totalDist * dFactor).toFixed(1)} ${distU}`;
+    document.getElementById('stat-gain').textContent = `+${Math.round(stats.elevGain * eFactor)} ${eleU}`;
+    document.getElementById('stat-max-grade').textContent = `${stats.maxGrade.toFixed(1)}%`;
+    document.getElementById('stat-climbs').textContent = `${climbs.length}`;
   } else {
-    document.getElementById('val-tot-dist').textContent = '--';
-    document.getElementById('val-tot-gain').textContent = '--';
-    document.getElementById('val-tot-loss').textContent = '-- Loss';
-    document.getElementById('val-max-grade').textContent = '--';
-    document.getElementById('val-avg-grade').textContent = 'Avg: --';
-    document.getElementById('val-climbs-count').textContent = '--';
-    document.getElementById('val-min-max-ele').textContent = 'Min: -- / Max: --';
-
-    ['bar-seg-1', 'bar-seg-2', 'bar-seg-3', 'bar-seg-4'].forEach(id => {
-      document.getElementById(id).style.width = '25%';
-    });
-    ['z1', 'z2', 'z3', 'z4'].forEach(z => {
-      document.getElementById(`${z}-dist-txt`).textContent = '--';
-      document.getElementById(`${z}-pct-txt`).textContent = '--%';
-    });
+    document.getElementById('stat-dist').textContent = '--';
+    document.getElementById('stat-gain').textContent = '--';
+    document.getElementById('stat-max-grade').textContent = '--';
+    document.getElementById('stat-climbs').textContent = '--';
   }
 
-  updatePrintMatrix(pts, stats, climbs, cues, blocks, cfg);
+  updatePrintMatrix(pts, stats, climbs, blocks, cfg);
   bindTooltipHover();
 }
 
-function renderClimbsList() {
-  const container = document.getElementById('climbs-list-container');
-  if (!container) return;
+function renderClimbsTable() {
+  const host = document.getElementById('climbs-table-body');
+  const box = document.getElementById('climbs-box');
+  if (!host || !box) return;
 
   const climbs = appState.climbs;
   if (!climbs || climbs.length === 0) {
-    container.innerHTML = `<div style="font-size:0.72rem; color:var(--text-dim); padding: 0.5rem 0;">No major climb segments detected (>35m gain, >600m len).</div>`;
+    box.style.display = 'none';
     return;
   }
 
+  box.style.display = 'block';
   let html = '';
-  climbs.forEach(climb => {
+  climbs.forEach(c => {
+    const catClass = c.category.toLowerCase().replace(/\s+/g, '-');
     html += `
-      <div class="climb-item-card">
-        <div class="climb-item-header">
-          <span class="climb-cat-badge ${climb.category.toLowerCase().replace(/\s+/g, '-')}">${climb.category}</span>
-          <span class="climb-item-name">KM ${climb.startKm.toFixed(1)} → ${climb.summitKm.toFixed(1)}</span>
-          <span class="climb-item-stat">${climb.lengthKm.toFixed(1)} km @ ${climb.avgGrade}%</span>
-        </div>
-        <div class="climb-item-details">
-          <span>Gain: +${climb.gainM}m</span>
-          <span>Max: ${climb.maxGrade}%</span>
-          <span>Summit: ${climb.summitEle}m</span>
-        </div>
-      </div>
+      <tr>
+        <td><span class="cat-pill ${catClass}">${c.category}</span></td>
+        <td>KM ${c.startKm.toFixed(1)} → ${c.summitKm.toFixed(1)}</td>
+        <td>${c.lengthKm.toFixed(1)} km</td>
+        <td style="font-weight:600; color:var(--z2);">${c.avgGrade}%</td>
+        <td>+${c.gainM}m</td>
+        <td>${c.summitEle}m</td>
+      </tr>
     `;
   });
-
-  container.innerHTML = html;
+  host.innerHTML = html;
 }
 
 function bindTooltipHover() {
@@ -247,10 +189,7 @@ function bindTooltipHover() {
     tip.style.display = 'block';
     tip.style.left = `${mouseX}px`;
     tip.style.top = `${e.clientY - rect.top}px`;
-
-    document.getElementById('tip-dist').textContent = `${(pt.dist * dFactor).toFixed(2)} ${distU}`;
-    document.getElementById('tip-ele').textContent = `${Math.round(pt.smoothEle * eFactor)} ${eleU}`;
-    document.getElementById('tip-grade').textContent = `${pt.grade.toFixed(1)}% (Z${pt.zone + 1})`;
+    tip.textContent = `${(pt.dist * dFactor).toFixed(1)}${distU} • ${Math.round(pt.smoothEle * eFactor)}${eleU} • ${pt.grade.toFixed(1)}%`;
   };
 
   svg.onmouseleave = function() {
@@ -259,7 +198,7 @@ function bindTooltipHover() {
 }
 
 export function initApp() {
-  // 1. Drag & Drop File Upload
+  // Dropzone
   const dz = document.getElementById('dropzone');
   const fin = document.getElementById('file-input');
 
@@ -278,7 +217,7 @@ export function initApp() {
     if (e.target.files.length > 0) handleGPXFile(e.target.files[0]);
   });
 
-  // 2. Presets & Dimensions
+  // Size Controls
   const preset = document.getElementById('preset-size');
   const wIn = document.getElementById('input-w-mm');
   const hIn = document.getElementById('input-h-mm');
@@ -319,32 +258,33 @@ export function initApp() {
 
   document.getElementById('input-copies').addEventListener('change', e => {
     appState.settings.printCopies = parseInt(e.target.value, 10) || 1;
-    updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.cues, appState.blocks, appState.settings);
+    updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.blocks, appState.settings);
   });
 
-  // 3. Signal Smoothing & Chunking
+  // Segment Block Size
+  document.getElementById('select-block-size').addEventListener('change', e => {
+    appState.settings.blockSizeM = parseInt(e.target.value, 10);
+    reprocessAndRender();
+  });
+
+  // Smoothing
   const smSlider = document.getElementById('slider-smoothing');
   const smLabel = document.getElementById('label-smoothing');
   smSlider.addEventListener('input', e => {
     const v = parseInt(e.target.value, 10);
     appState.settings.smoothingWindow = v;
-    smLabel.textContent = `${v}-point`;
+    smLabel.textContent = `${v} pt`;
     reprocessAndRender();
   });
 
-  document.getElementById('select-chunking').addEventListener('change', e => {
-    appState.settings.chunkResolutionM = parseInt(e.target.value, 10) || 250;
-    reprocessAndRender();
+  // Theme & Units
+  document.getElementById('select-theme').addEventListener('change', e => {
+    appState.settings.theme = e.target.value;
+    updateUI();
   });
 
   document.getElementById('select-units').addEventListener('change', e => {
     appState.settings.units = e.target.value;
-    updateUI();
-  });
-
-  // 4. Styles & Themes
-  document.getElementById('select-theme').addEventListener('change', e => {
-    appState.settings.theme = e.target.value;
     updateUI();
   });
 
@@ -353,21 +293,13 @@ export function initApp() {
     updateUI();
   });
 
-  // Toggles
-  document.getElementById('chk-dividers').addEventListener('change', e => {
-    appState.settings.showGradientDividers = e.target.checked;
-    updateUI();
-  });
+  // Checkbox Toggles
   document.getElementById('chk-block-pct').addEventListener('change', e => {
-    appState.settings.showBlockPercentages = e.target.checked;
+    appState.settings.showBlockPct = e.target.checked;
     updateUI();
   });
   document.getElementById('chk-climbs').addEventListener('change', e => {
     appState.settings.showClimbs = e.target.checked;
-    updateUI();
-  });
-  document.getElementById('chk-cues').addEventListener('change', e => {
-    appState.settings.showCues = e.target.checked;
     updateUI();
   });
   document.getElementById('chk-header').addEventListener('change', e => {
@@ -382,110 +314,42 @@ export function initApp() {
     appState.settings.showElevationLabels = e.target.checked;
     updateUI();
   });
-  document.getElementById('chk-legend').addEventListener('change', e => {
-    appState.settings.showGradientLegend = e.target.checked;
-    updateUI();
-  });
   document.getElementById('chk-cut').addEventListener('change', e => {
     appState.settings.showCutGuidelines = e.target.checked;
     updateUI();
   });
 
-  // Custom Cue Maker
-  document.getElementById('btn-add-cue').addEventListener('click', () => {
-    const km = parseFloat(document.getElementById('cue-km-input').value);
-    const type = document.getElementById('cue-type-select').value;
-    const label = document.getElementById('cue-label-input').value.trim() || type;
-
-    if (!isNaN(km) && km >= 0) {
-      appState.cues.push({ id: Date.now(), km, type, label });
-      document.getElementById('cue-km-input').value = '';
-      document.getElementById('cue-label-input').value = '';
-      renderCuesList();
-      updateUI();
-    }
-  });
-
-  function renderCuesList() {
-    const host = document.getElementById('cues-list-host');
-    if (!host) return;
-    if (appState.cues.length === 0) {
-      host.innerHTML = `<span style="font-size:0.68rem; color:var(--text-dim);">No custom race cues added yet.</span>`;
-      return;
-    }
-
-    let h = '';
-    appState.cues.forEach(c => {
-      let icon = '📍';
-      if (c.type === 'feed') icon = '🥛';
-      else if (c.type === 'sprint') icon = '⚡';
-      else if (c.type === 'gravel') icon = '🪨';
-      else if (c.type === 'hazard') icon = '⚠️';
-
-      h += `
-        <div class="cue-pill">
-          <span>${icon} KM ${c.km}: ${c.label}</span>
-          <button data-cue-id="${c.id}" class="btn-del-cue" title="Remove cue">×</button>
-        </div>
-      `;
-    });
-    host.innerHTML = h;
-
-    host.querySelectorAll('.btn-del-cue').forEach(btn => {
-      btn.onclick = function() {
-        const id = parseInt(this.getAttribute('data-cue-id'), 10);
-        appState.cues = appState.cues.filter(c => c.id !== id);
-        renderCuesList();
-        updateUI();
-      };
-    });
-  }
-
-  // Zoom
-  document.getElementById('btn-zoom-reset').addEventListener('click', () => {
-    appState.settings.zoomFactor = 1.0;
-    document.getElementById('btn-zoom-toggle').textContent = 'Zoom 150%';
-    updateUI();
-  });
-
-  document.getElementById('btn-zoom-toggle').addEventListener('click', () => {
-    appState.settings.zoomFactor = (appState.settings.zoomFactor === 1.5) ? 1.0 : 1.5;
-    document.getElementById('btn-zoom-toggle').textContent = appState.settings.zoomFactor === 1.5 ? 'Zoom 100%' : 'Zoom 150%';
-    updateUI();
-  });
-
-  // Export Actions
+  // Exports
   document.getElementById('btn-copy-svg').addEventListener('click', () => {
-    copySVG(appState.points, appState.stats, appState.climbs, appState.cues, appState.blocks, appState.settings, err => {
+    copySVG(appState.points, appState.stats, appState.climbs, appState.blocks, appState.settings, err => {
       if (!err) {
         const btn = document.getElementById('btn-copy-svg');
-        const orig = btn.innerHTML;
+        const orig = btn.textContent;
         btn.textContent = 'Copied!';
-        setTimeout(() => btn.innerHTML = orig, 1400);
+        setTimeout(() => btn.textContent = orig, 1200);
       }
     });
   });
 
   document.getElementById('btn-export-svg').addEventListener('click', () => {
-    exportSVG(appState.points, appState.stats, appState.climbs, appState.cues, appState.blocks, appState.settings);
+    exportSVG(appState.points, appState.stats, appState.climbs, appState.blocks, appState.settings);
   });
 
   document.getElementById('btn-export-png').addEventListener('click', () => {
-    exportPNG(appState.points, appState.stats, appState.climbs, appState.cues, appState.blocks, appState.settings);
+    exportPNG(appState.points, appState.stats, appState.climbs, appState.blocks, appState.settings);
   });
 
   document.getElementById('btn-print').addEventListener('click', () => {
-    updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.cues, appState.blocks, appState.settings);
+    updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.blocks, appState.settings);
     window.print();
   });
 
   window.addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'p') {
-      updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.cues, appState.blocks, appState.settings);
+      updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.blocks, appState.settings);
     }
   });
 
-  // Initial render (Empty state)
   updateUI();
 }
 
