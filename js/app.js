@@ -88,11 +88,13 @@ function updateUI() {
   } else {
     svgHost.innerHTML = `
       <div class="empty-msg">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="17 8 12 3 7 8"></polyline>
+          <line x1="12" y1="3" x2="12" y2="15"></line>
         </svg>
         <h3>No GPX Loaded</h3>
-        <p>Drop a .gpx route on the left sidebar</p>
+        <p>Drop GPX track here or click to browse</p>
       </div>
     `;
   }
@@ -198,23 +200,71 @@ function bindTooltipHover() {
 }
 
 export function initApp() {
-  // Dropzone
+  // Drop targets & File Input
   const dz = document.getElementById('dropzone');
   const fin = document.getElementById('file-input');
+  const previewStage = document.getElementById('preview-stage');
+  const svgHost = document.getElementById('svg-host');
 
-  ['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => {
-    e.preventDefault(); e.stopPropagation(); dz.classList.add('dragover');
-  }));
-  ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => {
-    e.preventDefault(); e.stopPropagation(); dz.classList.remove('dragover');
-  }));
-
-  dz.addEventListener('drop', e => {
-    const files = e.dataTransfer.files;
-    if (files.length > 0) handleGPXFile(files[0]);
+  // Prevent default window drop navigation
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(ev => {
+    window.addEventListener(ev, e => {
+      e.preventDefault();
+    }, false);
   });
+
+  function setupDropTarget(el) {
+    if (!el) return;
+    let dragCounter = 0;
+
+    el.addEventListener('dragenter', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter++;
+      el.classList.add('dragover');
+    });
+
+    el.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'copy';
+      }
+    });
+
+    el.addEventListener('dragleave', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter = Math.max(0, dragCounter - 1);
+      if (dragCounter === 0) {
+        el.classList.remove('dragover');
+      }
+    });
+
+    el.addEventListener('drop', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter = 0;
+      el.classList.remove('dragover');
+      const files = e.dataTransfer ? e.dataTransfer.files : null;
+      if (files && files.length > 0) {
+        handleGPXFile(files[0]);
+      }
+    });
+  }
+
+  setupDropTarget(dz);
+  setupDropTarget(previewStage);
+
   fin.addEventListener('change', e => {
     if (e.target.files.length > 0) handleGPXFile(e.target.files[0]);
+  });
+
+  // Clicking empty preview area opens file picker
+  svgHost.addEventListener('click', () => {
+    if (appState.points.length < 2) {
+      fin.click();
+    }
   });
 
   // Size Controls

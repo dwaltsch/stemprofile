@@ -300,6 +300,36 @@ main.stage-area {
   justify-content: center;
   min-height: 280px;
   position: relative;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.preview-stage.dragover {
+  border-color: var(--accent);
+  background: rgba(88, 166, 255, 0.04);
+  box-shadow: 0 0 0 1px var(--accent), 0 8px 24px rgba(88, 166, 255, 0.12);
+}
+
+.stage-drop-hint {
+  display: none;
+  position: absolute;
+  inset: 0;
+  background: rgba(9, 12, 16, 0.92);
+  backdrop-filter: blur(4px);
+  border-radius: 7px;
+  border: 2px dashed var(--accent);
+  z-index: 40;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.6rem;
+  color: var(--accent);
+  font-weight: 500;
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+.preview-stage.dragover .stage-drop-hint {
+  display: flex;
 }
 
 .stage-badge {
@@ -336,6 +366,22 @@ main.stage-area {
   color: var(--text-dim);
   text-align: center;
   padding: 2rem 1rem;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s ease;
+}
+
+.empty-msg:hover {
+  color: var(--text-secondary);
+}
+
+.empty-msg svg {
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.empty-msg:hover svg {
+  color: var(--accent);
+  transform: translateY(-2px);
 }
 
 .empty-msg h3 {
