@@ -1,17 +1,17 @@
 :root {
   /* Cockpit Dark Palette */
-  --bg-canvas: #090c10;
-  --bg-panel: #11161f;
-  --bg-panel-trans: rgba(17, 22, 31, 0.78);
-  --bg-surface: rgba(22, 30, 43, 0.65);
-  --bg-surface-active: rgba(30, 42, 60, 0.9);
-  --bg-input: #0b0f16;
+  --bg-canvas: #080b10;
+  --bg-panel: #0f141d;
+  --bg-panel-trans: rgba(15, 20, 29, 0.82);
+  --bg-surface: rgba(22, 30, 44, 0.65);
+  --bg-surface-active: rgba(30, 42, 60, 0.95);
+  --bg-input: #0a0e16;
   
   --border-base: rgba(255, 255, 255, 0.08);
   --border-subtle: rgba(255, 255, 255, 0.04);
   --border-focus: #38bdf8;
   
-  --text-main: #f1f5f9;
+  --text-main: #f8fafc;
   --text-muted: #94a3b8;
   --text-dim: #64748b;
   --text-brand: #38bdf8;
@@ -185,7 +185,7 @@ header {
 }
 
 .btn:disabled {
-  opacity: 0.45;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -210,16 +210,16 @@ header {
 /* Layout */
 .app-workspace {
   display: grid;
-  grid-template-columns: 350px 1fr;
+  grid-template-columns: 360px 1fr;
   gap: 1.25rem;
   padding: 1.25rem;
   flex: 1;
-  max-width: 1650px;
+  max-width: 1680px;
   margin: 0 auto;
   width: 100%;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1080px) {
   .app-workspace {
     grid-template-columns: 1fr;
   }
@@ -267,7 +267,7 @@ header {
 .dropzone {
   border: 1.5px dashed rgba(56, 189, 248, 0.35);
   border-radius: var(--radius-sm);
-  padding: 1.5rem 1rem;
+  padding: 1.35rem 1rem;
   text-align: center;
   background: rgba(11, 15, 22, 0.6);
   cursor: pointer;
@@ -471,6 +471,47 @@ input:checked + .toggle-slider:before {
   flex-shrink: 0;
 }
 
+/* Custom Cue Builder */
+.cue-input-row {
+  display: grid;
+  grid-template-columns: 75px 85px 1fr auto;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.cues-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.cue-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: var(--radius-sm);
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  color: var(--text-main);
+}
+
+.btn-del-cue {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.btn-del-cue:hover {
+  color: var(--z4-color);
+}
+
 /* Main Display Area */
 .main-canvas-area {
   display: flex;
@@ -654,6 +695,75 @@ input:checked + .toggle-slider:before {
   color: var(--text-dim);
 }
 
+/* Pro Climb Segments Breakdown Card */
+.climbs-panel-card {
+  padding: 1.15rem;
+}
+
+.climbs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.65rem;
+}
+
+.climb-item-card {
+  background: var(--bg-input);
+  border: 1px solid var(--border-base);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  border-left: 3px solid var(--z4-color);
+}
+
+.climb-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.climb-cat-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(239, 68, 68, 0.18);
+  color: var(--z4-color);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.climb-cat-badge.cat-1 { background: rgba(249, 115, 22, 0.18); color: var(--z3-color); border-color: rgba(249, 115, 22, 0.3); }
+.climb-cat-badge.cat-2 { background: rgba(234, 179, 8, 0.18); color: var(--z2-color); border-color: rgba(234, 179, 8, 0.3); }
+.climb-cat-badge.cat-3, .climb-cat-badge.cat-4 { background: rgba(56, 189, 248, 0.18); color: var(--text-brand); border-color: rgba(56, 189, 248, 0.3); }
+
+.climb-item-name {
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-main);
+}
+
+.climb-item-stat {
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--z2-color);
+  margin-left: auto;
+}
+
+.climb-item-details {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
 /* Slope Analysis Bar */
 .slope-card {
   padding: 1.15rem;
@@ -736,7 +846,7 @@ input:checked + .toggle-slider:before {
     padding: 0 !important;
   }
 
-  header, .sidebar, .telemetry-grid, .slope-card, .preview-meta, .stage-ruler, #cursor-tip, .action-group, .preview-card {
+  header, .sidebar, .telemetry-grid, .slope-card, .climbs-panel-card, .preview-meta, .stage-ruler, #cursor-tip, .action-group, .preview-card {
     display: none !important;
   }
 

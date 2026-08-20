@@ -1,6 +1,7 @@
 /**
  * Vector SVG Renderer Module
- * Generates exact physical millimeter-scale vector profiles with gradient zones
+ * Pro-cycling race stem & top-tube profile generator
+ * Optimized for glance-readability at high speed
  */
 
 export const THEME_PALETTES = {
@@ -14,43 +15,55 @@ export const THEME_PALETTES = {
     z2: '#eab308',
     z3: '#f97316',
     z4: '#ef4444',
-    stroke: '#38bdf8'
+    stroke: '#38bdf8',
+    badgeBg: 'rgba(15, 23, 42, 0.9)',
+    badgeBorder: '#38bdf8',
+    badgeText: '#ffffff'
   },
-  'high-contrast-light': {
+  'pro-white': {
     bg: '#ffffff',
-    cardBg: '#f8fafc',
+    cardBg: '#f1f5f9',
     text: '#090d14',
-    textMuted: '#475569',
+    textMuted: '#334155',
     grid: 'rgba(0, 0, 0, 0.12)',
     z1: '#059669',
     z2: '#d97706',
     z3: '#ea580c',
     z4: '#dc2626',
-    stroke: '#090d14'
+    stroke: '#090d14',
+    badgeBg: '#090d14',
+    badgeBorder: '#090d14',
+    badgeText: '#ffffff'
   },
-  'neon-cyber': {
+  'neon-vis': {
     bg: '#04050a',
     cardBg: '#0b0e1b',
     text: '#00f0ff',
-    textMuted: '#9333ea',
-    grid: 'rgba(0, 240, 255, 0.14)',
+    textMuted: '#a855f7',
+    grid: 'rgba(0, 240, 255, 0.15)',
     z1: '#00ff66',
     z2: '#ffea00',
     z3: '#ff0055',
     z4: '#bd00ff',
-    stroke: '#00f0ff'
+    stroke: '#00f0ff',
+    badgeBg: '#0b0e1b',
+    badgeBorder: '#00f0ff',
+    badgeText: '#00f0ff'
   },
-  'nordic-mono': {
-    bg: '#14171c',
-    cardBg: '#1c2128',
+  'monochrome-race': {
+    bg: '#121418',
+    cardBg: '#1a1e24',
     text: '#f1f5f9',
-    textMuted: '#8b949e',
-    grid: 'rgba(255, 255, 255, 0.06)',
-    z1: '#34d399',
-    z2: '#fbbf24',
-    z3: '#fb923c',
-    z4: '#f87171',
-    stroke: '#e2e8f0'
+    textMuted: '#94a3b8',
+    grid: 'rgba(255, 255, 255, 0.07)',
+    z1: '#64748b',
+    z2: '#94a3b8',
+    z3: '#cbd5e1',
+    z4: '#ffffff',
+    stroke: '#ffffff',
+    badgeBg: '#1e293b',
+    badgeBorder: '#94a3b8',
+    badgeText: '#ffffff'
   }
 };
 
@@ -65,7 +78,7 @@ export function escapeXml(s) {
   return (s || '').replace(/[<>&'"]/g, c => map[c] || c);
 }
 
-export function renderProfileSVG(points, stats, settings, isPrint = false) {
+export function renderProfileSVG(points, stats, climbs = [], cues = [], settings, isPrint = false) {
   const W = settings.widthMm;
   const H = settings.heightMm;
   const radius = settings.radiusMm;
@@ -74,7 +87,7 @@ export function renderProfileSVG(points, stats, settings, isPrint = false) {
   if (!points || points.length < 2 || !stats) {
     return `<svg id="profile-svg-elem" viewBox="0 0 ${W} ${H}" width="${W}mm" height="${H}mm" xmlns="http://www.w3.org/2000/svg" style="display:block; border-radius:${radius}mm; background:${theme.bg};">
       <rect width="100%" height="100%" fill="${theme.bg}"/>
-      <text x="50%" y="50%" fill="${theme.textMuted}" text-anchor="middle" font-size="3.5" font-family="sans-serif">Drop GPX to Render Profile</text>
+      <text x="50%" y="50%" fill="${theme.textMuted}" text-anchor="middle" font-size="3.5" font-family="sans-serif">Drop GPX Track to Render Profile</text>
     </svg>`;
   }
 
@@ -89,25 +102,29 @@ export function renderProfileSVG(points, stats, settings, isPrint = false) {
   const minEleU = stats.minEle * eFactor;
   const maxEleU = stats.maxEle * eFactor;
 
-  const padLeft = 8.0;
+  // Pro Layout Margins (in mm)
+  const padLeft = 8.5;
   const padRight = 6.0;
-  const padTop = settings.showHeader ? 9.2 : 4.5;
-  const padBottom = settings.showDistanceTicks ? 6.2 : 3.5;
+  const hasClimbBadges = settings.showClimbs && climbs && climbs.length > 0;
+  const padTop = settings.showHeader ? (hasClimbBadges ? 12.0 : 8.5) : (hasClimbBadges ? 8.0 : 4.0);
+  const padBottom = settings.showDistanceTicks ? 5.8 : 3.2;
 
   const plotW = W - padLeft - padRight;
   const plotH = H - padTop - padBottom;
 
   const eleDelta = Math.max(15, stats.maxEle - stats.minEle);
-  const minElePadded = Math.max(0, stats.minEle - (eleDelta * 0.07));
-  const maxElePadded = stats.maxEle + (eleDelta * 0.07);
+  const minElePadded = Math.max(0, stats.minEle - (eleDelta * 0.05));
+  const maxElePadded = stats.maxEle + (eleDelta * 0.08);
   const spanEle = maxElePadded - minElePadded;
 
   const toX = d => padLeft + ((d / stats.totalDist) * plotW);
   const toY = e => padTop + plotH - (((e - minElePadded) / spanEle) * plotH);
 
-  // 1. Multi-zone polygon slices (<5%, 5-8%, 8-12%, >12%)
+  // 1. Multi-tier gradient polygon slices (<5%, 5-8%, 8-12%, >12%)
   const zoneColors = [theme.z1, theme.z2, theme.z3, theme.z4];
   let slicesMarkup = '';
+  const opacity = isPrint && settings.theme === 'pro-white' ? '0.9' : '0.82';
+
   for (let i = 1; i < points.length; i++) {
     const p1 = points[i - 1];
     const p2 = points[i];
@@ -117,7 +134,7 @@ export function renderProfileSVG(points, stats, settings, isPrint = false) {
     const y2 = toY(p2.smoothEle).toFixed(2);
     const yBase = (padTop + plotH).toFixed(2);
 
-    slicesMarkup += `<polygon points="${x1},${yBase} ${x1},${y1} ${x2},${y2} ${x2},${yBase}" fill="${zoneColors[p2.zone]}" fill-opacity="${isPrint && settings.theme === 'high-contrast-light' ? '0.88' : '0.8'}"/>`;
+    slicesMarkup += `<polygon points="${x1},${yBase} ${x1},${y1} ${x2},${y2} ${x2},${yBase}" fill="${zoneColors[p2.zone]}" fill-opacity="${opacity}"/>`;
   }
 
   // 2. Profile top boundary stroke
@@ -125,10 +142,67 @@ export function renderProfileSVG(points, stats, settings, isPrint = false) {
   for (let i = 1; i < points.length; i++) {
     pathD += ` L ${toX(points[i].dist).toFixed(2)} ${toY(points[i].smoothEle).toFixed(2)}`;
   }
-  const topStroke = isPrint && settings.theme === 'high-contrast-light' ? '#090d14' : '#ffffff';
-  const strokeMarkup = `<path d="${pathD}" fill="none" stroke="${topStroke}" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+  const topStroke = isPrint && settings.theme === 'pro-white' ? '#090d14' : '#ffffff';
+  const strokeMarkup = `<path d="${pathD}" fill="none" stroke="${topStroke}" stroke-width="0.55" stroke-linejoin="round" stroke-linecap="round"/>`;
 
-  // 3. Grid lines & Distance axis
+  // 3. Highlighted Climb Segments & Summit Badges (Pro-Style)
+  let climbBadgesMarkup = '';
+  if (settings.showClimbs && climbs && climbs.length > 0) {
+    climbs.forEach(climb => {
+      const startX = toX(climb.startKm * 1000);
+      const summitX = toX(climb.summitKm * 1000);
+      const summitY = toY(climb.summitEle);
+
+      // Climb under-bracket or baseline indicator
+      const baseLineY = (padTop + plotH + 0.6).toFixed(2);
+      climbBadgesMarkup += `
+        <line x1="${startX.toFixed(2)}" y1="${baseLineY}" x2="${summitX.toFixed(2)}" y2="${baseLineY}" stroke="${theme.z3}" stroke-width="0.8"/>
+        <circle cx="${summitX.toFixed(2)}" cy="${summitY.toFixed(2)}" r="1.0" fill="${theme.z4}" stroke="#ffffff" stroke-width="0.3"/>
+      `;
+
+      // Summit Banner Badge
+      const badgeY = Math.max(padTop - 4.2, summitY - 5.5).toFixed(2);
+      const labelText = `${climb.category} • ${climb.lengthKm.toFixed(1)}k @ ${climb.avgGrade}%`;
+      const badgeW = Math.min(28, labelText.length * 1.7 + 4);
+
+      climbBadgesMarkup += `
+        <g transform="translate(${Math.max(padLeft, Math.min(W - padRight - badgeW, summitX - (badgeW / 2))).toFixed(2)}, ${badgeY})">
+          <rect width="${badgeW}" height="3.6" rx="0.8" fill="${theme.badgeBg}" stroke="${theme.z4}" stroke-width="0.35"/>
+          <text x="${badgeW / 2}" y="2.5" fill="${theme.badgeText}" font-size="1.9" font-weight="800" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${labelText}</text>
+        </g>
+        <line x1="${summitX.toFixed(2)}" y1="${(parseFloat(badgeY) + 3.6).toFixed(2)}" x2="${summitX.toFixed(2)}" y2="${(summitY - 1.2).toFixed(2)}" stroke="${theme.z4}" stroke-width="0.25" stroke-dasharray="0.5,0.5"/>
+      `;
+    });
+  }
+
+  // 4. Custom Cue Pins (Feed zones, Sprints, Water, Gravel)
+  let cuesMarkup = '';
+  if (settings.showCues && cues && cues.length > 0) {
+    cues.forEach(cue => {
+      const cueMeters = cue.km * 1000;
+      if (cueMeters <= stats.totalDist) {
+        const cx = toX(cueMeters).toFixed(2);
+        const cy1 = padTop.toFixed(2);
+        const cy2 = (padTop + plotH).toFixed(2);
+        
+        let iconSymbol = '📍';
+        if (cue.type === 'feed') iconSymbol = '🥛';
+        else if (cue.type === 'sprint') iconSymbol = '⚡';
+        else if (cue.type === 'gravel') iconSymbol = '🪨';
+        else if (cue.type === 'hazard') iconSymbol = '⚠️';
+
+        cuesMarkup += `
+          <g>
+            <line x1="${cx}" y1="${cy1}" x2="${cx}" y2="${cy2}" stroke="${theme.stroke}" stroke-width="0.35" stroke-dasharray="0.8,0.8"/>
+            <circle cx="${cx}" cy="${(padTop - 1.2).toFixed(2)}" r="1.4" fill="${theme.cardBg}" stroke="${theme.stroke}" stroke-width="0.3"/>
+            <text x="${cx}" y="${(padTop - 0.5).toFixed(2)}" font-size="1.8" text-anchor="middle">${iconSymbol}</text>
+          </g>
+        `;
+      }
+    });
+  }
+
+  // 5. Grid lines & Distance axis
   let gridMarkup = '';
   if (settings.showDistanceTicks) {
     let stepKm = 5;
@@ -148,14 +222,14 @@ export function renderProfileSVG(points, stats, settings, isPrint = false) {
       const y2 = (padTop + plotH).toFixed(2);
 
       gridMarkup += `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${theme.grid}" stroke-width="0.25" stroke-dasharray="0.6,0.6"/>`;
-      gridMarkup += `<text x="${x}" y="${(padTop + plotH + 3.0).toFixed(2)}" fill="${theme.textMuted}" font-size="2.1" font-family="monospace" font-weight="600" text-anchor="middle">${t * stepKm}</text>`;
+      gridMarkup += `<text x="${x}" y="${(padTop + plotH + 2.8).toFixed(2)}" fill="${theme.textMuted}" font-size="2.2" font-family="monospace" font-weight="700" text-anchor="middle">${t * stepKm}</text>`;
     }
 
-    gridMarkup += `<text x="${(padLeft + plotW).toFixed(2)}" y="${(padTop + plotH + 3.0).toFixed(2)}" fill="${theme.textMuted}" font-size="1.9" font-weight="700" font-family="sans-serif" text-anchor="end">${distUnit}</text>`;
-    gridMarkup += `<text x="${padLeft.toFixed(2)}" y="${(padTop + plotH + 3.0).toFixed(2)}" fill="${theme.textMuted}" font-size="2.1" font-weight="600" font-family="sans-serif" text-anchor="start">0</text>`;
+    gridMarkup += `<text x="${(padLeft + plotW).toFixed(2)}" y="${(padTop + plotH + 2.8).toFixed(2)}" fill="${theme.textMuted}" font-size="1.9" font-weight="800" font-family="system-ui, sans-serif" text-anchor="end">${distUnit}</text>`;
+    gridMarkup += `<text x="${padLeft.toFixed(2)}" y="${(padTop + plotH + 2.8).toFixed(2)}" fill="${theme.textMuted}" font-size="2.2" font-weight="700" font-family="monospace" text-anchor="start">0</text>`;
   }
 
-  // 4. Min / Max Altitude labels
+  // 6. Min / Max Altitude labels
   let eleMarkup = '';
   if (settings.showElevationLabels) {
     const minStr = `${Math.round(minEleU)}${eleUnit}`;
@@ -163,11 +237,11 @@ export function renderProfileSVG(points, stats, settings, isPrint = false) {
     const yMin = toY(stats.minEle).toFixed(2);
     const yMax = toY(stats.maxEle).toFixed(2);
 
-    eleMarkup += `<text x="${(padLeft - 1.2).toFixed(2)}" y="${(parseFloat(yMax) + 1.1).toFixed(2)}" fill="${theme.textMuted}" font-size="2.0" font-weight="700" font-family="sans-serif" text-anchor="end">${maxStr}</text>`;
-    eleMarkup += `<text x="${(padLeft - 1.2).toFixed(2)}" y="${(parseFloat(yMin) + 0.8).toFixed(2)}" fill="${theme.textMuted}" font-size="2.0" font-weight="600" font-family="sans-serif" text-anchor="end">${minStr}</text>`;
+    eleMarkup += `<text x="${(padLeft - 1.2).toFixed(2)}" y="${(parseFloat(yMax) + 1.1).toFixed(2)}" fill="${theme.textMuted}" font-size="2.0" font-weight="700" font-family="system-ui, sans-serif" text-anchor="end">${maxStr}</text>`;
+    eleMarkup += `<text x="${(padLeft - 1.2).toFixed(2)}" y="${(parseFloat(yMin) + 0.8).toFixed(2)}" fill="${theme.textMuted}" font-size="2.0" font-weight="600" font-family="system-ui, sans-serif" text-anchor="end">${minStr}</text>`;
   }
 
-  // 5. Header Title & Race Stats Badge
+  // 7. Header Title & Race Stats Banner
   let headerMarkup = '';
   if (settings.showHeader) {
     const titleSafe = escapeXml(settings.title || 'StemProfile');
@@ -177,35 +251,35 @@ export function renderProfileSVG(points, stats, settings, isPrint = false) {
 
     headerMarkup += `
       <g>
-        <text x="${padLeft}" y="5.0" fill="${theme.text}" font-size="3.2" font-weight="800" font-family="system-ui, sans-serif" letter-spacing="-0.02em">${titleSafe}</text>
-        <text x="${(W - padRight).toFixed(2)}" y="4.8" fill="${theme.textMuted}" font-size="2.4" font-weight="700" font-family="monospace" text-anchor="end">
+        <text x="${padLeft}" y="4.6" fill="${theme.text}" font-size="3.2" font-weight="800" font-family="system-ui, -apple-system, sans-serif" letter-spacing="-0.02em">${titleSafe}</text>
+        <text x="${(W - padRight).toFixed(2)}" y="4.4" fill="${theme.textMuted}" font-size="2.4" font-weight="700" font-family="monospace" text-anchor="end">
           <tspan fill="${theme.text}">${distStr}</tspan>  <tspan fill="${theme.z1}">${gainStr}</tspan>  <tspan fill="${theme.z4}">${maxGStr}</tspan>
         </text>
-        <line x1="${padLeft}" y1="6.5" x2="${(W - padRight).toFixed(2)}" y2="6.5" stroke="${theme.grid}" stroke-width="0.3"/>
+        <line x1="${padLeft}" y1="5.8" x2="${(W - padRight).toFixed(2)}" y2="5.8" stroke="${theme.grid}" stroke-width="0.3"/>
       </g>
     `;
   }
 
-  // 6. Mini Gradient Legend
+  // 8. Mini Gradient Legend
   let legendMarkup = '';
   if (settings.showGradientLegend) {
-    const lx = (W - padRight - 25).toFixed(2);
-    const ly = (padTop + 1.0).toFixed(2);
+    const lx = (W - padRight - 23).toFixed(2);
+    const ly = (padTop + 0.8).toFixed(2);
     legendMarkup += `
-      <g opacity="0.9">
-        <rect x="${lx}" y="${ly}" width="24" height="2.0" rx="0.4" fill="${theme.cardBg}" stroke="${theme.grid}" stroke-width="0.2"/>
-        <rect x="${(parseFloat(lx) + 0.8).toFixed(2)}" y="${(parseFloat(ly) + 0.4).toFixed(2)}" width="5.0" height="1.2" rx="0.2" fill="${theme.z1}"/>
-        <rect x="${(parseFloat(lx) + 6.6).toFixed(2)}" y="${(parseFloat(ly) + 0.4).toFixed(2)}" width="5.0" height="1.2" rx="0.2" fill="${theme.z2}"/>
-        <rect x="${(parseFloat(lx) + 12.4).toFixed(2)}" y="${(parseFloat(ly) + 0.4).toFixed(2)}" width="5.0" height="1.2" rx="0.2" fill="${theme.z3}"/>
-        <rect x="${(parseFloat(lx) + 18.2).toFixed(2)}" y="${(parseFloat(ly) + 0.4).toFixed(2)}" width="5.0" height="1.2" rx="0.2" fill="${theme.z4}"/>
+      <g opacity="0.92">
+        <rect x="${lx}" y="${ly}" width="22" height="1.8" rx="0.4" fill="${theme.cardBg}" stroke="${theme.grid}" stroke-width="0.2"/>
+        <rect x="${(parseFloat(lx) + 0.6).toFixed(2)}" y="${(parseFloat(ly) + 0.3).toFixed(2)}" width="4.6" height="1.2" rx="0.2" fill="${theme.z1}"/>
+        <rect x="${(parseFloat(lx) + 5.8).toFixed(2)}" y="${(parseFloat(ly) + 0.3).toFixed(2)}" width="4.6" height="1.2" rx="0.2" fill="${theme.z2}"/>
+        <rect x="${(parseFloat(lx) + 11.0).toFixed(2)}" y="${(parseFloat(ly) + 0.3).toFixed(2)}" width="4.6" height="1.2" rx="0.2" fill="${theme.z3}"/>
+        <rect x="${(parseFloat(lx) + 16.2).toFixed(2)}" y="${(parseFloat(ly) + 0.3).toFixed(2)}" width="4.6" height="1.2" rx="0.2" fill="${theme.z4}"/>
       </g>
     `;
   }
 
-  // 7. Outer Cut Guides
+  // 9. Outer Cut Guidelines
   let cutMarkup = '';
   if (settings.showCutGuidelines) {
-    const cutColor = isPrint ? '#64748b' : 'rgba(255,255,255,0.18)';
+    const cutColor = isPrint ? '#475569' : 'rgba(255,255,255,0.18)';
     cutMarkup = `<rect x="0.2" y="0.2" width="${(W - 0.4).toFixed(2)}" height="${(H - 0.4).toFixed(2)}" rx="${radius}" fill="none" stroke="${cutColor}" stroke-width="0.35" stroke-dasharray="1.0,1.0"/>`;
   }
 
@@ -221,6 +295,8 @@ export function renderProfileSVG(points, stats, settings, isPrint = false) {
         ${gridMarkup}
         ${slicesMarkup}
         ${strokeMarkup}
+        ${climbBadgesMarkup}
+        ${cuesMarkup}
         ${eleMarkup}
         ${headerMarkup}
         ${legendMarkup}

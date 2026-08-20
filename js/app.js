@@ -1,6 +1,6 @@
 /**
- * StemProfile Main Controller
- * Modular architecture connecting Ingestion, Signal Processing, Vector Rendering, and Export
+ * StemProfile Main Application Controller
+ * Pro Race Stem Profile & Climb Segmentation Studio
  */
 
 import { parseGPX } from './parser.js';
@@ -8,11 +8,14 @@ import { processTrackSignal } from './signal.js';
 import { renderProfileSVG } from './renderer.js';
 import { exportSVG, exportPNG, copySVG, updatePrintMatrix } from './export.js';
 
-// Application State (Zero preloaded demo data)
 const appState = {
   rawCoords: [],
   points: [],
   stats: null,
+  climbs: [],
+  cues: [
+    // Sample structure: { id: 1, km: 45.0, type: 'feed', label: 'Feed Zone' }
+  ],
   settings: {
     widthMm: 110,
     heightMm: 35,
@@ -26,6 +29,8 @@ const appState = {
     showElevationLabels: true,
     showGradientLegend: true,
     showCutGuidelines: true,
+    showClimbs: true,
+    showCues: true,
     printCopies: 2,
     zoomFactor: 1.0
   }
@@ -58,23 +63,27 @@ function handleGPXFile(file) {
 
 function reprocessAndRender() {
   if (appState.rawCoords.length >= 2) {
-    const { points, stats } = processTrackSignal(appState.rawCoords, appState.settings.smoothingWindow);
+    const { points, stats, climbs } = processTrackSignal(appState.rawCoords, appState.settings.smoothingWindow);
     appState.points = points;
     appState.stats = stats;
+    appState.climbs = climbs;
   }
   updateUI();
+  renderClimbsList();
 }
 
 function updateUI() {
   const cfg = appState.settings;
   const stats = appState.stats;
   const pts = appState.points;
+  const climbs = appState.climbs;
+  const cues = appState.cues;
   const hasData = pts.length >= 2 && stats !== null;
 
   // 1. Render SVG Preview
   const svgHost = document.getElementById('svg-host');
   if (hasData) {
-    svgHost.innerHTML = renderProfileSVG(pts, stats, cfg, false);
+    svgHost.innerHTML = renderProfileSVG(pts, stats, climbs, cues, cfg, false);
   } else {
     svgHost.innerHTML = `
       <div class="empty-placeholder">
@@ -84,7 +93,7 @@ function updateUI() {
           <line x1="12" y1="3" x2="12" y2="15"></line>
         </svg>
         <h3>No GPX Track Loaded</h3>
-        <p>Drop a .gpx file on the left panel to generate your stem profile</p>
+        <p>Drop a .gpx file to generate your glance-ready pro stem profile</p>
       </div>
     `;
   }
@@ -111,7 +120,7 @@ function updateUI() {
     if (btn) btn.disabled = !hasData;
   });
 
-  // 4. Metrics & Dashboard
+  // 4. Metrics & Telemetry
   const isMetric = cfg.units === 'metric';
   const distU = isMetric ? 'km' : 'mi';
   const eleU = isMetric ? 'm' : 'ft';
@@ -119,12 +128,12 @@ function updateUI() {
   const eFactor = isMetric ? 1 : 3.28084;
 
   if (hasData) {
-    document.getElementById('val-tot-dist').textContent = `${(stats.totalDist * dFactor).toFixed(2)} ${distU}`;
+    document.getElementById('val-tot-dist').textContent = `${(stats.totalDist * dFactor).toFixed(1)} ${distU}`;
     document.getElementById('val-tot-gain').textContent = `+${Math.round(stats.elevGain * eFactor)} ${eleU}`;
     document.getElementById('val-tot-loss').textContent = `-${Math.round(stats.elevLoss * eFactor)} ${eleU} Loss`;
     document.getElementById('val-max-grade').textContent = `${stats.maxGrade.toFixed(1)}%`;
     document.getElementById('val-avg-grade').textContent = `Avg: ${stats.avgGrade.toFixed(1)}%`;
-    document.getElementById('val-ele-range').textContent = `${Math.round((stats.maxEle - stats.minEle) * eFactor)} ${eleU}`;
+    document.getElementById('val-climbs-count').textContent = `${climbs.length} Climbs`;
     document.getElementById('val-min-max-ele').textContent = `Min: ${Math.round(stats.minEle * eFactor)} / Max: ${Math.round(stats.maxEle * eFactor)} ${eleU}`;
 
     // Gradient Zone Distribution
@@ -137,23 +146,23 @@ function updateUI() {
     document.getElementById('bar-seg-4').style.width = `${pcts[3].toFixed(1)}%`;
 
     document.getElementById('z1-dist-txt').textContent = `${(stats.zoneDists[0] * dFactor).toFixed(1)} ${distU}`;
-    document.getElementById('z1-pct-txt').textContent = `${pcts[0].toFixed(1)}% of track`;
+    document.getElementById('z1-pct-txt').textContent = `${pcts[0].toFixed(1)}%`;
 
     document.getElementById('z2-dist-txt').textContent = `${(stats.zoneDists[1] * dFactor).toFixed(1)} ${distU}`;
-    document.getElementById('z2-pct-txt').textContent = `${pcts[1].toFixed(1)}% of track`;
+    document.getElementById('z2-pct-txt').textContent = `${pcts[1].toFixed(1)}%`;
 
     document.getElementById('z3-dist-txt').textContent = `${(stats.zoneDists[2] * dFactor).toFixed(1)} ${distU}`;
-    document.getElementById('z3-pct-txt').textContent = `${pcts[2].toFixed(1)}% of track`;
+    document.getElementById('z3-pct-txt').textContent = `${pcts[2].toFixed(1)}%`;
 
     document.getElementById('z4-dist-txt').textContent = `${(stats.zoneDists[3] * dFactor).toFixed(1)} ${distU}`;
-    document.getElementById('z4-pct-txt').textContent = `${pcts[3].toFixed(1)}% of track`;
+    document.getElementById('z4-pct-txt').textContent = `${pcts[3].toFixed(1)}%`;
   } else {
     document.getElementById('val-tot-dist').textContent = '--';
     document.getElementById('val-tot-gain').textContent = '--';
     document.getElementById('val-tot-loss').textContent = '-- Loss';
     document.getElementById('val-max-grade').textContent = '--';
     document.getElementById('val-avg-grade').textContent = 'Avg: --';
-    document.getElementById('val-ele-range').textContent = '--';
+    document.getElementById('val-climbs-count').textContent = '--';
     document.getElementById('val-min-max-ele').textContent = 'Min: -- / Max: --';
 
     ['bar-seg-1', 'bar-seg-2', 'bar-seg-3', 'bar-seg-4'].forEach(id => {
@@ -165,8 +174,39 @@ function updateUI() {
     });
   }
 
-  updatePrintMatrix(pts, stats, cfg);
+  updatePrintMatrix(pts, stats, climbs, cues, cfg);
   bindTooltipHover();
+}
+
+function renderClimbsList() {
+  const container = document.getElementById('climbs-list-container');
+  if (!container) return;
+
+  const climbs = appState.climbs;
+  if (!climbs || climbs.length === 0) {
+    container.innerHTML = `<div style="font-size:0.72rem; color:var(--text-dim); padding: 0.5rem 0;">No major climb segments detected (>35m gain, >600m len).</div>`;
+    return;
+  }
+
+  let html = '';
+  climbs.forEach((climb, idx) => {
+    html += `
+      <div class="climb-item-card">
+        <div class="climb-item-header">
+          <span class="climb-cat-badge ${climb.category.toLowerCase().replace(/\s+/g, '-')}">${climb.category}</span>
+          <span class="climb-item-name">KM ${climb.startKm.toFixed(1)} → ${climb.summitKm.toFixed(1)}</span>
+          <span class="climb-item-stat">${climb.lengthKm.toFixed(1)} km @ ${climb.avgGrade}%</span>
+        </div>
+        <div class="climb-item-details">
+          <span>Gain: +${climb.gainM}m</span>
+          <span>Max: ${climb.maxGrade}%</span>
+          <span>Summit: ${climb.summitEle}m</span>
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
 }
 
 function bindTooltipHover() {
@@ -270,7 +310,7 @@ export function initApp() {
 
   document.getElementById('input-copies').addEventListener('change', e => {
     appState.settings.printCopies = parseInt(e.target.value, 10) || 1;
-    updatePrintMatrix(appState.points, appState.stats, appState.settings);
+    updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.cues, appState.settings);
   });
 
   // 3. Smoothing Slider & Units
@@ -288,7 +328,7 @@ export function initApp() {
     updateUI();
   });
 
-  // 4. Styles & Theme
+  // 4. Styles & Themes
   document.getElementById('select-theme').addEventListener('change', e => {
     appState.settings.theme = e.target.value;
     updateUI();
@@ -300,6 +340,14 @@ export function initApp() {
   });
 
   // Toggles
+  document.getElementById('chk-climbs').addEventListener('change', e => {
+    appState.settings.showClimbs = e.target.checked;
+    updateUI();
+  });
+  document.getElementById('chk-cues').addEventListener('change', e => {
+    appState.settings.showCues = e.target.checked;
+    updateUI();
+  });
   document.getElementById('chk-header').addEventListener('change', e => {
     appState.settings.showHeader = e.target.checked;
     updateUI();
@@ -321,6 +369,56 @@ export function initApp() {
     updateUI();
   });
 
+  // Custom Cue Maker
+  document.getElementById('btn-add-cue').addEventListener('click', () => {
+    const km = parseFloat(document.getElementById('cue-km-input').value);
+    const type = document.getElementById('cue-type-select').value;
+    const label = document.getElementById('cue-label-input').value.trim() || type;
+
+    if (!isNaN(km) && km >= 0) {
+      appState.cues.push({ id: Date.now(), km, type, label });
+      document.getElementById('cue-km-input').value = '';
+      document.getElementById('cue-label-input').value = '';
+      renderCuesList();
+      updateUI();
+    }
+  });
+
+  function renderCuesList() {
+    const host = document.getElementById('cues-list-host');
+    if (!host) return;
+    if (appState.cues.length === 0) {
+      host.innerHTML = `<span style="font-size:0.68rem; color:var(--text-dim);">No custom race cues added yet.</span>`;
+      return;
+    }
+
+    let h = '';
+    appState.cues.forEach(c => {
+      let icon = '📍';
+      if (c.type === 'feed') icon = '🥛';
+      else if (c.type === 'sprint') icon = '⚡';
+      else if (c.type === 'gravel') icon = '🪨';
+      else if (c.type === 'hazard') icon = '⚠️';
+
+      h += `
+        <div class="cue-pill">
+          <span>${icon} KM ${c.km}: ${c.label}</span>
+          <button data-cue-id="${c.id}" class="btn-del-cue" title="Remove cue">×</button>
+        </div>
+      `;
+    });
+    host.innerHTML = h;
+
+    host.querySelectorAll('.btn-del-cue').forEach(btn => {
+      btn.onclick = function() {
+        const id = parseInt(this.getAttribute('data-cue-id'), 10);
+        appState.cues = appState.cues.filter(c => c.id !== id);
+        renderCuesList();
+        updateUI();
+      };
+    });
+  }
+
   // Zoom
   document.getElementById('btn-zoom-reset').addEventListener('click', () => {
     appState.settings.zoomFactor = 1.0;
@@ -336,7 +434,7 @@ export function initApp() {
 
   // Export Actions
   document.getElementById('btn-copy-svg').addEventListener('click', () => {
-    copySVG(appState.points, appState.stats, appState.settings, err => {
+    copySVG(appState.points, appState.stats, appState.climbs, appState.cues, appState.settings, err => {
       if (!err) {
         const btn = document.getElementById('btn-copy-svg');
         const orig = btn.innerHTML;
@@ -347,21 +445,21 @@ export function initApp() {
   });
 
   document.getElementById('btn-export-svg').addEventListener('click', () => {
-    exportSVG(appState.points, appState.stats, appState.settings);
+    exportSVG(appState.points, appState.stats, appState.climbs, appState.cues, appState.settings);
   });
 
   document.getElementById('btn-export-png').addEventListener('click', () => {
-    exportPNG(appState.points, appState.stats, appState.settings);
+    exportPNG(appState.points, appState.stats, appState.climbs, appState.cues, appState.settings);
   });
 
   document.getElementById('btn-print').addEventListener('click', () => {
-    updatePrintMatrix(appState.points, appState.stats, appState.settings);
+    updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.cues, appState.settings);
     window.print();
   });
 
   window.addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'p') {
-      updatePrintMatrix(appState.points, appState.stats, appState.settings);
+      updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.cues, appState.settings);
     }
   });
 

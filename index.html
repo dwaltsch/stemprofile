@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>StemProfile — Top Tube & Stem Elevation Sticker Studio</title>
+  <title>StemProfile — Pro Race Top-Tube & Stem Elevation Sticker Studio</title>
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
 
-  <!-- Header -->
+  <!-- Top Header -->
   <header>
     <div class="brand-group">
       <div class="brand-mark">
@@ -17,8 +17,8 @@
         </svg>
       </div>
       <div class="brand-info">
-        <h1>StemProfile <span class="badge-tag">Sticker Studio</span></h1>
-        <p>Pro Top-Tube & Stem Elevation Profile Visualizer</p>
+        <h1>StemProfile <span class="badge-tag">Pro Race Studio</span></h1>
+        <p>Glance-ready elevation profiles & climb segmentation for stem & top-tube</p>
       </div>
     </div>
 
@@ -27,22 +27,22 @@
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
         Copy SVG
       </button>
-      <button class="btn btn-sm" id="btn-export-svg" title="Export vector SVG file" disabled>
+      <button class="btn btn-sm" id="btn-export-svg" title="Export pure vector SVG file" disabled>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
         Download SVG
       </button>
-      <button class="btn btn-sm" id="btn-export-png" title="Export 300 DPI high-resolution PNG for vinyl sticker cutting" disabled>
+      <button class="btn btn-sm" id="btn-export-png" title="Export 300 DPI high-resolution PNG for vinyl sticker printing" disabled>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
         Download PNG (300 DPI)
       </button>
-      <button class="btn btn-primary btn-sm" id="btn-print" title="Trigger print dialog with exact millimeter physical scale" disabled>
+      <button class="btn btn-primary btn-sm" id="btn-print" title="Trigger print dialog with physical millimeter scale" disabled>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
         Print Sticker
       </button>
     </div>
   </header>
 
-  <!-- Workspace Grid -->
+  <!-- Main Workspace -->
   <main class="app-workspace">
     <!-- Left Configuration Sidebar -->
     <aside class="sidebar">
@@ -64,7 +64,7 @@
                 <line x1="12" y1="3" x2="12" y2="15"></line>
               </svg>
             </div>
-            <div class="dropzone-title">Drop GPX file here</div>
+            <div class="dropzone-title">Drop GPX track here</div>
             <div class="dropzone-sub">or click to browse • Native DOMParser()</div>
           </div>
         </div>
@@ -77,7 +77,7 @@
           </div>
 
           <div class="field">
-            <label class="field-label" for="preset-size">Sizing Template</label>
+            <label class="field-label" for="preset-size">Physical Preset</label>
             <select id="preset-size" class="input-select">
               <option value="110x35" selected>Standard Top Tube (110 × 35 mm)</option>
               <option value="100x28">Slim Stem (100 × 28 mm)</option>
@@ -118,7 +118,7 @@
           </div>
         </div>
 
-        <!-- 3. Signal Smoothing -->
+        <!-- 3. Signal Smoothing & Filters -->
         <div class="panel-block">
           <div class="block-header">
             <span>3. Signal Smoothing</span>
@@ -127,7 +127,7 @@
 
           <div class="field">
             <div class="field-label">
-              <span>Moving Average Filter</span>
+              <span>Elevation Moving Average</span>
               <span class="val-tag" id="label-smoothing">7-point</span>
             </div>
             <input type="range" id="slider-smoothing" class="range-input" min="1" max="21" step="2" value="7">
@@ -150,22 +150,38 @@
         <!-- 4. Visual Styles & Overlays -->
         <div class="panel-block">
           <div class="block-header">
-            <span>4. Style & Elements</span>
+            <span>4. Style & Overlays</span>
           </div>
 
           <div class="field">
             <label class="field-label" for="select-theme">Sticker Theme</label>
             <select id="select-theme" class="input-select">
               <option value="dark-cockpit" selected>Dark Cockpit (Stealth Slate)</option>
-              <option value="high-contrast-light">Pure White (Ink-Saver Print)</option>
-              <option value="neon-cyber">Neon Cyber (High-Vis Night)</option>
-              <option value="nordic-mono">Nordic Carbon (Minimal Monochrome)</option>
+              <option value="pro-white">Pro Roadbook White (High-Contrast Print)</option>
+              <option value="neon-vis">Neon High-Vis (Night / Low Light)</option>
+              <option value="monochrome-race">Monochrome Race (Carbon Slate)</option>
             </select>
           </div>
 
           <div class="field">
             <label class="field-label" for="input-title">Custom Header Title</label>
             <input type="text" id="input-title" class="input-text" placeholder="e.g. Stage 14 - Col du Tourmalet" value="">
+          </div>
+
+          <div class="switch-row">
+            <span style="color: var(--z4-color); font-weight: 600;">Show Segmented Climb Badges</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="chk-climbs" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="switch-row">
+            <span>Show Race Cue Points</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="chk-cues" checked>
+              <span class="toggle-slider"></span>
+            </label>
           </div>
 
           <div class="switch-row">
@@ -212,11 +228,34 @@
           <div style="margin-top: 0.85rem;">
             <div class="field-label"><span>4 Gradient Buckets (Δele / Δdist)</span></div>
             <div class="zones-grid">
-              <div class="zone-badge"><div class="zone-indicator" style="background: var(--z1-color);"></div> &lt; 5% Flat/Roll</div>
-              <div class="zone-badge"><div class="zone-indicator" style="background: var(--z2-color);"></div> 5 - 8% Moderate</div>
+              <div class="zone-badge"><div class="zone-indicator" style="background: var(--z1-color);"></div> &lt; 5% Flat</div>
+              <div class="zone-badge"><div class="zone-indicator" style="background: var(--z2-color);"></div> 5 - 8% Mod</div>
               <div class="zone-badge"><div class="zone-indicator" style="background: var(--z3-color);"></div> 8 - 12% Steep</div>
-              <div class="zone-badge"><div class="zone-indicator" style="background: var(--z4-color);"></div> &gt; 12% Extreme</div>
+              <div class="zone-badge"><div class="zone-indicator" style="background: var(--z4-color);"></div> &gt; 12% Wall</div>
             </div>
+          </div>
+        </div>
+
+        <!-- 5. Custom Race Cue Points -->
+        <div class="panel-block">
+          <div class="block-header">
+            <span>5. Add Race Cue Points</span>
+          </div>
+
+          <div class="cue-input-row">
+            <input type="number" id="cue-km-input" class="input-text" placeholder="KM" min="0" step="0.5">
+            <select id="cue-type-select" class="input-select">
+              <option value="feed">🥛 Feed</option>
+              <option value="sprint">⚡ Sprint</option>
+              <option value="gravel">🪨 Gravel</option>
+              <option value="hazard">⚠️ Danger</option>
+            </select>
+            <input type="text" id="cue-label-input" class="input-text" placeholder="Label">
+            <button class="btn btn-sm btn-primary" id="btn-add-cue" style="padding: 0.4rem 0.6rem;">Add</button>
+          </div>
+
+          <div class="cues-list" id="cues-list-host">
+            <span style="font-size:0.68rem; color:var(--text-dim);">No custom race cues added yet.</span>
           </div>
         </div>
 
@@ -226,11 +265,11 @@
     <!-- Main Display Area -->
     <section class="main-canvas-area">
       
-      <!-- Interactive Preview Box -->
+      <!-- Interactive Preview Card -->
       <div class="glass-box preview-card">
         <div class="preview-meta">
           <div>
-            <h2>Vector Elevation Profile Canvas</h2>
+            <h2>Glance-Ready Pro Stem Profile</h2>
             <p id="label-aspect">Exact Physical Dimensions: 110 mm × 35 mm</p>
           </div>
           <div style="display: flex; gap: 0.4rem;">
@@ -279,9 +318,21 @@
         </div>
 
         <div class="telemetry-card">
-          <div class="telemetry-label">Elevation Range</div>
-          <div class="telemetry-val" id="val-ele-range">--</div>
+          <div class="telemetry-label">Climb Segments</div>
+          <div class="telemetry-val" style="color: var(--text-brand);" id="val-climbs-count">--</div>
           <div class="telemetry-sub" id="val-min-max-ele">Min: -- / Max: --</div>
+        </div>
+      </div>
+
+      <!-- Segmented Climb Roadbook Table -->
+      <div class="glass-box climbs-panel-card">
+        <div class="block-header" style="margin-bottom: 0.2rem;">
+          <span>Categorized Climb Segments (Pro Roadbook)</span>
+          <span style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-brand);">Auto-Detected</span>
+        </div>
+
+        <div class="climbs-grid" id="climbs-list-container">
+          <div style="font-size:0.72rem; color:var(--text-dim); padding: 0.5rem 0;">Upload a GPX file to view auto-detected climb segments.</div>
         </div>
       </div>
 
