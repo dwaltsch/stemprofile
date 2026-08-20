@@ -346,7 +346,7 @@ main.stage-area {
 
 .sticker-wrapper {
   display: inline-block;
-  background: #000000;
+  background: transparent;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.08);
   border-radius: 3px;
   position: relative;

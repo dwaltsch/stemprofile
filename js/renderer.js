@@ -6,39 +6,41 @@
 import { getInterpolatedEle } from './signal.js';
 
 export const THEMES = {
+  'white': {
+    name: 'Print White',
+    bg: '#ffffff',
+    text: '#0f172a',          // Crisp deep slate/black
+    textMuted: '#334155',     // High-contrast slate 700
+    grid: 'rgba(15, 23, 42, 0.15)',
+    topStroke: '#0f172a',
+    divider: '#ffffff',
+    blockStroke: 'rgba(15, 23, 42, 0.35)',
+    badgeBg: '#ffffff',
+    badgeStroke: '#0f172a',
+    badgeText: '#0f172a',
+    cutLine: 'rgba(15, 23, 42, 0.35)',
+    z1: '#16a34a',            // Emerald Green
+    z2: '#d97706',            // Rich Amber
+    z3: '#ea580c',            // Deep Orange
+    z4: '#dc2626'             // Bold Crimson Red
+  },
   'dark': {
+    name: 'Dark Cockpit',
     bg: '#0d1117',
-    text: '#f0f6fc',
-    textMuted: '#8b949e',
-    grid: 'rgba(255, 255, 255, 0.1)',
+    text: '#f8fafc',          // Pure bright text
+    textMuted: '#94a3b8',     // Slate 400
+    grid: 'rgba(255, 255, 255, 0.12)',
     topStroke: '#ffffff',
     divider: '#0d1117',
-    blockStroke: 'rgba(0, 0, 0, 0.4)',
+    blockStroke: 'rgba(0, 0, 0, 0.5)',
     badgeBg: '#161b22',
-    badgeStroke: '#30363d',
-    badgeText: '#f0f6fc',
-    cutLine: 'rgba(255, 255, 255, 0.2)',
-    z1: '#2ea043',
-    z2: '#d29922',
-    z3: '#db6d28',
-    z4: '#f85149'
-  },
-  'white': {
-    bg: '#ffffff',
-    text: '#0d1117',
-    textMuted: '#57606a',
-    grid: 'rgba(0, 0, 0, 0.1)',
-    topStroke: '#0d1117',
-    divider: '#ffffff',
-    blockStroke: 'rgba(0, 0, 0, 0.2)',
-    badgeBg: '#ffffff',
-    badgeStroke: '#0d1117',
-    badgeText: '#0d1117',
-    cutLine: 'rgba(0, 0, 0, 0.25)',
-    z1: '#1a7f37',
-    z2: '#9a6700',
-    z3: '#bc4c00',
-    z4: '#cf222e'
+    badgeStroke: '#475569',
+    badgeText: '#f8fafc',
+    cutLine: 'rgba(255, 255, 255, 0.25)',
+    z1: '#22c55e',            // Bright Green
+    z2: '#eab308',            // Bright Yellow
+    z3: '#f97316',            // Bright Orange
+    z4: '#ef4444'             // Bright Red
   }
 };
 
@@ -138,13 +140,13 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
   const W = settings.widthMm || 110;
   const H = settings.heightMm || 35;
   const radius = settings.radiusMm || 0;
-  const themeKey = isPrint ? 'white' : (settings.theme === 'white' ? 'white' : 'dark');
-  const theme = THEMES[themeKey] || THEMES['dark'];
+  const themeKey = isPrint ? 'white' : (settings.theme === 'dark' ? 'dark' : 'white');
+  const theme = THEMES[themeKey] || THEMES['white'];
 
   if (!points || points.length < 2 || !stats) {
     return `<svg id="profile-svg-elem" viewBox="0 0 ${W} ${H}" width="${W}mm" height="${H}mm" xmlns="http://www.w3.org/2000/svg" style="display:block; border-radius:${radius}mm; background:${theme.bg};">
       <rect width="100%" height="100%" fill="${theme.bg}"/>
-      <text x="50%" y="50%" fill="${theme.textMuted}" text-anchor="middle" font-size="3" font-family="sans-serif">Drop GPX to render profile</text>
+      <text x="50%" y="50%" fill="${theme.textMuted}" text-anchor="middle" font-size="3" font-weight="700" font-family="sans-serif">Drop GPX to render profile</text>
     </svg>`;
   }
 
@@ -213,7 +215,7 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
         `;
       }
 
-      // Block Percentage Text (for wide enough blocks)
+      // Block Percentage Text (with outline halo for 100% contrast over all zones)
       if (settings.showBlockPct !== false && blockWidthMm >= 4.2) {
         const midX = ((x1 + x2) / 2).toFixed(2);
         const topMidY = (y1 + y2) / 2;
@@ -221,7 +223,7 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
         const gradeText = `${Math.round(b.absGrade)}%`;
 
         blockTextLabels += `
-          <text x="${midX}" y="${textY}" fill="#ffffff" font-size="1.8" font-weight="800" font-family="monospace" text-anchor="middle" opacity="0.95">${gradeText}</text>
+          <text x="${midX}" y="${textY}" fill="#ffffff" stroke="rgba(0,0,0,0.85)" stroke-width="0.38" stroke-linejoin="round" paint-order="stroke fill" font-size="1.8" font-weight="900" font-family="monospace, sans-serif" text-anchor="middle">${gradeText}</text>
         `;
       }
     });
@@ -278,12 +280,12 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
       const x = toX(tickDist).toFixed(2);
       gridMarkup += `
         <line x1="${x}" y1="${padTop.toFixed(2)}" x2="${x}" y2="${yBase.toFixed(2)}" stroke="${theme.grid}" stroke-width="0.25" stroke-dasharray="0.5,0.5"/>
-        <text x="${x}" y="${(yBase + 2.5).toFixed(2)}" fill="${theme.textMuted}" font-size="1.9" font-family="monospace" text-anchor="middle">${t * stepKm}</text>
+        <text x="${x}" y="${(yBase + 2.5).toFixed(2)}" fill="${theme.textMuted}" font-size="1.9" font-weight="700" font-family="monospace" text-anchor="middle">${t * stepKm}</text>
       `;
     }
     gridMarkup += `
-      <text x="${padLeft.toFixed(2)}" y="${(yBase + 2.5).toFixed(2)}" fill="${theme.textMuted}" font-size="1.9" font-family="monospace" text-anchor="start">0</text>
-      <text x="${(padLeft + plotW).toFixed(2)}" y="${(yBase + 2.5).toFixed(2)}" fill="${theme.textMuted}" font-size="1.7" font-weight="600" font-family="sans-serif" text-anchor="end">${distUnit}</text>
+      <text x="${padLeft.toFixed(2)}" y="${(yBase + 2.5).toFixed(2)}" fill="${theme.textMuted}" font-size="1.9" font-weight="700" font-family="monospace" text-anchor="start">0</text>
+      <text x="${(padLeft + plotW).toFixed(2)}" y="${(yBase + 2.5).toFixed(2)}" fill="${theme.textMuted}" font-size="1.8" font-weight="800" font-family="sans-serif" text-anchor="end">${distUnit}</text>
     `;
   }
 
@@ -293,8 +295,8 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
     const minStr = `${Math.round(minEleU)}${eleUnit}`;
     const maxStr = `${Math.round(maxEleU)}${eleUnit}`;
     eleMarkup += `
-      <text x="${(padLeft - 1.0).toFixed(2)}" y="${(toY(stats.maxEle) + 0.9).toFixed(2)}" fill="${theme.textMuted}" font-size="1.8" font-family="sans-serif" text-anchor="end">${maxStr}</text>
-      <text x="${(padLeft - 1.0).toFixed(2)}" y="${(toY(stats.minEle) + 0.6).toFixed(2)}" fill="${theme.textMuted}" font-size="1.8" font-family="sans-serif" text-anchor="end">${minStr}</text>
+      <text x="${(padLeft - 1.0).toFixed(2)}" y="${(toY(stats.maxEle) + 0.9).toFixed(2)}" fill="${theme.textMuted}" font-size="1.8" font-weight="700" font-family="sans-serif" text-anchor="end">${maxStr}</text>
+      <text x="${(padLeft - 1.0).toFixed(2)}" y="${(toY(stats.minEle) + 0.6).toFixed(2)}" fill="${theme.textMuted}" font-size="1.8" font-weight="700" font-family="sans-serif" text-anchor="end">${minStr}</text>
     `;
   }
 
@@ -309,10 +311,10 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
       const badgeY = Math.max(padTop - 3.8, summitY - 5.0);
 
       climbsMarkup += `
-        <circle cx="${summitX.toFixed(2)}" cy="${summitY.toFixed(2)}" r="0.9" fill="${theme.z4}" stroke="${theme.topStroke}" stroke-width="0.3"/>
+        <circle cx="${summitX.toFixed(2)}" cy="${summitY.toFixed(2)}" r="1.0" fill="${theme.z4}" stroke="${theme.topStroke}" stroke-width="0.35"/>
         <g transform="translate(${Math.max(padLeft, Math.min(W - padRight - badgeW, summitX - (badgeW / 2))).toFixed(2)}, ${badgeY.toFixed(2)})">
-          <rect width="${badgeW}" height="3.2" rx="0.6" fill="${theme.badgeBg}" stroke="${theme.badgeStroke}" stroke-width="0.3"/>
-          <text x="${badgeW / 2}" y="2.2" fill="${theme.badgeText}" font-size="1.7" font-weight="700" font-family="sans-serif" text-anchor="middle">${label}</text>
+          <rect width="${badgeW}" height="3.2" rx="0.6" fill="${theme.badgeBg}" stroke="${theme.badgeStroke}" stroke-width="0.35"/>
+          <text x="${badgeW / 2}" y="2.2" fill="${theme.badgeText}" font-size="1.7" font-weight="800" font-family="sans-serif" text-anchor="middle">${label}</text>
         </g>
       `;
     });
@@ -353,15 +355,15 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
 
       // Drop Line from pin badge down to profile surface
       const dropLine = `
-        <line x1="${wptX.toFixed(2)}" y1="${(badgeY + badgeR).toFixed(2)}" x2="${wptX.toFixed(2)}" y2="${profY.toFixed(2)}" stroke="${typeCfg.color}" stroke-width="0.35" stroke-dasharray="0.6,0.4" opacity="0.95"/>
-        <circle cx="${wptX.toFixed(2)}" cy="${profY.toFixed(2)}" r="0.75" fill="${typeCfg.color}" stroke="${theme.bg}" stroke-width="0.25"/>
+        <line x1="${wptX.toFixed(2)}" y1="${(badgeY + badgeR).toFixed(2)}" x2="${wptX.toFixed(2)}" y2="${profY.toFixed(2)}" stroke="${typeCfg.color}" stroke-width="0.4" stroke-dasharray="0.6,0.4" opacity="0.95"/>
+        <circle cx="${wptX.toFixed(2)}" cy="${profY.toFixed(2)}" r="0.8" fill="${typeCfg.color}" stroke="${theme.bg}" stroke-width="0.3"/>
       `;
 
       // Icon Pin
       const glyph = renderWaypointGlyph(wpt.type, typeCfg.textColor);
       const pinMarkup = `
         <g transform="translate(${wptX.toFixed(2)}, ${badgeY.toFixed(2)})">
-          <circle cx="0" cy="0" r="${badgeR}" fill="${typeCfg.color}" stroke="${isPrint ? '#000000' : theme.bg}" stroke-width="0.35"/>
+          <circle cx="0" cy="0" r="${badgeR}" fill="${typeCfg.color}" stroke="${theme.topStroke}" stroke-width="0.35"/>
           ${glyph}
         </g>
       `;
@@ -370,7 +372,7 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
       let textMarkup = '';
       if (showWptLabels) {
         const tagText = customLabel ? `${distStr} ${customLabel}` : `${distStr} ${typeCfg.shortCode}`;
-        const tagW = Math.min(26, tagText.length * 1.35 + 2.4);
+        const tagW = Math.min(26, tagText.length * 1.35 + 2.5);
         const tagX = Math.max(padLeft, Math.min(W - padRight - tagW, wptX - (tagW / 2)));
         let tagY = badgeY + badgeR + 0.6;
         if (tagY + 2.6 > profY && badgeY - 3.2 >= 1.0) {
@@ -379,7 +381,7 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
 
         textMarkup = `
           <g transform="translate(${tagX.toFixed(2)}, ${tagY.toFixed(2)})">
-            <rect width="${tagW.toFixed(2)}" height="2.6" rx="0.5" fill="${theme.badgeBg}" stroke="${typeCfg.color}" stroke-width="0.25"/>
+            <rect width="${tagW.toFixed(2)}" height="2.6" rx="0.5" fill="${theme.badgeBg}" stroke="${theme.badgeStroke}" stroke-width="0.3"/>
             <text x="${(tagW / 2).toFixed(2)}" y="1.85" fill="${theme.badgeText}" font-size="1.5" font-weight="800" font-family="monospace, sans-serif" text-anchor="middle">${tagText}</text>
           </g>
         `;
@@ -404,11 +406,11 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
     const maxGStr = `Max ${stats.maxGrade.toFixed(1)}%`;
 
     headerMarkup += `
-      <text x="${padLeft.toFixed(2)}" y="4.2" fill="${theme.text}" font-size="2.8" font-weight="700" font-family="sans-serif">${title}</text>
-      <text x="${(W - padRight).toFixed(2)}" y="4.2" fill="${theme.textMuted}" font-size="2.2" font-family="monospace" text-anchor="end">
-        <tspan fill="${theme.text}">${distStr}</tspan>  <tspan fill="${theme.z1}">${gainStr}</tspan>  <tspan fill="${theme.z4}">${maxGStr}</tspan>
+      <text x="${padLeft.toFixed(2)}" y="4.2" fill="${theme.text}" font-size="2.8" font-weight="800" font-family="sans-serif">${title}</text>
+      <text x="${(W - padRight).toFixed(2)}" y="4.2" fill="${theme.text}" font-size="2.2" font-weight="700" font-family="monospace" text-anchor="end">
+        <tspan fill="${theme.text}">${distStr}</tspan>  <tspan fill="${theme.z1}" font-weight="800">${gainStr}</tspan>  <tspan fill="${theme.z4}" font-weight="800">${maxGStr}</tspan>
       </text>
-      <line x1="${padLeft.toFixed(2)}" y1="5.2" x2="${(W - padRight).toFixed(2)}" y2="5.2" stroke="${theme.grid}" stroke-width="0.25"/>
+      <line x1="${padLeft.toFixed(2)}" y1="5.2" x2="${(W - padRight).toFixed(2)}" y2="5.2" stroke="${theme.grid}" stroke-width="0.3"/>
     `;
   }
 

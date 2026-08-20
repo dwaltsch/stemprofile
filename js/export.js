@@ -9,7 +9,8 @@ export function exportSVG(points, stats, climbs, blocks, waypoints, settings) {
     settings = waypoints;
     waypoints = [];
   }
-  const svgMarkup = renderProfileSVG(points, stats, climbs, blocks, waypoints, settings, true);
+  const themeKey = settings.theme === 'dark' ? 'dark' : 'white';
+  const svgMarkup = renderProfileSVG(points, stats, climbs, blocks, waypoints, { ...settings, theme: themeKey }, false);
   const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -28,7 +29,8 @@ export function copySVG(points, stats, climbs, blocks, waypoints, settings, call
     settings = waypoints;
     waypoints = [];
   }
-  const svgMarkup = renderProfileSVG(points, stats, climbs, blocks, waypoints, settings, true);
+  const themeKey = settings.theme === 'dark' ? 'dark' : 'white';
+  const svgMarkup = renderProfileSVG(points, stats, climbs, blocks, waypoints, { ...settings, theme: themeKey }, false);
   navigator.clipboard.writeText(svgMarkup).then(() => {
     if (callback) callback(null);
   }).catch(err => {
@@ -49,7 +51,10 @@ export function exportPNG(points, stats, climbs, blocks, waypoints, settings, ca
   const pxW = Math.round(wMm * mmToIn * dpi);
   const pxH = Math.round(hMm * mmToIn * dpi);
 
-  const svgMarkup = renderProfileSVG(points, stats, climbs, blocks, waypoints, settings, true);
+  const themeKey = settings.theme === 'dark' ? 'dark' : 'white';
+  const theme = THEMES[themeKey] || THEMES['white'];
+
+  const svgMarkup = renderProfileSVG(points, stats, climbs, blocks, waypoints, { ...settings, theme: themeKey }, false);
   const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
 
@@ -59,7 +64,6 @@ export function exportPNG(points, stats, climbs, blocks, waypoints, settings, ca
     canvas.width = pxW;
     canvas.height = pxH;
     const ctx = canvas.getContext('2d');
-    const theme = THEMES[settings.theme] || THEMES['dark'];
     ctx.fillStyle = theme.bg;
     ctx.fillRect(0, 0, pxW, pxH);
     ctx.drawImage(img, 0, 0, pxW, pxH);

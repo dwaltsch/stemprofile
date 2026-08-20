@@ -24,7 +24,7 @@ const appState = {
     blockSizeM: 1000,
     showBlockPct: true,
     units: 'metric',
-    theme: 'dark',
+    theme: 'white',
     title: '',
     showHeader: true,
     showDistanceTicks: true,
