@@ -56,73 +56,6 @@ function initTheme() {
 }
 
 // ============================================================================
-// Demo Route Generator (Passo dello Stelvio)
-// ============================================================================
-function loadDemoRoute() {
-  const totalKm = 68.0;
-  const numPts = 680;
-  const coords = [];
-
-  // Elevation profile model of Passo dello Stelvio loop:
-  // 0 - 8km: Valley rolling (915m -> 1110m)
-  // 8 - 25.5km: Stelvio HC climb (1110m -> 2758m)
-  // 25.5 - 42km: Umbrail descent (2758m -> 1375m)
-  // 42 - 48km: Small valley climb (1375m -> 1520m)
-  // 48 - 68km: Valley gentle descent back to Prato (1520m -> 915m)
-
-  const startLat = 46.618;
-  const startLon = 10.592;
-
-  for (let i = 0; i < numPts; i++) {
-    const km = (i / (numPts - 1)) * totalKm;
-    let ele = 915;
-
-    if (km <= 8.0) {
-      ele = 915 + (km / 8.0) * 195 + Math.sin(km * 2) * 5;
-    } else if (km <= 25.5) {
-      const p = (km - 8.0) / (25.5 - 8.0);
-      ele = 1110 + p * 1648 + Math.sin(p * 20) * 8;
-    } else if (km <= 42.0) {
-      const p = (km - 25.5) / (42.0 - 25.5);
-      ele = 2758 - p * 1383 + Math.cos(p * 15) * 6;
-    } else if (km <= 48.0) {
-      const p = (km - 42.0) / (48.0 - 42.0);
-      ele = 1375 + Math.sin(p * Math.PI) * 145;
-    } else {
-      const p = (km - 48.0) / (68.0 - 48.0);
-      ele = 1520 - p * 605 + Math.sin(p * 8) * 4;
-    }
-
-    // Realistic GPS trajectory simulation
-    const angle = (km / totalKm) * 2 * Math.PI;
-    const lat = startLat + (km * 0.005) * Math.sin(angle);
-    const lon = startLon + (km * 0.005) * Math.cos(angle);
-
-    coords.push({ lat, lon, ele: Math.round(ele * 10) / 10 });
-  }
-
-  appState.rawCoords = coords;
-  appState.settings.title = 'Passo dello Stelvio';
-  
-  const titleInput = document.getElementById('input-title');
-  if (titleInput) titleInput.value = 'Passo dello Stelvio';
-
-  const dropFilename = document.getElementById('dropzone-filename');
-  if (dropFilename) dropFilename.textContent = 'Passo dello Stelvio (Demo)';
-
-  // Demo Waypoints
-  appState.waypoints = [
-    { id: 'wpt-demo-1', distM: 14500, type: 'feed', label: 'Trafoi Feed', enabled: true },
-    { id: 'wpt-demo-2', distM: 20000, type: 'water', label: 'Franzenshöhe H2O', enabled: true },
-    { id: 'wpt-demo-3', distM: 25500, type: 'summit', label: 'Stelvio 2758m', enabled: true },
-    { id: 'wpt-demo-4', distM: 42000, type: 'food', label: 'Santa Maria Gel', enabled: true },
-    { id: 'wpt-demo-5', distM: 54000, type: 'sprint', label: 'Glorenza Sprint', enabled: true }
-  ];
-
-  reprocessAndRender(false);
-}
-
-// ============================================================================
 // GPX File Handling
 // ============================================================================
 function handleGPXFile(file) {
@@ -298,7 +231,7 @@ function updateUI() {
           <line x1="12" y1="3" x2="12" y2="15"></line>
         </svg>
         <h3>No GPX Track Loaded</h3>
-        <p>Drop a .gpx file here or click 'Demo Route' above</p>
+        <p>Drop GPX track file here or click to browse</p>
       </div>
     `;
   }
@@ -427,18 +360,10 @@ function bindTooltipHover() {
 export function initApp() {
   initTheme();
 
-  // Drop targets & File Input
-  const dz = document.getElementById('dropzone');
+  // File Input & Drop Target
   const fin = document.getElementById('file-input');
   const previewStage = document.getElementById('preview-stage');
   const svgHost = document.getElementById('svg-host');
-  const btnLoadDemo = document.getElementById('btn-load-demo');
-
-  if (btnLoadDemo) {
-    btnLoadDemo.addEventListener('click', () => {
-      loadDemoRoute();
-    });
-  }
 
   // Prevent default window drop navigation
   ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(ev => {
@@ -487,7 +412,6 @@ export function initApp() {
     });
   }
 
-  setupDropTarget(dz);
   setupDropTarget(previewStage);
 
   if (fin) {

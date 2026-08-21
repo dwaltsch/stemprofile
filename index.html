@@ -8,6 +8,9 @@
 </head>
 <body>
 
+  <!-- Hidden GPX File Input -->
+  <input type="file" id="file-input" accept=".gpx" style="display:none;" />
+
   <!-- Top Navigation Header -->
   <header class="app-header">
     <div class="brand-group">
@@ -36,13 +39,6 @@
 
     <!-- Action Suite -->
     <div class="actions">
-      <button class="btn btn-ghost" id="btn-load-demo" title="Load sample Grand Tour mountain pass route">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polygon points="5 3 19 12 5 21 5 3"></polygon>
-        </svg>
-        Demo Route
-      </button>
-
       <button class="btn btn-icon" id="btn-theme-toggle" title="Toggle Light/Dark Theme">
         <!-- Sun icon (shown in dark mode) -->
         <svg class="icon-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -104,25 +100,10 @@
   <!-- 3-Column Studio Workstation -->
   <div class="app-layout">
     
-    <!-- LEFT COLUMN: Tool Parameters & Inspector -->
+    <!-- LEFT COLUMN: Physical & Signal Tool Parameters -->
     <aside class="sidebar-left">
       
-      <!-- Section 1: Track File -->
-      <div class="tool-section">
-        <div class="section-label">Track Ingestion</div>
-        <div class="dropzone" id="dropzone">
-          <input type="file" id="file-input" accept=".gpx" />
-          <svg class="drop-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="17 8 12 3 7 8"></polyline>
-            <line x1="12" y1="3" x2="12" y2="15"></line>
-          </svg>
-          <p id="dropzone-filename">Drop GPX track here</p>
-          <span>or click to browse local file</span>
-        </div>
-      </div>
-
-      <!-- Section 2: Physical Sizing -->
+      <!-- Section 1: Physical Sizing -->
       <div class="tool-section">
         <div class="section-label">Sticker Dimensions</div>
         <div class="control-group">
@@ -185,7 +166,7 @@
         </div>
       </div>
 
-      <!-- Section 3: Granularity & Styling -->
+      <!-- Section 2: Granularity & Styling -->
       <div class="tool-section">
         <div class="section-label">Granularity & Signal</div>
         <div class="control-group">
@@ -242,7 +223,7 @@
         </div>
       </div>
 
-      <!-- Section 4: Overlays & Display -->
+      <!-- Section 3: Overlays & Display -->
       <div class="tool-section">
         <div class="section-label">Overlays & Cues</div>
         <div class="checkbox-grid">
@@ -281,62 +262,13 @@
         </div>
       </div>
 
-      <!-- Section 5: Waypoints & Nutrition Cues -->
-      <div class="tool-section">
-        <div class="section-header-flex">
-          <span class="section-label" style="margin-bottom:0;">Waypoint & Nutrition Cues</span>
-          <span id="wpt-count-badge" class="count-badge">0</span>
-        </div>
-        
-        <div class="control-group" style="margin-top: 0.6rem;">
-          <div class="field-grid">
-            <div class="field">
-              <label class="field-label" for="select-wpt-type">Type</label>
-              <select id="select-wpt-type">
-                <option value="feed" selected>🍽️ Feed Zone</option>
-                <option value="water">💧 Water / H2O</option>
-                <option value="food">🥪 Food / Fuel</option>
-                <option value="sprint">🟢 Sprint (S)</option>
-                <option value="summit">⛰️ Summit</option>
-                <option value="caution">⚠️ Caution</option>
-                <option value="mech">🔧 Tech / Mech</option>
-                <option value="checkpoint">🏁 Checkpoint</option>
-                <option value="custom">📍 Custom Pin</option>
-              </select>
-            </div>
-            <div class="field">
-              <label class="field-label" for="input-wpt-dist">Dist (<span id="label-wpt-unit">km</span>)</label>
-              <input type="number" id="input-wpt-dist" min="0" max="1000" step="0.1" placeholder="e.g. 45.0">
-            </div>
-          </div>
-
-          <div class="field">
-            <label class="field-label" for="input-wpt-label">Label (optional)</label>
-            <input type="text" id="input-wpt-label" placeholder="e.g. Bottle Drop, Gel Feed" maxlength="16">
-          </div>
-
-          <button class="btn btn-secondary" id="btn-add-wpt" style="width:100%; justify-content:center;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-            Add Waypoint Pin
-          </button>
-
-          <div class="wpt-list-wrapper" id="wpt-list-wrapper">
-            <div class="wpt-empty-hint" id="wpt-empty-hint">No waypoints added yet. Click directly on the profile preview or add cues above.</div>
-            <div class="wpt-list" id="wpt-list"></div>
-          </div>
-        </div>
-      </div>
-
     </aside>
 
     <!-- CENTER COLUMN: Main Stage / Workbench -->
     <main class="stage-area">
       
       <!-- Vector Profile Workbench -->
-      <div class="preview-stage" id="preview-stage">
+      <div class="preview-stage" id="preview-stage" title="Click or drop a GPX file to load profile">
         
         <!-- Physical Dimension Calipers -->
         <div class="caliper-bar caliper-top">
@@ -382,9 +314,59 @@
 
     </main>
 
-    <!-- RIGHT COLUMN: Telemetry & Climbs Inspector -->
+    <!-- RIGHT COLUMN: Waypoints, Climbs & Telemetry Inspector -->
     <aside class="sidebar-right" id="sidebar-right">
       
+      <!-- Section 1: Waypoints & Nutrition Cues (Moved to Right Panel above Climbs) -->
+      <div class="tool-section">
+        <div class="section-header-flex">
+          <span class="section-label" style="margin-bottom:0;">Waypoints & Feed Cues</span>
+          <span id="wpt-count-badge" class="count-badge">0</span>
+        </div>
+        
+        <div class="control-group" style="margin-top: 0.55rem;">
+          <div class="field-grid">
+            <div class="field">
+              <label class="field-label" for="select-wpt-type">Type</label>
+              <select id="select-wpt-type">
+                <option value="feed" selected>🍽️ Feed Zone</option>
+                <option value="water">💧 Water / H2O</option>
+                <option value="food">🥪 Food / Fuel</option>
+                <option value="sprint">🟢 Sprint (S)</option>
+                <option value="summit">⛰️ Summit</option>
+                <option value="caution">⚠️ Caution</option>
+                <option value="mech">🔧 Tech / Mech</option>
+                <option value="checkpoint">🏁 Checkpoint</option>
+                <option value="custom">📍 Custom Pin</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label" for="input-wpt-dist">Dist (<span id="label-wpt-unit">km</span>)</label>
+              <input type="number" id="input-wpt-dist" min="0" max="1000" step="0.1" placeholder="e.g. 45.0">
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="input-wpt-label">Label (optional)</label>
+            <input type="text" id="input-wpt-label" placeholder="e.g. Bottle Drop, Gel Feed" maxlength="16">
+          </div>
+
+          <button class="btn btn-secondary" id="btn-add-wpt" style="width:100%; justify-content:center;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Add Waypoint Pin
+          </button>
+
+          <div class="wpt-list-wrapper" id="wpt-list-wrapper">
+            <div class="wpt-empty-hint" id="wpt-empty-hint">No waypoints added yet. Click on the profile preview or add cues above.</div>
+            <div class="wpt-list" id="wpt-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: Detected Climbs Table -->
       <div class="tool-section">
         <div class="section-header-flex">
           <span class="section-label" style="margin-bottom:0;">Detected Climbs</span>
@@ -405,11 +387,11 @@
             </thead>
             <tbody id="climbs-table-body"></tbody>
           </table>
-          <div class="climbs-empty-hint" id="climbs-empty-hint">No sustained categorized climbs detected in track.</div>
+          <div class="climbs-empty-hint" id="climbs-empty-hint">No sustained climbs detected in track.</div>
         </div>
       </div>
 
-      <!-- Roadbook Gradient Zones Legend -->
+      <!-- Section 3: Roadbook Gradient Zones Legend -->
       <div class="tool-section">
         <div class="section-label">Gradient Color Zones</div>
         <div class="legend-grid">

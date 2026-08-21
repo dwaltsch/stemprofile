@@ -272,26 +272,28 @@ header.app-header {
    ========================================================================== */
 .app-layout {
   display: grid;
-  grid-template-columns: 310px 1fr 290px;
+  grid-template-columns: 290px 1fr 290px;
   flex: 1;
   min-height: 0;
   overflow: hidden;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1080px) {
   .app-layout {
-    grid-template-columns: 300px 1fr;
-  }
-  aside.sidebar-right {
-    display: none;
+    grid-template-columns: 275px 1fr 275px;
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .app-layout {
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+  }
+  aside.sidebar-left, aside.sidebar-right {
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border-color);
   }
 }
 
