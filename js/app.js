@@ -690,6 +690,30 @@ export function initApp() {
   bindCheck('chk-ele-labels', 'showElevationLabels');
   bindCheck('chk-cut', 'showCutGuidelines');
 
+  // Stage Zoom Controls (Large / Max / 1:1 Actual)
+  const zoomBtns = document.querySelectorAll('#stage-zoom-controls .zoom-btn');
+  const stickerWrapper = document.getElementById('sticker-container');
+
+  zoomBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      zoomBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const zoom = btn.dataset.zoom;
+
+      if (zoom === 'actual') {
+        document.documentElement.style.setProperty('--stage-zoom-w', 'var(--sticker-w)');
+        if (stickerWrapper) stickerWrapper.classList.add('zoom-actual');
+      } else if (zoom === 'max') {
+        document.documentElement.style.setProperty('--stage-zoom-w', '880px');
+        if (stickerWrapper) stickerWrapper.classList.remove('zoom-actual');
+      } else {
+        // Large (Default view: ~720px)
+        document.documentElement.style.setProperty('--stage-zoom-w', '720px');
+        if (stickerWrapper) stickerWrapper.classList.remove('zoom-actual');
+      }
+    });
+  });
+
   // Exports
   const btnCopy = document.getElementById('btn-copy-svg');
   if (btnCopy) {

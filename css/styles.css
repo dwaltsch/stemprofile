@@ -36,6 +36,7 @@
 
   --sticker-w: 110mm;
   --sticker-h: 35mm;
+  --stage-zoom-w: 720px;
 }
 
 [data-theme="dark"] {
@@ -577,16 +578,16 @@ main.stage-area {
 
 .preview-stage {
   width: 100%;
-  max-width: 900px;
+  max-width: 960px;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  padding: 3rem 1.5rem 2.5rem;
+  padding: 3.6rem 2rem 2.5rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 320px;
+  min-height: 380px;
   position: relative;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   transition: all 0.15s ease;
@@ -625,50 +626,118 @@ main.stage-area {
   display: flex;
 }
 
+/* Stage Header Toolbar (Calipers & Zoom Controls) */
+.stage-header-toolbar {
+  position: absolute;
+  top: 12px;
+  left: 1.25rem;
+  right: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.stage-header-toolbar > * {
+  pointer-events: auto;
+}
+
 /* Calipers */
 .caliper-bar {
-  position: absolute;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: 0.70rem;
   font-weight: 600;
-  color: var(--text-dim);
-}
-
-.caliper-top {
-  top: 12px;
+  color: var(--text-secondary);
   gap: 0.5rem;
   background: var(--bg-pill);
   border: 1px solid var(--border-color);
-  padding: 2px 10px;
+  padding: 3px 10px;
   border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .caliper-tick {
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--accent);
 }
 
-/* Sticker Wrapper */
-.sticker-wrapper {
-  display: inline-block;
-  background: transparent;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.06);
-  border-radius: 3px;
-  position: relative;
-  cursor: crosshair;
+/* Stage Zoom Controls */
+.stage-zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  background: var(--bg-pill);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 2px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
-[data-theme="dark"] .sticker-wrapper {
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.08);
+.zoom-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  user-select: none;
+}
+
+.zoom-btn:hover:not(.active) {
+  color: var(--text-primary);
+  background: var(--bg-pill-hover);
+}
+
+.zoom-btn.active {
+  background: var(--bg-pill-active);
+  color: var(--text-pill-active);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Sticker Wrapper & Responsive Zoom */
+.sticker-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: var(--stage-zoom-w, 720px);
+  background: transparent;
+  position: relative;
+  cursor: crosshair;
+  transition: max-width 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sticker-wrapper.zoom-actual {
+  max-width: var(--sticker-w);
 }
 
 #svg-host {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#svg-host svg#profile-svg-elem {
+  width: 100%;
+  height: auto;
   display: block;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.14), 0 1px 3px rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
+}
+
+[data-theme="dark"] #svg-host svg#profile-svg-elem {
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 /* Empty State */
