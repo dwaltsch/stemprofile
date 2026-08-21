@@ -51,6 +51,7 @@ Inspired by Grand Tour roadbooks (Tour de France, Giro d'Italia, Vuelta a Españ
 
 ### 5. Multi-Format Export Pipelines
 - **Print Sheet Ready (`@media print`)**: Exact millimeter scaling with dashed scissor cut guides and multi-sticker sheet layout (1, 2, or 4 copies).
+- **Share Link (URL Hash for GitHub Pages)**: Compresses route coordinates, telemetry, waypoints, and custom badge positions via `CompressionStream('gzip')` into a shareable URL hash (`#stage=...`) without needing a backend server or database.
 - **Download SVG**: Pure vector `.svg` export for plotters and vinyl cutters.
 - **Download PNG (300 DPI)**: High-resolution raster export ($px = \frac{\text{mm}}{25.4} \times 300\text{ DPI}$) for label printers.
 - **Copy SVG**: Instant one-click clipboard copy.
@@ -106,6 +107,7 @@ toptube/
 │   ├── parser.js       # Native DOMParser GPX XML ingestion & waypoint extractor
 │   ├── signal.js       # Haversine distance, 7-pt MA, spatial blocks, & climb detection
 │   ├── renderer.js     # Vector SVG generator & anti-collision layout engine
+│   ├── share.js        # Gzip URL hash compression & GitHub Pages link sharing
 │   ├── export.js       # 300 DPI canvas rasterizer, SVG download, print sheet
 │   └── app.js          # Reactive application controller & event manager
 └── README.md           # Architecture & user documentation

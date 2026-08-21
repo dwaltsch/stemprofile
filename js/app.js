@@ -11,6 +11,7 @@ import { parseGPX } from './parser.js';
 import { processTrackSignal, matchWaypointsToTrack } from './signal.js';
 import { renderProfileSVG, WAYPOINT_CONFIG, escapeXml } from './renderer.js';
 import { exportSVG, exportPNG, copySVG, updatePrintMatrix } from './export.js';
+import { copyShareableLink, decompressPayload, serializeStateToHash } from './share.js';
 
 /**
  * @typedef {Object} StickerSettings
@@ -281,7 +282,7 @@ function updateUI() {
   if (stageSizeLabel) stageSizeLabel.textContent = `${cfg.widthMm} × ${cfg.heightMm} mm`;
 
   // 2. Buttons State
-  const buttons = ['btn-copy-svg', 'btn-export-svg', 'btn-export-png', 'btn-print'];
+  const buttons = ['btn-share-link', 'btn-copy-svg', 'btn-export-svg', 'btn-export-png', 'btn-print'];
   buttons.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.disabled = !hasData;
@@ -797,6 +798,21 @@ export function initApp() {
     });
   });
 
+  // Share Link Button (URL Hash for GitHub Pages)
+  const btnShareLink = document.getElementById('btn-share-link');
+  if (btnShareLink) {
+    btnShareLink.addEventListener('click', async () => {
+      try {
+        const orig = btnShareLink.innerHTML;
+        btnShareLink.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Link Copied!`;
+        await copyShareableLink(appState);
+        setTimeout(() => btnShareLink.innerHTML = orig, 1800);
+      } catch (err) {
+        alert('Failed to generate share link: ' + err.message);
+      }
+    });
+  }
+
   // Reset Custom Dragged Labels Button
   const btnResetLabels = document.getElementById('btn-reset-labels');
   if (btnResetLabels) {
@@ -849,7 +865,144 @@ export function initApp() {
   });
 
   initLabelDragging();
-  updateUI();
+
+  // Load from URL Hash if provided (e.g. GitHub Pages shared link)
+  if (window.location.hash && window.location.hash.length > 5) {
+    loadFromUrlHash(window.location.hash);
+  } else {
+    updateUI();
+  }
+
+  window.addEventListener('hashchange', () => {
+    if (window.location.hash && window.location.hash.length > 5) {
+      loadFromUrlHash(window.location.hash);
+    }
+  });
+}
+
+/**
+ * Synchronizes all sidebar input controls, sliders, and checkboxes with current settings.
+ */
+function syncFormControlsFromSettings() {
+  const s = appState.settings;
+  const wIn = document.getElementById('input-w-mm');
+  if (wIn) wIn.value = s.widthMm;
+  const hIn = document.getElementById('input-h-mm');
+  if (hIn) hIn.value = s.heightMm;
+
+  // Preset pills
+  const presetPills = document.querySelectorAll('#preset-pill-group .pill-opt');
+  const targetPreset = `${s.widthMm}x${s.heightMm}`;
+  let matchedPreset = false;
+  presetPills.forEach(p => {
+    const isMatch = p.dataset.value === targetPreset;
+    p.classList.toggle('active', isMatch);
+    if (isMatch) matchedPreset = true;
+  });
+  if (!matchedPreset) {
+    presetPills.forEach(p => p.classList.toggle('active', p.dataset.value === 'custom'));
+  }
+
+  // Radius & copies
+  const radIn = document.getElementById('input-radius');
+  if (radIn) radIn.value = s.radiusMm;
+  const copIn = document.getElementById('input-copies');
+  if (copIn) copIn.value = s.printCopies || 2;
+
+  // Smoothing
+  const smSlider = document.getElementById('slider-smoothing');
+  const smLabel = document.getElementById('label-smoothing');
+  if (smSlider) smSlider.value = s.smoothingWindow;
+  if (smLabel) smLabel.textContent = `${s.smoothingWindow} pt`;
+
+  // Block size pills
+  const blockPills = document.querySelectorAll('#block-size-pill-group .pill-opt');
+  const fieldCustomBlock = document.getElementById('field-custom-block');
+  const inputCustomBlock = document.getElementById('input-custom-block');
+  let matchedBlock = false;
+  blockPills.forEach(p => {
+    const isMatch = p.dataset.value === String(s.blockSizeM);
+    p.classList.toggle('active', isMatch);
+    if (isMatch) matchedBlock = true;
+  });
+  if (!matchedBlock) {
+    blockPills.forEach(p => p.classList.toggle('active', p.dataset.value === 'custom'));
+    if (fieldCustomBlock) fieldCustomBlock.style.display = 'block';
+    if (inputCustomBlock) inputCustomBlock.value = s.blockSizeM;
+  } else {
+    if (fieldCustomBlock) fieldCustomBlock.style.display = 'none';
+  }
+
+  // Theme & Units
+  const themeSelect = document.getElementById('select-theme');
+  if (themeSelect) themeSelect.value = s.theme;
+  const unitsSelect = document.getElementById('select-units');
+  if (unitsSelect) unitsSelect.value = s.units;
+  const unitLabel = document.getElementById('label-wpt-unit');
+  if (unitLabel) unitLabel.textContent = s.units === 'metric' ? 'km' : 'mi';
+
+  // Title
+  const titleInput = document.getElementById('input-title');
+  if (titleInput) titleInput.value = s.title || '';
+
+  // Checkboxes
+  const syncCheck = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.checked = val !== false;
+  };
+  syncCheck('chk-block-pct', s.showBlockPct);
+  syncCheck('chk-climbs', s.showClimbs);
+  syncCheck('chk-waypoints', s.showWaypoints);
+  syncCheck('chk-wpt-labels', s.showWaypointLabels);
+  syncCheck('chk-header', s.showHeader);
+  syncCheck('chk-distance', s.showDistanceTicks);
+  syncCheck('chk-ele-labels', s.showElevationLabels);
+  syncCheck('chk-cut', s.showCutGuidelines);
+}
+
+/**
+ * Decompresses and loads shared profile state from URL hash payload (GitHub Pages sharing).
+ *
+ * @param {string} hashStr - Location hash string
+ * @returns {Promise<boolean>} True if loaded successfully
+ */
+async function loadFromUrlHash(hashStr) {
+  if (!hashStr || hashStr.length < 5) return false;
+
+  const cleanHash = hashStr.replace(/^#/, '');
+  let b64 = cleanHash;
+  if (cleanHash.startsWith('stage=')) {
+    b64 = cleanHash.slice(6);
+  } else if (cleanHash.startsWith('data=')) {
+    b64 = cleanHash.slice(5);
+  }
+
+  const payload = await decompressPayload(b64);
+  if (!payload || !payload.coords || payload.coords.length < 2) {
+    return false;
+  }
+
+  appState.rawCoords = payload.coords;
+  appState.rawWaypoints = [];
+  appState.waypoints = payload.waypoints || [];
+  if (payload.settings) {
+    appState.settings = {
+      ...appState.settings,
+      ...payload.settings,
+      title: payload.title !== undefined ? payload.title : (payload.settings.title || appState.settings.title)
+    };
+  } else if (payload.title) {
+    appState.settings.title = payload.title;
+  }
+
+  const dropFilename = document.getElementById('dropzone-filename');
+  if (dropFilename) {
+    dropFilename.textContent = `${appState.settings.title || 'Shared Route'} (from Link · ${payload.coords.length} pts)`;
+  }
+
+  syncFormControlsFromSettings();
+  reprocessAndRender(false);
+  return true;
 }
 
 /**

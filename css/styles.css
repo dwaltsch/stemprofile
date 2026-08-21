@@ -238,6 +238,16 @@ header.app-header {
   font-weight: 600;
 }
 
+#btn-share-link:not(:disabled) {
+  border-color: rgba(37, 99, 235, 0.35);
+  color: var(--accent);
+}
+
+#btn-share-link:not(:disabled):hover {
+  background: var(--accent-subtle);
+  border-color: var(--accent);
+}
+
 .btn-secondary:hover:not(:disabled) {
   background: var(--bg-pill-hover);
   border-color: var(--border-hover);
