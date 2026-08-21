@@ -454,15 +454,19 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
 
       topPath += ` L ${x2.toFixed(2)} ${y2.toFixed(2)}`;
 
-      // Block Trapezoid
+      // Block Trapezoid (Adaptive border to preserve color visibility on 500m / narrow blocks)
+      const polyStrokeWidth = blockWidthMm >= 1.5 ? 0.2 : (blockWidthMm >= 0.8 ? 0.08 : 0);
+      const polyStrokeAttr = polyStrokeWidth > 0 ? `stroke="${theme.blockStroke}" stroke-width="${polyStrokeWidth}"` : '';
+
       blocksPolygons += `
-        <polygon points="${x1.toFixed(2)},${yBase.toFixed(2)} ${x1.toFixed(2)},${y1.toFixed(2)} ${x2.toFixed(2)},${y2.toFixed(2)} ${x2.toFixed(2)},${yBase.toFixed(2)}" fill="${zoneColors[b.zone]}" stroke="${theme.blockStroke}" stroke-width="0.2"/>
+        <polygon points="${x1.toFixed(2)},${yBase.toFixed(2)} ${x1.toFixed(2)},${y1.toFixed(2)} ${x2.toFixed(2)},${y2.toFixed(2)} ${x2.toFixed(2)},${yBase.toFixed(2)}" fill="${zoneColors[b.zone]}" ${polyStrokeAttr}/>
       `;
 
-      // Vertical Block Divider Line
-      if (idx > 0) {
+      // Vertical Block Divider Line: hairline scaling to never whiteout narrow blocks
+      if (idx > 0 && blockWidthMm >= 1.2) {
+        const divWidth = Math.min(0.3, Math.max(0.1, blockWidthMm * 0.12));
         blockDividers += `
-          <line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x1.toFixed(2)}" y2="${yBase.toFixed(2)}" stroke="${theme.divider}" stroke-width="0.35"/>
+          <line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x1.toFixed(2)}" y2="${yBase.toFixed(2)}" stroke="${theme.divider}" stroke-width="${divWidth.toFixed(2)}"/>
         `;
       }
 
@@ -476,32 +480,32 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
 
         const shouldRender = (stride === 1) || (idx % stride === 0) || (b.absGrade >= 4.0);
 
-        if (shouldRender && colHeight >= 2.5) {
+        if (shouldRender && colHeight >= 2.0) {
           if (blockWidthMm >= 3.0) {
             // Wide block: Horizontal text with outline halo
             const textY = Math.min(yBase - 1.2, topMidY + (colHeight * 0.45));
             blockTextLabels += `
               <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" fill="#ffffff" stroke="rgba(0,0,0,0.85)" stroke-width="0.36" stroke-linejoin="round" paint-order="stroke fill" font-size="1.7" font-weight="900" font-family="monospace, sans-serif" text-anchor="middle">${gradeText}</text>
             `;
-          } else if (blockWidthMm >= 1.7) {
+          } else if (blockWidthMm >= 1.5) {
             // Medium block: Compact horizontal or vertical text depending on height
-            if (colHeight >= 6.0) {
+            if (colHeight >= 5.5) {
               const textY = (topMidY + yBase) / 2;
               blockTextLabels += `
                 <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" transform="rotate(-90, ${midX.toFixed(2)}, ${textY.toFixed(2)})" fill="#ffffff" stroke="rgba(0,0,0,0.85)" stroke-width="0.32" stroke-linejoin="round" paint-order="stroke fill" font-size="1.45" font-weight="900" font-family="monospace, sans-serif" text-anchor="middle">${gradeText}</text>
               `;
             } else {
-              const textY = Math.min(yBase - 1.0, topMidY + (colHeight * 0.48));
+              const textY = Math.min(yBase - 0.8, topMidY + (colHeight * 0.48));
               blockTextLabels += `
-                <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" fill="#ffffff" stroke="rgba(0,0,0,0.85)" stroke-width="0.32" stroke-linejoin="round" paint-order="stroke fill" font-size="1.35" font-weight="900" font-family="monospace, sans-serif" text-anchor="middle">${gradeText}</text>
+                <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" fill="#ffffff" stroke="rgba(0,0,0,0.85)" stroke-width="0.30" stroke-linejoin="round" paint-order="stroke fill" font-size="1.35" font-weight="900" font-family="monospace, sans-serif" text-anchor="middle">${gradeText}</text>
               `;
             }
-          } else if (blockWidthMm >= 0.75) {
+          } else if (blockWidthMm >= 0.45) {
             // Narrow block (e.g. 500m on long stages): Vertical text like Grand Tour roadbooks
-            if (colHeight >= 4.5) {
+            if (colHeight >= 4.0) {
               const textY = (topMidY + yBase) / 2;
               blockTextLabels += `
-                <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" transform="rotate(-90, ${midX.toFixed(2)}, ${textY.toFixed(2)})" fill="#ffffff" stroke="rgba(0,0,0,0.85)" stroke-width="0.30" stroke-linejoin="round" paint-order="stroke fill" font-size="1.3" font-weight="900" font-family="monospace, sans-serif" text-anchor="middle">${gradeText}</text>
+                <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" transform="rotate(-90, ${midX.toFixed(2)}, ${textY.toFixed(2)})" fill="#ffffff" stroke="rgba(0,0,0,0.85)" stroke-width="0.28" stroke-linejoin="round" paint-order="stroke fill" font-size="1.25" font-weight="900" font-family="monospace, sans-serif" text-anchor="middle">${gradeText}</text>
               `;
             }
           }

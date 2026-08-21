@@ -116,15 +116,16 @@ export function getInterpolatedEle(points, targetDist) {
  * @returns {SpatialBlock[]} Array of discretized block segments
  */
 export function buildSpatialBlocks(points, totalDist, blockSizeM = 1000) {
+  const numBlockSizeM = parseFloat(blockSizeM);
   if (!points || points.length < 2 || totalDist <= 0) return [];
-  if (blockSizeM <= 0) return []; // 0 = continuous mode
+  if (isNaN(numBlockSizeM) || numBlockSizeM <= 0) return []; // 0 = continuous mode
 
-  const numBlocks = Math.max(1, Math.ceil(totalDist / blockSizeM));
+  const numBlocks = Math.max(1, Math.ceil(totalDist / numBlockSizeM));
   const blocks = [];
 
   for (let k = 0; k < numBlocks; k++) {
-    const dStart = k * blockSizeM;
-    const dEnd = Math.min(totalDist, (k + 1) * blockSizeM);
+    const dStart = k * numBlockSizeM;
+    const dEnd = Math.min(totalDist, (k + 1) * numBlockSizeM);
     const spanM = dEnd - dStart;
     if (spanM <= 0) break;
 
@@ -277,16 +278,25 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 500, minGradePc
  * @returns {{ points: ProfilePoint[], stats: RouteStats|null, climbs: DetectedClimb[], blocks: SpatialBlock[] }}
  */
 export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 1000) {
-  const N = coords.length;
-  if (N < 2) {
+  if (!coords || coords.length < 2) {
     return { points: [], stats: null, climbs: [], blocks: [] };
   }
+
+  // Normalize coords whether provided as [{lat, lon, ele}] or [[lat, lon, ele]]
+  const normCoords = coords.map(c => {
+    if (Array.isArray(c)) {
+      return { lat: c[0] || 0, lon: c[1] || 0, ele: c[2] !== undefined ? c[2] : 0 };
+    }
+    return { lat: c.lat || 0, lon: c.lon || 0, ele: c.ele !== undefined ? c.ele : 0 };
+  });
+
+  const N = normCoords.length;
 
   // 1. Cumulative Haversine Distance
   const cumDistances = [0];
   let runningDist = 0;
   for (let i = 1; i < N; i++) {
-    const d = calcHaversine(coords[i - 1].lat, coords[i - 1].lon, coords[i].lat, coords[i].lon);
+    const d = calcHaversine(normCoords[i - 1].lat, normCoords[i - 1].lon, normCoords[i].lat, normCoords[i].lon);
     runningDist += d;
     cumDistances.push(runningDist);
   }
@@ -302,7 +312,7 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
     const start = Math.max(0, i - halfW);
     const end = Math.min(N - 1, i + halfW);
     for (let j = start; j <= end; j++) {
-      sum += coords[j].ele;
+      sum += normCoords[j].ele;
       count++;
     }
     smoothedEles[i] = sum / count;
@@ -364,7 +374,7 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
 
   for (let i = 0; i < N; i++) {
     const dist = cumDistances[i];
-    const rawEle = coords[i].ele;
+    const rawEle = normCoords[i].ele;
     const smoothEle = smoothedEles[i];
     const grade = filteredGrades[i];
 

@@ -653,6 +653,24 @@ export function initApp() {
     });
   });
 
+  if (blockSelect) {
+    blockSelect.addEventListener('change', e => {
+      const val = e.target.value;
+      blockPills.forEach(p => p.classList.toggle('active', p.dataset.value === val));
+      if (val === 'custom') {
+        if (fieldCustomBlock) fieldCustomBlock.style.display = 'block';
+        const numVal = parseInt(inputCustomBlock ? inputCustomBlock.value : '1000', 10) || 1000;
+        appState.settings.blockSizeM = numVal;
+      } else {
+        if (fieldCustomBlock) fieldCustomBlock.style.display = 'none';
+        const numVal = parseInt(val, 10);
+        appState.settings.blockSizeM = numVal;
+        if (inputCustomBlock && numVal > 0) inputCustomBlock.value = numVal;
+      }
+      reprocessAndRender();
+    });
+  }
+
   if (inputCustomBlock) {
     inputCustomBlock.addEventListener('input', e => {
       const v = parseInt(e.target.value, 10);
