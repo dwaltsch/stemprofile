@@ -37,6 +37,94 @@ const appState = {
   }
 };
 
+// ============================================================================
+// Theme Management (Light Mode Default)
+// ============================================================================
+function initTheme() {
+  const savedTheme = localStorage.getItem('stemprofile_theme') || 'light';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+
+  const toggleBtn = document.getElementById('btn-theme-toggle');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') || 'light';
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('stemprofile_theme', next);
+    });
+  }
+}
+
+// ============================================================================
+// Demo Route Generator (Passo dello Stelvio)
+// ============================================================================
+function loadDemoRoute() {
+  const totalKm = 68.0;
+  const numPts = 680;
+  const coords = [];
+
+  // Elevation profile model of Passo dello Stelvio loop:
+  // 0 - 8km: Valley rolling (915m -> 1110m)
+  // 8 - 25.5km: Stelvio HC climb (1110m -> 2758m)
+  // 25.5 - 42km: Umbrail descent (2758m -> 1375m)
+  // 42 - 48km: Small valley climb (1375m -> 1520m)
+  // 48 - 68km: Valley gentle descent back to Prato (1520m -> 915m)
+
+  const startLat = 46.618;
+  const startLon = 10.592;
+
+  for (let i = 0; i < numPts; i++) {
+    const km = (i / (numPts - 1)) * totalKm;
+    let ele = 915;
+
+    if (km <= 8.0) {
+      ele = 915 + (km / 8.0) * 195 + Math.sin(km * 2) * 5;
+    } else if (km <= 25.5) {
+      const p = (km - 8.0) / (25.5 - 8.0);
+      ele = 1110 + p * 1648 + Math.sin(p * 20) * 8;
+    } else if (km <= 42.0) {
+      const p = (km - 25.5) / (42.0 - 25.5);
+      ele = 2758 - p * 1383 + Math.cos(p * 15) * 6;
+    } else if (km <= 48.0) {
+      const p = (km - 42.0) / (48.0 - 42.0);
+      ele = 1375 + Math.sin(p * Math.PI) * 145;
+    } else {
+      const p = (km - 48.0) / (68.0 - 48.0);
+      ele = 1520 - p * 605 + Math.sin(p * 8) * 4;
+    }
+
+    // Realistic GPS trajectory simulation
+    const angle = (km / totalKm) * 2 * Math.PI;
+    const lat = startLat + (km * 0.005) * Math.sin(angle);
+    const lon = startLon + (km * 0.005) * Math.cos(angle);
+
+    coords.push({ lat, lon, ele: Math.round(ele * 10) / 10 });
+  }
+
+  appState.rawCoords = coords;
+  appState.settings.title = 'Passo dello Stelvio';
+  
+  const titleInput = document.getElementById('input-title');
+  if (titleInput) titleInput.value = 'Passo dello Stelvio';
+
+  const dropFilename = document.getElementById('dropzone-filename');
+  if (dropFilename) dropFilename.textContent = 'Passo dello Stelvio (Demo)';
+
+  // Demo Waypoints
+  appState.waypoints = [
+    { id: 'wpt-demo-1', distM: 14500, type: 'feed', label: 'Trafoi Feed', enabled: true },
+    { id: 'wpt-demo-2', distM: 20000, type: 'water', label: 'Franzenshöhe H2O', enabled: true },
+    { id: 'wpt-demo-3', distM: 25500, type: 'summit', label: 'Stelvio 2758m', enabled: true },
+    { id: 'wpt-demo-4', distM: 42000, type: 'food', label: 'Santa Maria Gel', enabled: true },
+    { id: 'wpt-demo-5', distM: 54000, type: 'sprint', label: 'Glorenza Sprint', enabled: true }
+  ];
+
+  reprocessAndRender(false);
+}
+
+// ============================================================================
+// GPX File Handling
+// ============================================================================
 function handleGPXFile(file) {
   if (!file.name.toLowerCase().endsWith('.gpx')) {
     alert('Please upload a valid .gpx file.');
@@ -51,8 +139,11 @@ function handleGPXFile(file) {
       appState.rawWaypoints = rawWaypoints || [];
       appState.settings.title = title || file.name.replace(/\.gpx$/i, '');
       
-      document.getElementById('input-title').value = appState.settings.title;
-      document.getElementById('dropzone-filename').textContent = `${file.name} (${coords.length} pts)`;
+      const titleInput = document.getElementById('input-title');
+      if (titleInput) titleInput.value = appState.settings.title;
+
+      const dropFilename = document.getElementById('dropzone-filename');
+      if (dropFilename) dropFilename.textContent = `${file.name} (${coords.length} pts)`;
 
       reprocessAndRender(true);
     } catch (err) {
@@ -154,12 +245,12 @@ function renderWaypointsList() {
         </div>
         <div class="wpt-actions">
           <button class="wpt-toggle-btn" data-action="toggle" title="${w.enabled ? 'Hide from sticker' : 'Show on sticker'}">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               ${w.enabled ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>' : '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>'}
             </svg>
           </button>
           <button class="wpt-del-btn" data-action="delete" title="Delete waypoint">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="3 6 5 6 21 6"></polyline>
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
             </svg>
@@ -194,52 +285,69 @@ function updateUI() {
   const waypoints = appState.waypoints;
   const hasData = pts.length >= 2 && stats !== null;
 
-  // 1. Render Preview
+  // 1. Render Vector Profile Preview
   const svgHost = document.getElementById('svg-host');
   if (hasData) {
     svgHost.innerHTML = renderProfileSVG(pts, stats, climbs, blocks, waypoints, cfg, false);
   } else {
     svgHost.innerHTML = `
       <div class="empty-msg">
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
           <polyline points="17 8 12 3 7 8"></polyline>
           <line x1="12" y1="3" x2="12" y2="15"></line>
         </svg>
-        <h3>No GPX Loaded</h3>
-        <p>Drop GPX track here or click to browse</p>
+        <h3>No GPX Track Loaded</h3>
+        <p>Drop a .gpx file here or click 'Demo Route' above</p>
       </div>
     `;
   }
 
   document.documentElement.style.setProperty('--sticker-w', `${cfg.widthMm}mm`);
   document.documentElement.style.setProperty('--sticker-h', `${cfg.heightMm}mm`);
-  document.getElementById('stage-size-label').textContent = `${cfg.widthMm} × ${cfg.heightMm} mm`;
 
-  // 2. Buttons
+  const stageSizeLabel = document.getElementById('stage-size-label');
+  if (stageSizeLabel) stageSizeLabel.textContent = `${cfg.widthMm} × ${cfg.heightMm} mm`;
+
+  // 2. Buttons State
   const buttons = ['btn-copy-svg', 'btn-export-svg', 'btn-export-png', 'btn-print'];
   buttons.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.disabled = !hasData;
   });
 
-  // 3. Stats Strip
+  // 3. Stats Strip & Header Route Status Pill
   const isMetric = cfg.units === 'metric';
   const distU = isMetric ? 'km' : 'mi';
   const eleU = isMetric ? 'm' : 'ft';
   const dFactor = isMetric ? 1 / 1000 : 0.000621371;
   const eFactor = isMetric ? 1 : 3.28084;
 
+  const routeStatusText = document.getElementById('route-status-text');
+
   if (hasData) {
-    document.getElementById('stat-dist').textContent = `${(stats.totalDist * dFactor).toFixed(1)} ${distU}`;
-    document.getElementById('stat-gain').textContent = `+${Math.round(stats.elevGain * eFactor)} ${eleU}`;
-    document.getElementById('stat-max-grade').textContent = `${stats.maxGrade.toFixed(1)}%`;
+    const distFormatted = `${(stats.totalDist * dFactor).toFixed(1)} ${distU}`;
+    const gainFormatted = `+${Math.round(stats.elevGain * eFactor)} ${eleU}`;
+    const maxGradeFormatted = `${stats.maxGrade.toFixed(1)}%`;
+
+    document.getElementById('stat-dist').textContent = distFormatted;
+    document.getElementById('stat-gain').textContent = gainFormatted;
+    document.getElementById('stat-max-grade').textContent = maxGradeFormatted;
     document.getElementById('stat-climbs').textContent = `${climbs.length}`;
+
+    if (routeStatusText) {
+      const title = cfg.title || 'Active Track';
+      routeStatusText.textContent = `${title} · ${distFormatted} · ${gainFormatted}`;
+    }
   } else {
     document.getElementById('stat-dist').textContent = '--';
     document.getElementById('stat-gain').textContent = '--';
     document.getElementById('stat-max-grade').textContent = '--';
     document.getElementById('stat-climbs').textContent = '--';
+
+    if (routeStatusText) {
+      routeStatusText.textContent = 'No track loaded';
+    }
   }
 
   updatePrintMatrix(pts, stats, climbs, blocks, waypoints, cfg);
@@ -248,25 +356,29 @@ function updateUI() {
 
 function renderClimbsTable() {
   const host = document.getElementById('climbs-table-body');
-  const box = document.getElementById('climbs-box');
-  if (!host || !box) return;
+  const emptyHint = document.getElementById('climbs-empty-hint');
+  const countBadge = document.getElementById('climbs-count-badge');
+  if (!host) return;
 
   const climbs = appState.climbs;
+  if (countBadge) countBadge.textContent = `${climbs ? climbs.length : 0}`;
+
   if (!climbs || climbs.length === 0) {
-    box.style.display = 'none';
+    if (emptyHint) emptyHint.style.display = 'block';
+    host.innerHTML = '';
     return;
   }
 
-  box.style.display = 'block';
+  if (emptyHint) emptyHint.style.display = 'none';
   let html = '';
   climbs.forEach(c => {
     const catClass = c.category.toLowerCase().replace(/\s+/g, '-');
     html += `
       <tr>
         <td><span class="cat-pill ${catClass}">${c.category}</span></td>
-        <td>KM ${c.startKm.toFixed(1)} → ${c.summitKm.toFixed(1)}</td>
-        <td>${c.lengthKm.toFixed(1)} km</td>
-        <td style="font-weight:600; color:var(--z2);">${c.avgGrade}%</td>
+        <td>${c.startKm.toFixed(1)} → ${c.summitKm.toFixed(1)}k</td>
+        <td>${c.lengthKm.toFixed(1)}km</td>
+        <td style="font-weight:700; color:var(--z2);">${c.avgGrade}%</td>
         <td>+${c.gainM}m</td>
         <td>${c.summitEle}m</td>
       </tr>
@@ -313,11 +425,20 @@ function bindTooltipHover() {
 }
 
 export function initApp() {
+  initTheme();
+
   // Drop targets & File Input
   const dz = document.getElementById('dropzone');
   const fin = document.getElementById('file-input');
   const previewStage = document.getElementById('preview-stage');
   const svgHost = document.getElementById('svg-host');
+  const btnLoadDemo = document.getElementById('btn-load-demo');
+
+  if (btnLoadDemo) {
+    btnLoadDemo.addEventListener('click', () => {
+      loadDemoRoute();
+    });
+  }
 
   // Prevent default window drop navigation
   ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(ev => {
@@ -369,113 +490,157 @@ export function initApp() {
   setupDropTarget(dz);
   setupDropTarget(previewStage);
 
-  fin.addEventListener('change', e => {
-    if (e.target.files.length > 0) handleGPXFile(e.target.files[0]);
-  });
+  if (fin) {
+    fin.addEventListener('change', e => {
+      if (e.target.files.length > 0) handleGPXFile(e.target.files[0]);
+    });
+  }
 
   // Clicking SVG: if empty opens file picker; if loaded pre-fills distance for waypoint
-  svgHost.addEventListener('click', e => {
-    if (appState.points.length < 2 || !appState.stats) {
-      fin.click();
-      return;
-    }
-    const svg = document.getElementById('profile-svg-elem');
-    if (!svg) return;
-    const rect = svg.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const ratio = Math.max(0, Math.min(1, mouseX / rect.width));
-    const targetDistM = ratio * appState.stats.totalDist;
+  if (svgHost) {
+    svgHost.addEventListener('click', e => {
+      if (appState.points.length < 2 || !appState.stats) {
+        if (fin) fin.click();
+        return;
+      }
+      const svg = document.getElementById('profile-svg-elem');
+      if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const ratio = Math.max(0, Math.min(1, mouseX / rect.width));
+      const targetDistM = ratio * appState.stats.totalDist;
 
-    const isMetric = appState.settings.units === 'metric';
-    const dFactor = isMetric ? 1 / 1000 : 0.000621371;
-    const distVal = (targetDistM * dFactor).toFixed(1);
+      const isMetric = appState.settings.units === 'metric';
+      const dFactor = isMetric ? 1 / 1000 : 0.000621371;
+      const distVal = (targetDistM * dFactor).toFixed(1);
 
-    const distInput = document.getElementById('input-wpt-dist');
-    const labelInput = document.getElementById('input-wpt-label');
-    if (distInput) {
-      distInput.value = distVal;
-      if (labelInput) labelInput.focus();
-    }
-  });
+      const distInput = document.getElementById('input-wpt-dist');
+      const labelInput = document.getElementById('input-wpt-label');
+      if (distInput) {
+        distInput.value = distVal;
+        if (labelInput) labelInput.focus();
+      }
+    });
+  }
 
-  // Size Controls
-  const preset = document.getElementById('preset-size');
+  // Size Controls & Segmented Pills
+  const presetPills = document.querySelectorAll('#preset-pill-group .pill-opt');
+  const presetSelect = document.getElementById('preset-size');
   const wIn = document.getElementById('input-w-mm');
   const hIn = document.getElementById('input-h-mm');
 
-  preset.addEventListener('change', e => {
-    if (e.target.value !== 'custom') {
-      const [w, h] = e.target.value.split('x').map(Number);
-      appState.settings.widthMm = w;
-      appState.settings.heightMm = h;
-      wIn.value = w;
-      hIn.value = h;
+  presetPills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      presetPills.forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      const val = pill.dataset.value;
+      if (presetSelect) presetSelect.value = val;
+
+      if (val !== 'custom') {
+        const [w, h] = val.split('x').map(Number);
+        appState.settings.widthMm = w;
+        appState.settings.heightMm = h;
+        if (wIn) wIn.value = w;
+        if (hIn) hIn.value = h;
+        updateUI();
+      }
+    });
+  });
+
+  if (wIn) {
+    wIn.addEventListener('input', e => {
+      const v = parseInt(e.target.value, 10);
+      if (v >= 20 && v <= 400) {
+        appState.settings.widthMm = v;
+        presetPills.forEach(p => p.classList.toggle('active', p.dataset.value === 'custom'));
+        if (presetSelect) presetSelect.value = 'custom';
+        updateUI();
+      }
+    });
+  }
+
+  if (hIn) {
+    hIn.addEventListener('input', e => {
+      const v = parseInt(e.target.value, 10);
+      if (v >= 10 && v <= 200) {
+        appState.settings.heightMm = v;
+        presetPills.forEach(p => p.classList.toggle('active', p.dataset.value === 'custom'));
+        if (presetSelect) presetSelect.value = 'custom';
+        updateUI();
+      }
+    });
+  }
+
+  const radiusInput = document.getElementById('input-radius');
+  if (radiusInput) {
+    radiusInput.addEventListener('change', e => {
+      appState.settings.radiusMm = parseFloat(e.target.value) || 0;
       updateUI();
-    }
-  });
+    });
+  }
 
-  wIn.addEventListener('input', e => {
-    const v = parseInt(e.target.value, 10);
-    if (v >= 20 && v <= 400) {
-      appState.settings.widthMm = v;
-      preset.value = 'custom';
-      updateUI();
-    }
-  });
+  const copiesInput = document.getElementById('input-copies');
+  if (copiesInput) {
+    copiesInput.addEventListener('change', e => {
+      appState.settings.printCopies = parseInt(e.target.value, 10) || 1;
+      updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.blocks, appState.waypoints, appState.settings);
+    });
+  }
 
-  hIn.addEventListener('input', e => {
-    const v = parseInt(e.target.value, 10);
-    if (v >= 10 && v <= 200) {
-      appState.settings.heightMm = v;
-      preset.value = 'custom';
-      updateUI();
-    }
-  });
+  // Segment Block Size & Granularity Pills
+  const blockPills = document.querySelectorAll('#block-size-pill-group .pill-opt');
+  const blockSelect = document.getElementById('select-block-size');
 
-  document.getElementById('input-radius').addEventListener('change', e => {
-    appState.settings.radiusMm = parseFloat(e.target.value) || 0;
-    updateUI();
-  });
-
-  document.getElementById('input-copies').addEventListener('change', e => {
-    appState.settings.printCopies = parseInt(e.target.value, 10) || 1;
-    updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.blocks, appState.waypoints, appState.settings);
-  });
-
-  // Segment Block Size
-  document.getElementById('select-block-size').addEventListener('change', e => {
-    appState.settings.blockSizeM = parseInt(e.target.value, 10);
-    reprocessAndRender();
+  blockPills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      blockPills.forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      const val = parseInt(pill.dataset.value, 10);
+      if (blockSelect) blockSelect.value = pill.dataset.value;
+      appState.settings.blockSizeM = val;
+      reprocessAndRender();
+    });
   });
 
   // Smoothing
   const smSlider = document.getElementById('slider-smoothing');
   const smLabel = document.getElementById('label-smoothing');
-  smSlider.addEventListener('input', e => {
-    const v = parseInt(e.target.value, 10);
-    appState.settings.smoothingWindow = v;
-    smLabel.textContent = `${v} pt`;
-    reprocessAndRender();
-  });
+  if (smSlider && smLabel) {
+    smSlider.addEventListener('input', e => {
+      const v = parseInt(e.target.value, 10);
+      appState.settings.smoothingWindow = v;
+      smLabel.textContent = `${v} pt`;
+      reprocessAndRender();
+    });
+  }
 
   // Theme & Units
-  document.getElementById('select-theme').addEventListener('change', e => {
-    appState.settings.theme = e.target.value;
-    updateUI();
-  });
+  const themeSelect = document.getElementById('select-theme');
+  if (themeSelect) {
+    themeSelect.addEventListener('change', e => {
+      appState.settings.theme = e.target.value;
+      updateUI();
+    });
+  }
 
-  document.getElementById('select-units').addEventListener('change', e => {
-    appState.settings.units = e.target.value;
-    const unitLabel = document.getElementById('label-wpt-unit');
-    if (unitLabel) unitLabel.textContent = e.target.value === 'metric' ? 'km' : 'mi';
-    updateUI();
-    renderWaypointsList();
-  });
+  const unitsSelect = document.getElementById('select-units');
+  if (unitsSelect) {
+    unitsSelect.addEventListener('change', e => {
+      appState.settings.units = e.target.value;
+      const unitLabel = document.getElementById('label-wpt-unit');
+      if (unitLabel) unitLabel.textContent = e.target.value === 'metric' ? 'km' : 'mi';
+      updateUI();
+      renderWaypointsList();
+    });
+  }
 
-  document.getElementById('input-title').addEventListener('input', e => {
-    appState.settings.title = e.target.value;
-    updateUI();
-  });
+  const titleInput = document.getElementById('input-title');
+  if (titleInput) {
+    titleInput.addEventListener('input', e => {
+      appState.settings.title = e.target.value;
+      updateUI();
+    });
+  }
 
   // Waypoint Form & Actions
   const btnAddWpt = document.getElementById('btn-add-wpt');
@@ -527,69 +692,60 @@ export function initApp() {
   }
 
   // Checkbox Toggles
-  document.getElementById('chk-block-pct').addEventListener('change', e => {
-    appState.settings.showBlockPct = e.target.checked;
-    updateUI();
-  });
-  document.getElementById('chk-climbs').addEventListener('change', e => {
-    appState.settings.showClimbs = e.target.checked;
-    updateUI();
-  });
-  const chkWpt = document.getElementById('chk-waypoints');
-  if (chkWpt) {
-    chkWpt.addEventListener('change', e => {
-      appState.settings.showWaypoints = e.target.checked;
-      updateUI();
-    });
-  }
-  const chkWptLabels = document.getElementById('chk-wpt-labels');
-  if (chkWptLabels) {
-    chkWptLabels.addEventListener('change', e => {
-      appState.settings.showWaypointLabels = e.target.checked;
-      updateUI();
-    });
-  }
-  document.getElementById('chk-header').addEventListener('change', e => {
-    appState.settings.showHeader = e.target.checked;
-    updateUI();
-  });
-  document.getElementById('chk-distance').addEventListener('change', e => {
-    appState.settings.showDistanceTicks = e.target.checked;
-    updateUI();
-  });
-  document.getElementById('chk-ele-labels').addEventListener('change', e => {
-    appState.settings.showElevationLabels = e.target.checked;
-    updateUI();
-  });
-  document.getElementById('chk-cut').addEventListener('change', e => {
-    appState.settings.showCutGuidelines = e.target.checked;
-    updateUI();
-  });
+  const bindCheck = (id, key) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('change', e => {
+        appState.settings[key] = e.target.checked;
+        updateUI();
+      });
+    }
+  };
+
+  bindCheck('chk-block-pct', 'showBlockPct');
+  bindCheck('chk-climbs', 'showClimbs');
+  bindCheck('chk-waypoints', 'showWaypoints');
+  bindCheck('chk-wpt-labels', 'showWaypointLabels');
+  bindCheck('chk-header', 'showHeader');
+  bindCheck('chk-distance', 'showDistanceTicks');
+  bindCheck('chk-ele-labels', 'showElevationLabels');
+  bindCheck('chk-cut', 'showCutGuidelines');
 
   // Exports
-  document.getElementById('btn-copy-svg').addEventListener('click', () => {
-    copySVG(appState.points, appState.stats, appState.climbs, appState.blocks, appState.waypoints, appState.settings, err => {
-      if (!err) {
-        const btn = document.getElementById('btn-copy-svg');
-        const orig = btn.textContent;
-        btn.textContent = 'Copied!';
-        setTimeout(() => btn.textContent = orig, 1200);
-      }
+  const btnCopy = document.getElementById('btn-copy-svg');
+  if (btnCopy) {
+    btnCopy.addEventListener('click', () => {
+      copySVG(appState.points, appState.stats, appState.climbs, appState.blocks, appState.waypoints, appState.settings, err => {
+        if (!err) {
+          const orig = btnCopy.innerHTML;
+          btnCopy.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!`;
+          setTimeout(() => btnCopy.innerHTML = orig, 1400);
+        }
+      });
     });
-  });
+  }
 
-  document.getElementById('btn-export-svg').addEventListener('click', () => {
-    exportSVG(appState.points, appState.stats, appState.climbs, appState.blocks, appState.waypoints, appState.settings);
-  });
+  const btnExportSvg = document.getElementById('btn-export-svg');
+  if (btnExportSvg) {
+    btnExportSvg.addEventListener('click', () => {
+      exportSVG(appState.points, appState.stats, appState.climbs, appState.blocks, appState.waypoints, appState.settings);
+    });
+  }
 
-  document.getElementById('btn-export-png').addEventListener('click', () => {
-    exportPNG(appState.points, appState.stats, appState.climbs, appState.blocks, appState.waypoints, appState.settings);
-  });
+  const btnExportPng = document.getElementById('btn-export-png');
+  if (btnExportPng) {
+    btnExportPng.addEventListener('click', () => {
+      exportPNG(appState.points, appState.stats, appState.climbs, appState.blocks, appState.waypoints, appState.settings);
+    });
+  }
 
-  document.getElementById('btn-print').addEventListener('click', () => {
-    updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.blocks, appState.waypoints, appState.settings);
-    window.print();
-  });
+  const btnPrint = document.getElementById('btn-print');
+  if (btnPrint) {
+    btnPrint.addEventListener('click', () => {
+      updatePrintMatrix(appState.points, appState.stats, appState.climbs, appState.blocks, appState.waypoints, appState.settings);
+      window.print();
+    });
+  }
 
   window.addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'p') {
@@ -601,3 +757,4 @@ export function initApp() {
 }
 
 window.addEventListener('DOMContentLoaded', initApp);
+
