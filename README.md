@@ -15,10 +15,10 @@
   - **Smooth** — Continuous gradient curve
 - **In-Block Gradient %**: Prints the exact average gradient percentage (e.g. `8%`, `11%`, `5%`) directly inside each kilometer/block column.
 - **4 Gradient Color Zones**:
-  - **Zone 1 (< 5%)**: Flat / Rolling (`#2ea043` Green)
-  - **Zone 2 (5% – 8%)**: Moderate (`#d29922` Yellow)
-  - **Zone 3 (8% – 12%)**: Steep (`#db6d28` Orange)
-  - **Zone 4 (> 12%)**: Wall (`#f85149` Red)
+  - **Zone 1 (< 5%)**: Flat / False Flat (`#2ea043` Green)
+  - **Zone 2 (5% – 8%)**: Moderate Climb (`#d29922` Yellow)
+  - **Zone 3 (8% – 12%)**: Steep Climb (`#db6d28` Orange)
+  - **Zone 4 (> 12%)**: Severe Gradient (`#f85149` Red)
 - **Automatic Climb Segmentation**: Detects sustained climbs (HC, Cat 1, Cat 2, Cat 3, Cat 4) and renders summit badges (`Cat • Length @ Avg %`).
 - **High-Glanceability Race Waypoints & Feed Cues**: Ultra-readable custom markers for race pacing and nutrition:
   - 🍽️ **Feed Zone** (`FEED`)
