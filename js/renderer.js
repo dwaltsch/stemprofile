@@ -217,7 +217,7 @@ export function escapeXml(s) {
  * @param {Array<Object>} [waypoints=[]] - Active waypoints for joint collision avoidance
  * @returns {ClimbBadgePlacement[]} Array of non-overlapping badge placement objects
  */
-export function computeClimbBadgeLayout(climbs, toX, toY, padLeft, padRight, minY, maxY, W, waypoints = []) {
+export function computeClimbBadgeLayout(climbs, toX, toY, padLeft, padRight, minY, maxY, W, waypoints = [], customPositions = {}) {
   if (!climbs || climbs.length === 0) return [];
 
   const sortedClimbs = [...climbs].sort((a, b) => a.summitKm - b.summitKm);
@@ -236,6 +236,23 @@ export function computeClimbBadgeLayout(climbs, toX, toY, padLeft, padRight, min
     const badgeH = isDense ? 2.8 : 3.0;
     const charWidth = isDense ? 1.05 : 1.15;
     const badgeW = Math.min(25, label.length * charWidth + 2.4);
+
+    // If custom drag position was saved by the user, prioritize it directly
+    if (customPositions && customPositions['climb-' + climb.id]) {
+      const customPos = customPositions['climb-' + climb.id];
+      placedBadges.push({
+        x: customPos.x,
+        y: customPos.y,
+        w: badgeW,
+        h: badgeH,
+        label,
+        fontSize,
+        summitX,
+        summitY,
+        climb
+      });
+      return;
+    }
 
     const naturalX = summitX - (badgeW / 2);
     const clampedNaturalX = Math.max(padLeft, Math.min(W - padRight - badgeW, naturalX));
@@ -566,13 +583,14 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
 
   // 5. Active Waypoints Pre-calculation for Joint Collision Avoidance
   const activeWaypoints = (waypoints || []).filter(w => w && w.enabled !== false && w.distM >= 0 && w.distM <= stats.totalDist);
+  const customPositions = settings.customPositions || {};
 
   // 6. Climb Segment Overlays & Summit Badges (Interactive Cross-Highlighting & Anti-Collision)
   let climbsMarkup = '';
   if (settings.showClimbs && climbs && climbs.length > 0) {
     const minY = settings.showHeader ? 5.8 : 1.5;
     const maxY = H - padBottom - 1.0;
-    const badgeLayout = computeClimbBadgeLayout(climbs, toX, toY, padLeft, padRight, minY, maxY, W, activeWaypoints);
+    const badgeLayout = computeClimbBadgeLayout(climbs, toX, toY, padLeft, padRight, minY, maxY, W, activeWaypoints, customPositions);
 
     climbs.forEach(climb => {
       const badge = badgeLayout.find(b => b.climb.id === climb.id);
@@ -624,18 +642,15 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
         }
 
         const distToSummit = Math.hypot(connX - summitX, connY - summitY);
-        let leaderLine = '';
-        if (distToSummit > 1.8) {
-          leaderLine = `
-            <line x1="${connX.toFixed(2)}" y1="${connY.toFixed(2)}" x2="${summitX.toFixed(2)}" y2="${summitY.toFixed(2)}" stroke="${theme.badgeStroke}" stroke-width="0.32" stroke-dasharray="0.6,0.4" opacity="0.85"/>
-          `;
-        }
+        const leaderLine = `
+          <line id="leader-climb-${climb.id}" class="climb-leader-line" x1="${connX.toFixed(2)}" y1="${connY.toFixed(2)}" x2="${summitX.toFixed(2)}" y2="${summitY.toFixed(2)}" stroke="${theme.badgeStroke}" stroke-width="0.32" stroke-dasharray="0.6,0.4" opacity="${distToSummit > 1.8 ? '0.85' : '0'}"/>
+        `;
 
         badgeMarkup = `
           <g class="climb-summit-group" data-climb-id="${climb.id}">
             ${leaderLine}
             <circle class="climb-peak-dot" cx="${summitX.toFixed(2)}" cy="${summitY.toFixed(2)}" r="1.1" fill="${theme.z4}" stroke="${theme.topStroke}" stroke-width="0.35"/>
-            <g transform="translate(${x.toFixed(2)}, ${y.toFixed(2)})">
+            <g class="draggable-label climb-badge-drag" data-drag-type="climb" data-drag-id="climb-${climb.id}" data-summit-x="${summitX.toFixed(2)}" data-summit-y="${summitY.toFixed(2)}" data-w="${w.toFixed(2)}" data-h="${h.toFixed(2)}" transform="translate(${x.toFixed(2)}, ${y.toFixed(2)})">
               <rect class="climb-badge-rect" width="${w.toFixed(2)}" height="${h.toFixed(2)}" rx="0.6" fill="${theme.badgeBg}" stroke="${theme.badgeStroke}" stroke-width="0.35"/>
               <text class="climb-badge-text" x="${(w / 2).toFixed(2)}" y="${(h * 0.70).toFixed(2)}" fill="${theme.badgeText}" font-size="${fontSize}" font-weight="800" font-family="sans-serif" text-anchor="middle">${label}</text>
             </g>
@@ -653,7 +668,7 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
     });
   }
 
-  // 7. Waypoints & Race Cues
+  // 7. Waypoints & Race Cues (Draggable & Coordinated)
   let waypointsMarkup = '';
   const showWaypoints = settings.showWaypoints !== false;
   const showWptLabels = settings.showWaypointLabels !== false;
@@ -690,34 +705,36 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
       }
 
       const badgeR = 2.0; // 4.0mm diameter pin
+      let badgeX = wptX;
       let badgeY = isStaggered ? Math.max(padTop - 2.0, profY - 13.5) : Math.max(padTop - 3.6, profY - 7.5);
+
+      // Check if custom dragged position exists for this waypoint
+      if (customPositions && customPositions['wpt-' + wpt.id]) {
+        badgeX = customPositions['wpt-' + wpt.id].x;
+        badgeY = customPositions['wpt-' + wpt.id].y;
+      }
+
       if (badgeY < 2.5) badgeY = 2.5;
       if (badgeY > H - 6.0) badgeY = H - 6.0;
 
-      // Drop Line from pin badge down to profile surface
+      // Drop Line / Leader line from pin badge down to profile surface
       const dropLine = `
-        <line x1="${wptX.toFixed(2)}" y1="${(badgeY + badgeR).toFixed(2)}" x2="${wptX.toFixed(2)}" y2="${profY.toFixed(2)}" stroke="${typeCfg.color}" stroke-width="0.4" stroke-dasharray="0.6,0.4" opacity="0.95"/>
+        <line id="leader-wpt-${escapeXml(wpt.id)}" class="wpt-leader-line" x1="${badgeX.toFixed(2)}" y1="${(badgeY + badgeR).toFixed(2)}" x2="${wptX.toFixed(2)}" y2="${profY.toFixed(2)}" stroke="${typeCfg.color}" stroke-width="0.4" stroke-dasharray="0.6,0.4" opacity="0.95"/>
         <circle cx="${wptX.toFixed(2)}" cy="${profY.toFixed(2)}" r="0.8" fill="${typeCfg.color}" stroke="${theme.bg}" stroke-width="0.3"/>
       `;
 
       // Icon Pin
       const glyph = renderWaypointGlyph(wpt.type, typeCfg.textColor);
-      const pinMarkup = `
-        <g transform="translate(${wptX.toFixed(2)}, ${badgeY.toFixed(2)})">
-          <circle cx="0" cy="0" r="${badgeR}" fill="${typeCfg.color}" stroke="${theme.topStroke}" stroke-width="0.35"/>
-          ${glyph}
-        </g>
-      `;
 
       // High contrast label
       let textMarkup = '';
       if (showWptLabels) {
         const tagText = customLabel ? `${distStr} ${customLabel}` : `${distStr} ${typeCfg.shortCode}`;
         const tagW = Math.min(26, tagText.length * 1.35 + 2.5);
-        const tagX = Math.max(padLeft, Math.min(W - padRight - tagW, wptX - (tagW / 2)));
-        let tagY = badgeY + badgeR + 0.6;
-        if (tagY + 2.6 > profY && badgeY - 3.2 >= 1.0) {
-          tagY = badgeY - badgeR - 2.8;
+        const tagX = - (tagW / 2);
+        let tagY = badgeR + 0.6;
+        if (badgeY + badgeR + 3.2 > profY && badgeY - 3.2 >= 1.0) {
+          tagY = - badgeR - 2.8;
         }
 
         textMarkup = `
@@ -728,11 +745,18 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
         `;
       }
 
+      const pinMarkup = `
+        <g class="draggable-label wpt-badge-drag" data-drag-type="wpt" data-drag-id="wpt-${escapeXml(wpt.id)}" data-apex-x="${wptX.toFixed(2)}" data-apex-y="${profY.toFixed(2)}" transform="translate(${badgeX.toFixed(2)}, ${badgeY.toFixed(2)})">
+          <circle cx="0" cy="0" r="${badgeR}" fill="${typeCfg.color}" stroke="${theme.topStroke}" stroke-width="0.35"/>
+          ${glyph}
+          ${textMarkup}
+        </g>
+      `;
+
       waypointsMarkup += `
         <g class="wpt-marker" data-wpt-id="${escapeXml(wpt.id)}">
           ${dropLine}
           ${pinMarkup}
-          ${textMarkup}
         </g>
       `;
     });

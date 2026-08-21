@@ -944,6 +944,43 @@ main.stage-area {
   fill: var(--accent) !important;
 }
 
+/* Draggable Labels */
+.draggable-label {
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  transition: filter 0.12s ease;
+}
+
+.draggable-label:hover {
+  cursor: grab;
+  filter: drop-shadow(0 2px 5px rgba(37, 99, 235, 0.45));
+}
+
+.draggable-label:hover rect,
+.draggable-label:hover circle {
+  stroke-width: 0.55 !important;
+}
+
+.draggable-label.dragging {
+  cursor: grabbing !important;
+  filter: drop-shadow(0 4px 10px rgba(37, 99, 235, 0.7)) !important;
+}
+
+.draggable-label.dragging rect {
+  stroke: var(--accent) !important;
+  stroke-width: 0.65 !important;
+}
+
+body.is-dragging-label {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+
+body.is-dragging-label * {
+  cursor: grabbing !important;
+}
+
 /* Legend Grid */
 .legend-grid {
   display: flex;
