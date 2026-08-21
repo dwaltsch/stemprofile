@@ -174,20 +174,28 @@
           <div class="field">
             <label class="field-label">Roadbook Block Size</label>
             <div class="segmented-pill-group" id="block-size-pill-group">
+              <button type="button" class="pill-opt" data-value="2500">2.5 km</button>
               <button type="button" class="pill-opt active" data-value="1000">1.0 km</button>
-              <button type="button" class="pill-opt" data-value="500">500m</button>
-              <button type="button" class="pill-opt" data-value="250">250m</button>
-              <button type="button" class="pill-opt" data-value="100">100m</button>
+              <button type="button" class="pill-opt" data-value="500">500 m</button>
               <button type="button" class="pill-opt" data-value="0">Smooth</button>
+              <button type="button" class="pill-opt" data-value="custom">Custom</button>
             </div>
             <!-- Hidden select for programmatic binding -->
             <select id="select-block-size" style="display:none;">
+              <option value="2500">2.5 km (Stage Overview)</option>
               <option value="1000" selected>1.0 km (Grand Tour Roadbook)</option>
-              <option value="500">500m (Standard Blocks)</option>
-              <option value="250">250m (Fine Blocks)</option>
-              <option value="100">100m (Granular Blocks)</option>
+              <option value="500">500 m (Detailed Blocks)</option>
               <option value="0">Smooth (Continuous Curve)</option>
+              <option value="custom">Custom...</option>
             </select>
+          </div>
+
+          <div class="field" id="field-custom-block" style="display: none; margin-top: 0.5rem;">
+            <label class="field-label" for="input-custom-block">Custom Block Size (meters)</label>
+            <div class="stepper-wrap">
+              <input type="number" id="input-custom-block" value="1000" min="50" max="25000" step="50">
+              <span class="stepper-unit">m</span>
+            </div>
           </div>
 
           <div class="field">

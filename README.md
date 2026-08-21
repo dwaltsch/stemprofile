@@ -8,12 +8,12 @@
 
 ### 1. Block-Segmented Pro Elevation Profile
 - **Configurable Spatial Block Sizes**: Discretizes route elevation into uniform, blocky segments like Grand Tour roadbooks:
+  - **2.5 km (2500m Blocks)** — Stage overview & long routes
   - **1.0 km (1000m Blocks)** — Standard Grand Tour roadbook style
   - **500m Blocks** — Detailed roadbook segments
-  - **250m Blocks** — Fine granularity
-  - **100m Blocks** — Micro segments
   - **Smooth** — Continuous gradient curve
-- **In-Block Gradient %**: Prints the exact average gradient percentage (e.g. `8%`, `11%`, `5%`) directly inside each kilometer/block column.
+  - **Custom** — User-defined block size in meters
+- **In-Block Gradient %**: Prints the exact average gradient percentage (e.g. `8%`, `11%`, `5%`) directly inside each kilometer/block column across all block sizes with adaptive sizing and multi-tier orientation.
 - **4 Gradient Color Zones**:
   - **Zone 1 (< 5%)**: Flat / False Flat (`#2ea043` Green)
   - **Zone 2 (5% – 8%)**: Moderate Climb (`#d29922` Yellow)
@@ -84,6 +84,6 @@ npx serve
 
 Open `http://localhost:8000` in any web browser:
 1. Drop your `.gpx` route file onto the track dropzone.
-2. Select your desired **Segment Block Size** (e.g. `1.0 km`, `500m`, `250m`, `100m`).
+2. Select your desired **Segment Block Size** (e.g. `2.5 km`, `1.0 km`, `500m`, `Custom`).
 3. Select your stem/top-tube physical dimensions.
 4. Print (`⌘P` / `Ctrl+P`) or export to **SVG** / **PNG (300 DPI)**.

@@ -514,17 +514,41 @@ export function initApp() {
   // Segment Block Size & Granularity Pills
   const blockPills = document.querySelectorAll('#block-size-pill-group .pill-opt');
   const blockSelect = document.getElementById('select-block-size');
+  const fieldCustomBlock = document.getElementById('field-custom-block');
+  const inputCustomBlock = document.getElementById('input-custom-block');
 
   blockPills.forEach(pill => {
     pill.addEventListener('click', () => {
       blockPills.forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
-      const val = parseInt(pill.dataset.value, 10);
-      if (blockSelect) blockSelect.value = pill.dataset.value;
-      appState.settings.blockSizeM = val;
+      const val = pill.dataset.value;
+      if (blockSelect) blockSelect.value = val;
+
+      if (val === 'custom') {
+        if (fieldCustomBlock) fieldCustomBlock.style.display = 'block';
+        const numVal = parseInt(inputCustomBlock ? inputCustomBlock.value : '1000', 10) || 1000;
+        appState.settings.blockSizeM = numVal;
+      } else {
+        if (fieldCustomBlock) fieldCustomBlock.style.display = 'none';
+        const numVal = parseInt(val, 10);
+        appState.settings.blockSizeM = numVal;
+        if (inputCustomBlock && numVal > 0) inputCustomBlock.value = numVal;
+      }
       reprocessAndRender();
     });
   });
+
+  if (inputCustomBlock) {
+    inputCustomBlock.addEventListener('input', e => {
+      const v = parseInt(e.target.value, 10);
+      if (v >= 50 && v <= 50000) {
+        appState.settings.blockSizeM = v;
+        blockPills.forEach(p => p.classList.toggle('active', p.dataset.value === 'custom'));
+        if (blockSelect) blockSelect.value = 'custom';
+        reprocessAndRender();
+      }
+    });
+  }
 
   // Smoothing
   const smSlider = document.getElementById('slider-smoothing');

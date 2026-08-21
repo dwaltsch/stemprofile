@@ -129,6 +129,107 @@ export function escapeXml(s) {
   return (s || '').replace(/[<>&'"]/g, c => map[c] || c);
 }
 
+/**
+ * Auto-placement & collision avoidance engine for Climb Summit Badges
+ */
+export function computeClimbBadgeLayout(climbs, toX, toY, padLeft, padRight, minY, maxY, W) {
+  if (!climbs || climbs.length === 0) return [];
+
+  const sortedClimbs = [...climbs].sort((a, b) => a.summitKm - b.summitKm);
+  const placedBadges = [];
+  const isDense = sortedClimbs.length >= 4;
+
+  sortedClimbs.forEach(climb => {
+    const summitX = toX(climb.summitKm * 1000);
+    const summitY = toY(climb.summitEle);
+
+    const label = isDense
+      ? `${climb.category} · ${climb.lengthKm.toFixed(1)}k ${climb.avgGrade}%`
+      : `${climb.category} • ${climb.lengthKm.toFixed(1)}k @ ${climb.avgGrade}%`;
+
+    const fontSize = isDense ? 1.45 : 1.6;
+    const badgeH = isDense ? 2.8 : 3.0;
+    const charWidth = isDense ? 1.05 : 1.15;
+    const badgeW = Math.min(25, label.length * charWidth + 2.4);
+
+    const naturalX = summitX - (badgeW / 2);
+    const clampedNaturalX = Math.max(padLeft, Math.min(W - padRight - badgeW, naturalX));
+
+    // Vertical tiers
+    const candidateTiersY = [
+      Math.max(minY, summitY - badgeH - 1.8),            // Tier 0: Direct hover above summit
+      Math.max(minY, summitY - badgeH - 5.2),            // Tier 1: Staggered tier higher
+      Math.max(minY, summitY - badgeH - 8.6),            // Tier 2: Staggered tier 2
+      minY + 0.3,                                        // Tier 3: Top shelf tier 1
+      minY + badgeH + 0.7,                               // Tier 4: Top shelf tier 2
+      Math.max(minY, summitY - badgeH - 12.0),           // Tier 5: Very high
+      Math.min(maxY - badgeH, summitY + 2.0)             // Tier 6: Below summit shoulder
+    ];
+
+    // Horizontal nudge offsets
+    const candidateDxs = [0, -3.5, 3.5, -7.0, 7.0, -11.0, 11.0, -16.0, 16.0, -22.0, 22.0];
+
+    let bestCandidate = null;
+    let minCost = Infinity;
+
+    for (let t = 0; t < candidateTiersY.length; t++) {
+      const candY = candidateTiersY[t];
+      if (candY < minY || candY + badgeH > maxY) continue;
+
+      for (let d = 0; d < candidateDxs.length; d++) {
+        const dx = candidateDxs[d];
+        const candX = Math.max(padLeft, Math.min(W - padRight - badgeW, clampedNaturalX + dx));
+
+        // Check collision against already placed badges
+        let collides = false;
+        const marginX = 0.8;
+        const marginY = 0.5;
+
+        for (const pb of placedBadges) {
+          const overlapX = (candX < pb.x + pb.w + marginX) && (candX + badgeW + marginX > pb.x);
+          const overlapY = (candY < pb.y + pb.h + marginY) && (candY + badgeH + marginY > pb.y);
+          if (overlapX && overlapY) {
+            collides = true;
+            break;
+          }
+        }
+
+        const distFromSummit = Math.hypot((candX + badgeW / 2) - summitX, (candY + badgeH) - summitY);
+        const cost = (collides ? 10000 : 0) + distFromSummit + (t * 2.5) + (Math.abs(dx) * 1.6);
+
+        if (cost < minCost) {
+          minCost = cost;
+          bestCandidate = { x: candX, y: candY, w: badgeW, h: badgeH, label, fontSize, summitX, summitY, climb };
+          if (!collides && d === 0 && t === 0) {
+            break;
+          }
+        }
+      }
+      if (bestCandidate && minCost < 10000 && t === 0) {
+        break;
+      }
+    }
+
+    if (!bestCandidate) {
+      bestCandidate = {
+        x: clampedNaturalX,
+        y: Math.max(minY, summitY - badgeH - 1.8),
+        w: badgeW,
+        h: badgeH,
+        label,
+        fontSize,
+        summitX,
+        summitY,
+        climb
+      };
+    }
+
+    placedBadges.push(bestCandidate);
+  });
+
+  return placedBadges;
+}
+
 export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoints = [], settings = {}, isPrint = false) {
   // Support polymorphic parameter calls: (points, stats, climbs, blocks, settings, isPrint)
   if (!Array.isArray(waypoints) && typeof waypoints === 'object') {
@@ -187,12 +288,16 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
   const isBlockMode = blocks && blocks.length > 0;
 
   if (isBlockMode) {
-    // 1. Render Segmented Block Columns (1km / 500m / 250m / 100m)
+    // 1. Render Segmented Block Columns (2.5km / 1.0km / 500m / Custom)
     let blocksPolygons = '';
     let blockDividers = '';
     let blockTextLabels = '';
 
     topPath = `M ${toX(blocks[0].startDist).toFixed(2)} ${toY(blocks[0].startEle).toFixed(2)}`;
+
+    // Stride calculation for very narrow blocks on long stages so text never overlaps
+    const avgBlockWidthMm = plotW / Math.max(1, blocks.length);
+    const stride = avgBlockWidthMm < 1.2 ? Math.max(1, Math.ceil(1.6 / avgBlockWidthMm)) : 1;
 
     blocks.forEach((b, idx) => {
       const x1 = toX(b.startDist);
@@ -215,16 +320,46 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
         `;
       }
 
-      // Block Percentage Text (with outline halo for 100% contrast over all zones)
-      if (settings.showBlockPct !== false && blockWidthMm >= 4.2) {
-        const midX = ((x1 + x2) / 2).toFixed(2);
+      // Block Percentage Text (Always visible for 2.5km, 1.0km, 500m, Custom)
+      if (settings.showBlockPct !== false) {
         const topMidY = (y1 + y2) / 2;
-        const textY = (topMidY + (yBase - topMidY) * 0.45).toFixed(2);
-        const gradeText = `${Math.round(b.absGrade)}%`;
+        const colHeight = yBase - topMidY;
+        const midX = (x1 + x2) / 2;
+        const gradeVal = Math.round(b.absGrade);
+        const gradeText = `${gradeVal}%`;
 
-        blockTextLabels += `
-          <text x="${midX}" y="${textY}" fill="#ffffff" stroke="rgba(0,0,0,0.85)" stroke-width="0.38" stroke-linejoin="round" paint-order="stroke fill" font-size="1.8" font-weight="900" font-family="monospace, sans-serif" text-anchor="middle">${gradeText}</text>
-        `;
+        const shouldRender = (stride === 1) || (idx % stride === 0) || (b.absGrade >= 4.0);
+
+        if (shouldRender && colHeight >= 2.5) {
+          if (blockWidthMm >= 3.0) {
+            // Wide block: Horizontal text with outline halo
+            const textY = Math.min(yBase - 1.2, topMidY + (colHeight * 0.45));
+            blockTextLabels += `
+              <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" fill="#ffffff" stroke="rgba(0,0,0,0.85)" stroke-width="0.36" stroke-linejoin="round" paint-order="stroke fill" font-size="1.7" font-weight="900" font-family="monospace, sans-serif" text-anchor="middle">${gradeText}</text>
+            `;
+          } else if (blockWidthMm >= 1.7) {
+            // Medium block: Compact horizontal or vertical text depending on height
+            if (colHeight >= 6.0) {
+              const textY = (topMidY + yBase) / 2;
+              blockTextLabels += `
+                <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" transform="rotate(-90, ${midX.toFixed(2)}, ${textY.toFixed(2)})" fill="#ffffff" stroke="rgba(0,0,0,0.85)" stroke-width="0.32" stroke-linejoin="round" paint-order="stroke fill" font-size="1.45" font-weight="900" font-family="monospace, sans-serif" text-anchor="middle">${gradeText}</text>
+              `;
+            } else {
+              const textY = Math.min(yBase - 1.0, topMidY + (colHeight * 0.48));
+              blockTextLabels += `
+                <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" fill="#ffffff" stroke="rgba(0,0,0,0.85)" stroke-width="0.32" stroke-linejoin="round" paint-order="stroke fill" font-size="1.35" font-weight="900" font-family="monospace, sans-serif" text-anchor="middle">${gradeText}</text>
+              `;
+            }
+          } else if (blockWidthMm >= 0.75) {
+            // Narrow block (e.g. 500m on long stages): Vertical text like Grand Tour roadbooks
+            if (colHeight >= 4.5) {
+              const textY = (topMidY + yBase) / 2;
+              blockTextLabels += `
+                <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" transform="rotate(-90, ${midX.toFixed(2)}, ${textY.toFixed(2)})" fill="#ffffff" stroke="rgba(0,0,0,0.85)" stroke-width="0.30" stroke-linejoin="round" paint-order="stroke fill" font-size="1.3" font-weight="900" font-family="monospace, sans-serif" text-anchor="middle">${gradeText}</text>
+              `;
+            }
+          }
+        }
       }
     });
 
@@ -300,21 +435,51 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
     `;
   }
 
-  // 5. Climb Summit Badges
+  // 5. Climb Summit Badges (Auto-Placed Multi-Tier & Anti-Collision)
   let climbsMarkup = '';
   if (settings.showClimbs && climbs && climbs.length > 0) {
-    climbs.forEach(climb => {
-      const summitX = toX(climb.summitKm * 1000);
-      const summitY = toY(climb.summitEle);
-      const label = `${climb.category} • ${climb.lengthKm.toFixed(1)}k @ ${climb.avgGrade}%`;
-      const badgeW = Math.min(26, label.length * 1.5 + 3.5);
-      const badgeY = Math.max(padTop - 3.8, summitY - 5.0);
+    const minY = settings.showHeader ? 5.8 : 1.5;
+    const maxY = H - padBottom - 1.0;
+    const badgeLayout = computeClimbBadgeLayout(climbs, toX, toY, padLeft, padRight, minY, maxY, W);
+
+    badgeLayout.forEach(badge => {
+      const { x, y, w, h, label, fontSize, summitX, summitY } = badge;
+      const badgeCenterX = x + (w / 2);
+      const badgeBottomY = y + h;
+      const badgeTopY = y;
+
+      let connX = badgeCenterX;
+      let connY = badgeBottomY;
+      if (badgeBottomY <= summitY - 0.6) {
+        connX = badgeCenterX;
+        connY = badgeBottomY;
+      } else if (badgeTopY >= summitY + 0.6) {
+        connX = badgeCenterX;
+        connY = badgeTopY;
+      } else if (badgeCenterX <= summitX) {
+        connX = x + w;
+        connY = y + (h / 2);
+      } else {
+        connX = x;
+        connY = y + (h / 2);
+      }
+
+      const distToSummit = Math.hypot(connX - summitX, connY - summitY);
+      let leaderLine = '';
+      if (distToSummit > 1.8) {
+        leaderLine = `
+          <line x1="${connX.toFixed(2)}" y1="${connY.toFixed(2)}" x2="${summitX.toFixed(2)}" y2="${summitY.toFixed(2)}" stroke="${theme.badgeStroke}" stroke-width="0.32" stroke-dasharray="0.6,0.4" opacity="0.85"/>
+        `;
+      }
 
       climbsMarkup += `
-        <circle cx="${summitX.toFixed(2)}" cy="${summitY.toFixed(2)}" r="1.0" fill="${theme.z4}" stroke="${theme.topStroke}" stroke-width="0.35"/>
-        <g transform="translate(${Math.max(padLeft, Math.min(W - padRight - badgeW, summitX - (badgeW / 2))).toFixed(2)}, ${badgeY.toFixed(2)})">
-          <rect width="${badgeW}" height="3.2" rx="0.6" fill="${theme.badgeBg}" stroke="${theme.badgeStroke}" stroke-width="0.35"/>
-          <text x="${badgeW / 2}" y="2.2" fill="${theme.badgeText}" font-size="1.7" font-weight="800" font-family="sans-serif" text-anchor="middle">${label}</text>
+        <g class="climb-summit-group">
+          ${leaderLine}
+          <circle cx="${summitX.toFixed(2)}" cy="${summitY.toFixed(2)}" r="1.1" fill="${theme.z4}" stroke="${theme.topStroke}" stroke-width="0.35"/>
+          <g transform="translate(${x.toFixed(2)}, ${y.toFixed(2)})">
+            <rect width="${w.toFixed(2)}" height="${h.toFixed(2)}" rx="0.6" fill="${theme.badgeBg}" stroke="${theme.badgeStroke}" stroke-width="0.35"/>
+            <text x="${(w / 2).toFixed(2)}" y="${(h * 0.70).toFixed(2)}" fill="${theme.badgeText}" font-size="${fontSize}" font-weight="800" font-family="sans-serif" text-anchor="middle">${label}</text>
+          </g>
         </g>
       `;
     });
