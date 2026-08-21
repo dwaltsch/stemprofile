@@ -1,57 +1,143 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>StemProfile — Elevation Sticker Studio</title>
+  <title>StemProfile — Pro Elevation Sticker Studio</title>
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
 
-  <!-- Top Bar -->
-  <header>
-    <div class="brand">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-      </svg>
-      <span>StemProfile</span>
+  <!-- Top Navigation Header -->
+  <header class="app-header">
+    <div class="brand-group">
+      <div class="brand-logo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="5.5" cy="17.5" r="3.5"></circle>
+          <circle cx="18.5" cy="17.5" r="3.5"></circle>
+          <path d="M15 6h-5l-3 6.5h8.5l2-4.5"></path>
+          <path d="M12 17.5V14l-2.5-4"></path>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <span class="brand-title">StemProfile</span>
+        <span class="brand-tag">STUDIO</span>
+      </div>
     </div>
 
+    <!-- Active Route Status Pill -->
+    <div class="route-pill" id="route-pill">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+        <line x1="4" y1="22" x2="4" y2="15"></line>
+      </svg>
+      <span id="route-status-text">No track loaded</span>
+    </div>
+
+    <!-- Action Suite -->
     <div class="actions">
-      <button class="btn" id="btn-copy-svg" disabled>Copy SVG</button>
-      <button class="btn" id="btn-export-svg" disabled>SVG</button>
-      <button class="btn" id="btn-export-png" disabled>PNG (300 DPI)</button>
-      <button class="btn btn-primary" id="btn-print" disabled>Print</button>
+      <button class="btn btn-ghost" id="btn-load-demo" title="Load sample Grand Tour mountain pass route">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        Demo Route
+      </button>
+
+      <button class="btn btn-icon" id="btn-theme-toggle" title="Toggle Light/Dark Theme">
+        <!-- Sun icon (shown in dark mode) -->
+        <svg class="icon-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <!-- Moon icon (shown in light mode) -->
+        <svg class="icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
+
+      <div class="action-divider"></div>
+
+      <button class="btn" id="btn-copy-svg" disabled title="Copy SVG markup to clipboard">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+        Copy SVG
+      </button>
+
+      <button class="btn" id="btn-export-svg" disabled title="Download vector SVG file">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        SVG
+      </button>
+
+      <button class="btn" id="btn-export-png" disabled title="Download high-resolution 300 DPI PNG">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <circle cx="8.5" cy="8.5" r="1.5"></circle>
+          <polyline points="21 15 16 10 5 21"></polyline>
+        </svg>
+        PNG (300 DPI)
+      </button>
+
+      <button class="btn btn-primary" id="btn-print" disabled title="Open print sheet dialog (⌘P)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 6 2 18 2 18 9"></polyline>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+          <rect x="6" y="14" width="12" height="8"></rect>
+        </svg>
+        Print
+      </button>
     </div>
   </header>
 
-  <!-- Studio Layout -->
+  <!-- 3-Column Studio Workstation -->
   <div class="app-layout">
     
-    <!-- Sidebar Controls -->
-    <aside>
+    <!-- LEFT COLUMN: Tool Parameters & Inspector -->
+    <aside class="sidebar-left">
       
-      <!-- 1. Upload GPX -->
-      <div>
-        <div class="section-title">Track File</div>
+      <!-- Section 1: Track File -->
+      <div class="tool-section">
+        <div class="section-label">Track Ingestion</div>
         <div class="dropzone" id="dropzone">
           <input type="file" id="file-input" accept=".gpx" />
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg class="drop-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
             <polyline points="17 8 12 3 7 8"></polyline>
             <line x1="12" y1="3" x2="12" y2="15"></line>
           </svg>
           <p id="dropzone-filename">Drop GPX track here</p>
-          <span>or click to browse</span>
+          <span>or click to browse local file</span>
         </div>
       </div>
 
-      <!-- 2. Physical Dimensions -->
-      <div>
-        <div class="section-title">Sticker Size</div>
+      <!-- Section 2: Physical Sizing -->
+      <div class="tool-section">
+        <div class="section-label">Sticker Dimensions</div>
         <div class="control-group">
+          
           <div class="field">
-            <select id="preset-size">
+            <label class="field-label">Presets</label>
+            <div class="segmented-pill-group" id="preset-pill-group">
+              <button type="button" class="pill-opt active" data-value="110x35">110×35 Top Tube</button>
+              <button type="button" class="pill-opt" data-value="100x28">100×28 Slim</button>
+              <button type="button" class="pill-opt" data-value="75x30">75×30 Compact</button>
+              <button type="button" class="pill-opt" data-value="130x35">130×35 Long</button>
+              <button type="button" class="pill-opt" data-value="custom">Custom</button>
+            </div>
+            <!-- Hidden select for programmatic binding -->
+            <select id="preset-size" style="display:none;">
               <option value="110x35" selected>Top Tube (110 × 35 mm)</option>
               <option value="100x28">Slim Stem (100 × 28 mm)</option>
               <option value="75x30">Compact Stem (75 × 30 mm)</option>
@@ -63,17 +149,23 @@
           <div class="field-grid">
             <div class="field">
               <label class="field-label" for="input-w-mm">Width (mm)</label>
-              <input type="number" id="input-w-mm" value="110" min="20" max="400">
+              <div class="stepper-wrap">
+                <input type="number" id="input-w-mm" value="110" min="20" max="400">
+                <span class="stepper-unit">mm</span>
+              </div>
             </div>
             <div class="field">
               <label class="field-label" for="input-h-mm">Height (mm)</label>
-              <input type="number" id="input-h-mm" value="35" min="10" max="200">
+              <div class="stepper-wrap">
+                <input type="number" id="input-h-mm" value="35" min="10" max="200">
+                <span class="stepper-unit">mm</span>
+              </div>
             </div>
           </div>
 
           <div class="field-grid">
             <div class="field">
-              <label class="field-label" for="input-radius">Corners</label>
+              <label class="field-label" for="input-radius">Corner Radius</label>
               <select id="input-radius">
                 <option value="0">Square (0mm)</option>
                 <option value="2" selected>Rounded (2mm)</option>
@@ -81,25 +173,34 @@
               </select>
             </div>
             <div class="field">
-              <label class="field-label" for="input-copies">Copies</label>
+              <label class="field-label" for="input-copies">Print Sheet Copies</label>
               <select id="input-copies">
-                <option value="1" selected>1</option>
-                <option value="2">2</option>
-                <option value="4">4</option>
+                <option value="1">1 Sticker</option>
+                <option value="2" selected>2 Stickers</option>
+                <option value="4">4 Stickers</option>
               </select>
             </div>
           </div>
+
         </div>
       </div>
 
-      <!-- 3. Segmentation & Styling -->
-      <div>
-        <div class="section-title">Segmentation & Style</div>
+      <!-- Section 3: Granularity & Styling -->
+      <div class="tool-section">
+        <div class="section-label">Granularity & Signal</div>
         <div class="control-group">
           
           <div class="field">
-            <label class="field-label" for="select-block-size">Segment Block Size</label>
-            <select id="select-block-size">
+            <label class="field-label">Roadbook Block Size</label>
+            <div class="segmented-pill-group" id="block-size-pill-group">
+              <button type="button" class="pill-opt active" data-value="1000">1.0 km</button>
+              <button type="button" class="pill-opt" data-value="500">500m</button>
+              <button type="button" class="pill-opt" data-value="250">250m</button>
+              <button type="button" class="pill-opt" data-value="100">100m</button>
+              <button type="button" class="pill-opt" data-value="0">Smooth</button>
+            </div>
+            <!-- Hidden select for programmatic binding -->
+            <select id="select-block-size" style="display:none;">
               <option value="1000" selected>1.0 km (Grand Tour Roadbook)</option>
               <option value="500">500m (Standard Blocks)</option>
               <option value="250">250m (Fine Blocks)</option>
@@ -109,79 +210,85 @@
           </div>
 
           <div class="field">
-            <label class="field-label" for="select-theme">Theme</label>
-            <select id="select-theme">
-              <option value="white" selected>Print White</option>
-              <option value="dark">Dark Cockpit</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label class="field-label" for="select-units">Units</label>
-            <select id="select-units">
-              <option value="metric" selected>Metric (km / m)</option>
-              <option value="imperial">Imperial (mi / ft)</option>
-            </select>
-          </div>
-
-          <div class="field">
             <div class="field-label">
-              <span>Smoothing</span>
-              <span id="label-smoothing" style="color:var(--accent);">7 pt</span>
+              <span>Moving Avg Smoothing</span>
+              <span id="label-smoothing" class="field-value-badge">7 pt</span>
             </div>
             <input type="range" id="slider-smoothing" min="1" max="21" step="2" value="7">
           </div>
 
-          <div class="field">
-            <label class="field-label" for="input-title">Header Title</label>
-            <input type="text" id="input-title" placeholder="Route Name">
+          <div class="field-grid">
+            <div class="field">
+              <label class="field-label" for="select-theme">Sticker Theme</label>
+              <select id="select-theme">
+                <option value="white" selected>Print White (Standard)</option>
+                <option value="dark">Dark Cockpit</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label" for="select-units">Units</label>
+              <select id="select-units">
+                <option value="metric" selected>Metric (km / m)</option>
+                <option value="imperial">Imperial (mi / ft)</option>
+              </select>
+            </div>
           </div>
 
-          <div style="display:flex; flex-direction:column; gap:0.45rem; margin-top:0.3rem;">
-            <label class="checkbox-row">
-              <input type="checkbox" id="chk-block-pct" checked>
-              <span>Show gradient % in blocks</span>
-            </label>
-            <label class="checkbox-row">
-              <input type="checkbox" id="chk-climbs" checked>
-              <span>Climb summit badges</span>
-            </label>
-            <label class="checkbox-row">
-              <input type="checkbox" id="chk-waypoints" checked>
-              <span>Waypoints & feed cues</span>
-            </label>
-            <label class="checkbox-row">
-              <input type="checkbox" id="chk-wpt-labels" checked>
-              <span>Waypoint text labels</span>
-            </label>
-            <label class="checkbox-row">
-              <input type="checkbox" id="chk-header" checked>
-              <span>Title & stats header</span>
-            </label>
-            <label class="checkbox-row">
-              <input type="checkbox" id="chk-distance" checked>
-              <span>Distance ticks</span>
-            </label>
-            <label class="checkbox-row">
-              <input type="checkbox" id="chk-ele-labels" checked>
-              <span>Min / max elevation</span>
-            </label>
-            <label class="checkbox-row">
-              <input type="checkbox" id="chk-cut" checked>
-              <span>Outer cut guides</span>
-            </label>
+          <div class="field">
+            <label class="field-label" for="input-title">Custom Header Title</label>
+            <input type="text" id="input-title" placeholder="e.g. Passo dello Stelvio">
           </div>
+
         </div>
       </div>
 
-      <!-- 4. Waypoints & Feed Zones -->
-      <div>
-        <div class="section-title" style="display:flex; justify-content:space-between; align-items:center;">
-          <span>Waypoints & Feed Zones</span>
+      <!-- Section 4: Overlays & Display -->
+      <div class="tool-section">
+        <div class="section-label">Overlays & Cues</div>
+        <div class="checkbox-grid">
+          <label class="checkbox-row">
+            <input type="checkbox" id="chk-block-pct" checked>
+            <span>In-block %</span>
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" id="chk-climbs" checked>
+            <span>Climb badges</span>
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" id="chk-waypoints" checked>
+            <span>Feed & cues</span>
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" id="chk-wpt-labels" checked>
+            <span>Cue text labels</span>
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" id="chk-header" checked>
+            <span>Title header</span>
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" id="chk-distance" checked>
+            <span>Distance ticks</span>
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" id="chk-ele-labels" checked>
+            <span>Min / max elevation</span>
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" id="chk-cut" checked>
+            <span>Cut guidelines</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Section 5: Waypoints & Nutrition Cues -->
+      <div class="tool-section">
+        <div class="section-header-flex">
+          <span class="section-label" style="margin-bottom:0;">Waypoint & Nutrition Cues</span>
           <span id="wpt-count-badge" class="count-badge">0</span>
         </div>
-        <div class="control-group">
-          
+        
+        <div class="control-group" style="margin-top: 0.6rem;">
           <div class="field-grid">
             <div class="field">
               <label class="field-label" for="select-wpt-type">Type</label>
@@ -205,34 +312,39 @@
 
           <div class="field">
             <label class="field-label" for="input-wpt-label">Label (optional)</label>
-            <input type="text" id="input-wpt-label" placeholder="e.g. Feed 1, Bottle Drop" maxlength="16">
+            <input type="text" id="input-wpt-label" placeholder="e.g. Bottle Drop, Gel Feed" maxlength="16">
           </div>
 
-          <button class="btn btn-primary" id="btn-add-wpt" style="width:100%; justify-content:center;">
+          <button class="btn btn-secondary" id="btn-add-wpt" style="width:100%; justify-content:center;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <line x1="12" y1="5" x2="12" y2="19"></line>
               <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
-            Add Waypoint
+            Add Waypoint Pin
           </button>
 
           <div class="wpt-list-wrapper" id="wpt-list-wrapper">
-            <div class="wpt-empty-hint" id="wpt-empty-hint">No waypoints yet. Add cues above, click on the profile preview, or load a GPX with markers.</div>
+            <div class="wpt-empty-hint" id="wpt-empty-hint">No waypoints added yet. Click directly on the profile preview or add cues above.</div>
             <div class="wpt-list" id="wpt-list"></div>
           </div>
-
         </div>
       </div>
 
     </aside>
 
-    <!-- Center Stage -->
+    <!-- CENTER COLUMN: Main Stage / Workbench -->
     <main class="stage-area">
       
-      <!-- Vector Profile Stage -->
+      <!-- Vector Profile Workbench -->
       <div class="preview-stage" id="preview-stage">
-        <div class="stage-badge" id="stage-size-label">110 × 35 mm</div>
         
+        <!-- Physical Dimension Calipers -->
+        <div class="caliper-bar caliper-top">
+          <span class="caliper-tick"></span>
+          <span id="stage-size-label">110 × 35 mm</span>
+          <span class="caliper-tick"></span>
+        </div>
+
         <div class="sticker-wrapper" id="sticker-container">
           <div id="svg-host"></div>
           <div id="cursor-tip"></div>
@@ -248,49 +360,83 @@
         </div>
       </div>
 
-      <!-- Quick Metrics -->
+      <!-- Quick Metrics Telemetry Strip -->
       <div class="stats-strip">
         <div class="stat-item">
-          <span class="stat-label">Distance</span>
+          <span class="stat-label">Total Distance</span>
           <span class="stat-value" id="stat-dist">--</span>
         </div>
         <div class="stat-item">
           <span class="stat-label">Elevation Gain</span>
-          <span class="stat-value" id="stat-gain" style="color:var(--z1);">--</span>
+          <span class="stat-value stat-highlight-green" id="stat-gain">--</span>
         </div>
         <div class="stat-item">
           <span class="stat-label">Max Gradient</span>
-          <span class="stat-value" id="stat-max-grade" style="color:var(--z4);">--</span>
+          <span class="stat-value stat-highlight-red" id="stat-max-grade">--</span>
         </div>
         <div class="stat-item">
-          <span class="stat-label">Climbs</span>
-          <span class="stat-value" id="stat-climbs">--</span>
+          <span class="stat-label">Detected Climbs</span>
+          <span class="stat-value stat-highlight-blue" id="stat-climbs">--</span>
         </div>
-      </div>
-
-      <!-- Detected Climbs -->
-      <div class="climbs-box" id="climbs-box" style="display:none;">
-        <h4>Detected Climbs</h4>
-        <table class="climbs-table">
-          <thead>
-            <tr>
-              <th>Cat</th>
-              <th>Location</th>
-              <th>Length</th>
-              <th>Avg %</th>
-              <th>Gain</th>
-              <th>Summit</th>
-            </tr>
-          </thead>
-          <tbody id="climbs-table-body"></tbody>
-        </table>
       </div>
 
     </main>
 
+    <!-- RIGHT COLUMN: Telemetry & Climbs Inspector -->
+    <aside class="sidebar-right" id="sidebar-right">
+      
+      <div class="tool-section">
+        <div class="section-header-flex">
+          <span class="section-label" style="margin-bottom:0;">Detected Climbs</span>
+          <span id="climbs-count-badge" class="count-badge">0</span>
+        </div>
+
+        <div class="climbs-panel" id="climbs-box">
+          <table class="climbs-table">
+            <thead>
+              <tr>
+                <th>Cat</th>
+                <th>Distance</th>
+                <th>Length</th>
+                <th>Avg %</th>
+                <th>Gain</th>
+                <th>Summit</th>
+              </tr>
+            </thead>
+            <tbody id="climbs-table-body"></tbody>
+          </table>
+          <div class="climbs-empty-hint" id="climbs-empty-hint">No sustained categorized climbs detected in track.</div>
+        </div>
+      </div>
+
+      <!-- Roadbook Gradient Zones Legend -->
+      <div class="tool-section">
+        <div class="section-label">Gradient Color Zones</div>
+        <div class="legend-grid">
+          <div class="legend-row">
+            <span class="legend-badge z1">&lt; 5%</span>
+            <span class="legend-desc">Flat / Rolling</span>
+          </div>
+          <div class="legend-row">
+            <span class="legend-badge z2">5 – 8%</span>
+            <span class="legend-desc">Moderate Climbing</span>
+          </div>
+          <div class="legend-row">
+            <span class="legend-badge z3">8 – 12%</span>
+            <span class="legend-desc">Steep Climb</span>
+          </div>
+          <div class="legend-row">
+            <span class="legend-badge z4">&gt; 12%</span>
+            <span class="legend-desc">Brutal Wall</span>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+
   </div>
 
-  <!-- Print Sheet Matrix -->
+  <!-- Print Sheet Output Matrix -->
   <div id="print-output-sheet">
     <div class="print-matrix" id="print-matrix"></div>
   </div>
