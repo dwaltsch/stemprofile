@@ -101,6 +101,7 @@ $$\text{Score} = \text{Distance (km)} \times (\text{AvgGrade}_{\%})^2 = \left(\f
 ```
 toptube/
 ├── index.html          # Clean application layout & control workstation
+├── favicon.svg         # Modern vector cycling elevation profile favicon
 ├── css/
 │   └── styles.css      # Dark cockpit & light theme, @media print matrix styles
 ├── js/
