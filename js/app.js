@@ -884,16 +884,24 @@ export function initApp() {
 
   initLabelDragging();
 
-  // Load from URL Hash if provided (e.g. GitHub Pages shared link)
-  if (window.location.hash && window.location.hash.length > 5) {
-    loadFromUrlHash(window.location.hash);
+  // Load from URL Hash or search parameters if provided (e.g. GitHub Pages shared link)
+  const incomingHash = window.location.hash || window.location.search;
+  if (incomingHash && incomingHash.length > 5) {
+    loadFromUrlHash(incomingHash).then(success => {
+      if (!success) updateUI();
+    }).catch(err => {
+      console.error('Failed to load shared route from URL hash:', err);
+      updateUI();
+    });
   } else {
     updateUI();
   }
 
   window.addEventListener('hashchange', () => {
     if (window.location.hash && window.location.hash.length > 5) {
-      loadFromUrlHash(window.location.hash);
+      loadFromUrlHash(window.location.hash).then(success => {
+        if (!success) updateUI();
+      });
     }
   });
 }
@@ -985,22 +993,38 @@ function syncFormControlsFromSettings() {
  * @returns {Promise<boolean>} True if loaded successfully
  */
 async function loadFromUrlHash(hashStr) {
-  if (!hashStr || hashStr.length < 5) return false;
+  if (!hashStr) return false;
 
-  const cleanHash = hashStr.replace(/^#/, '');
-  let b64 = cleanHash;
-  if (cleanHash.startsWith('stage=')) {
-    b64 = cleanHash.slice(6);
-  } else if (cleanHash.startsWith('data=')) {
-    b64 = cleanHash.slice(5);
+  let raw = hashStr.trim().replace(/^[#?]/, '');
+  try {
+    raw = decodeURIComponent(raw);
+  } catch (_) {}
+
+  let b64 = raw;
+  if (raw.includes('stage=')) {
+    b64 = raw.split('stage=')[1].split('&')[0];
+  } else if (raw.includes('data=')) {
+    b64 = raw.split('data=')[1].split('&')[0];
+  } else if (raw.includes('route=')) {
+    b64 = raw.split('route=')[1].split('&')[0];
   }
+
+  if (!b64 || b64.length < 5) return false;
 
   const payload = await decompressPayload(b64);
   if (!payload || !payload.coords || payload.coords.length < 2) {
+    console.warn('Invalid or incomplete payload loaded from URL hash:', payload);
     return false;
   }
 
-  appState.rawCoords = payload.coords;
+  // Normalize coordinates to standard {lat, lon, ele} objects
+  appState.rawCoords = payload.coords.map(c => {
+    if (Array.isArray(c)) {
+      return { lat: c[0] || 0, lon: c[1] || 0, ele: c[2] !== undefined ? c[2] : 0 };
+    }
+    return { lat: c.lat || 0, lon: c.lon || 0, ele: c.ele !== undefined ? c.ele : 0 };
+  });
+
   appState.rawWaypoints = [];
   appState.waypoints = payload.waypoints || [];
   if (payload.settings) {
@@ -1015,7 +1039,7 @@ async function loadFromUrlHash(hashStr) {
 
   const dropFilename = document.getElementById('dropzone-filename');
   if (dropFilename) {
-    dropFilename.textContent = `${appState.settings.title || 'Shared Route'} (from Link · ${payload.coords.length} pts)`;
+    dropFilename.textContent = `${appState.settings.title || 'Shared Route'} (from Link · ${appState.rawCoords.length} pts)`;
   }
 
   syncFormControlsFromSettings();

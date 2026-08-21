@@ -457,6 +457,13 @@ export function matchWaypointsToTrack(rawWaypoints, coords, points) {
     return [];
   }
 
+  const normCoords = coords.map(c => {
+    if (Array.isArray(c)) {
+      return { lat: c[0] || 0, lon: c[1] || 0 };
+    }
+    return { lat: c.lat || 0, lon: c.lon || 0 };
+  });
+
   const results = [];
   const totalDist = points[points.length - 1].dist;
 
@@ -464,8 +471,8 @@ export function matchWaypointsToTrack(rawWaypoints, coords, points) {
     let bestDistM = 0;
     let minDistToTrack = Infinity;
 
-    for (let i = 0; i < coords.length; i++) {
-      const d = calcHaversine(wpt.lat, wpt.lon, coords[i].lat, coords[i].lon);
+    for (let i = 0; i < normCoords.length; i++) {
+      const d = calcHaversine(wpt.lat, wpt.lon, normCoords[i].lat, normCoords[i].lon);
       if (d < minDistToTrack) {
         minDistToTrack = d;
         bestDistM = points[i] ? points[i].dist : 0;
