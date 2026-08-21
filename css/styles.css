@@ -864,6 +864,23 @@ main.stage-area {
   border-bottom: 1px solid var(--border-color);
 }
 
+.climbs-table tbody tr {
+  transition: all 0.15s ease;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+}
+
+.climbs-table tbody tr:hover,
+.climbs-table tbody tr.hover-active {
+  background: var(--bg-pill);
+  border-left-color: var(--accent);
+}
+
+.climbs-table tbody tr.active {
+  background: var(--accent-subtle) !important;
+  border-left-color: var(--accent) !important;
+}
+
 .climbs-table td {
   padding: 0.45rem 0.4rem;
   border-bottom: 1px solid var(--border-color);
@@ -889,6 +906,43 @@ main.stage-area {
 .cat-pill.cat-1 { background: rgba(234, 88, 12, 0.15); color: var(--z3); border: 1px solid rgba(234, 88, 12, 0.3); }
 .cat-pill.cat-2 { background: rgba(217, 119, 6, 0.15); color: var(--z2); border: 1px solid rgba(217, 119, 6, 0.3); }
 .cat-pill.cat-3, .cat-pill.cat-4 { background: var(--accent-subtle); color: var(--accent); border: 1px solid rgba(37, 99, 235, 0.3); }
+
+/* SVG Climb Highlighting */
+.climb-segment {
+  cursor: pointer;
+}
+
+.climb-highlight-poly {
+  transition: opacity 0.18s ease;
+}
+
+.climb-highlight-stroke {
+  transition: opacity 0.18s ease, stroke-width 0.18s ease;
+}
+
+.climb-segment:hover .climb-highlight-poly,
+.climb-segment.active .climb-highlight-poly {
+  opacity: 1 !important;
+}
+
+.climb-segment:hover .climb-highlight-stroke,
+.climb-segment.active .climb-highlight-stroke {
+  opacity: 1 !important;
+  stroke: #2563eb !important;
+  stroke-width: 1.2 !important;
+}
+
+.climb-segment:hover .climb-badge-rect,
+.climb-segment.active .climb-badge-rect {
+  stroke: var(--accent) !important;
+  stroke-width: 0.65 !important;
+}
+
+.climb-segment:hover .climb-peak-dot,
+.climb-segment.active .climb-peak-dot {
+  r: 1.6 !important;
+  fill: var(--accent) !important;
+}
 
 /* Legend Grid */
 .legend-grid {

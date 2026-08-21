@@ -73,18 +73,25 @@ GPS and barometric altimeters exhibit quantization steps and high-frequency jitt
 
 $$E_{\text{smooth}}[i] = \frac{1}{2k+1}\sum_{j=-k}^{k} E_{\text{raw}}[i+j]$$
 
-### 3. UCI Climb Categorization Index
-Climbs are evaluated using the official UCI difficulty index based on climb length and average pitch:
+### 3. Rolling 5-Sample Gradient Filter & Sustained Max Pitch
+To eliminate GPS quantization noise and false spikes (e.g. single-point 35% anomalies), gradients are calculated over a stabilized baseline ($\ge 20\text{m}$) and smoothed via a rolling 5-sample moving average filter:
 
-$$\text{Score} = \left(\frac{\text{Length}_{\text{m}}}{1000}\right) \times (\text{AvgGrade}_{\%})^2$$
+$$G_{\text{filtered}}[i] = \frac{1}{5}\sum_{j=-2}^{2} G_{\text{raw}}[i+j]$$
 
-| Category | Elevation Gain | UCI Score Threshold |
+`Max Gradient` is evaluated over sustained segments ($\ge 50\text{m}$) to report genuine climb pitches.
+
+### 4. Standard Cycling Climb Difficulty Index
+Climbs are categorized using the standard cycling difficulty index:
+
+$$\text{Score} = \text{Distance (km)} \times (\text{AvgGrade}_{\%})^2 = \left(\frac{\text{Length}_{\text{m}}}{1000}\right) \times (\text{AvgGrade}_{\%})^2$$
+
+| Category | Difficulty Score Bracket | Elevation Gain Qualifier |
 | :--- | :--- | :--- |
-| **HC (Hors Catégorie)** | $\ge 900\text{ m}$ | $\text{Score} > 180$ |
-| **Cat 1** | $\ge 500\text{ m}$ | $\text{Score} > 100$ |
-| **Cat 2** | $\ge 280\text{ m}$ | $\text{Score} > 50$ |
-| **Cat 3** | $\ge 130\text{ m}$ | $\text{Score} > 25$ |
-| **Cat 4** | $\ge 35\text{ m}$ | $\text{Length} \ge 600\text{ m}, \text{Grade} \ge 3\%$ |
+| **HC (Hors Catégorie)** | $\text{Score} \ge 1600$ | or $\text{Gain} \ge 1000\text{m}$ |
+| **Cat 1** | $1000 \le \text{Score} < 1600$ | or $\text{Gain} \ge 600\text{m}$ |
+| **Cat 2** | $600 \le \text{Score} < 1000$ | or $\text{Gain} \ge 350\text{m}$ |
+| **Cat 3** | $300 \le \text{Score} < 600$ | or $\text{Gain} \ge 180\text{m}$ |
+| **Cat 4** | $150 \le \text{Score} < 300$ | or $\text{Gain} \ge 80\text{m}$ ($\text{Length} \ge 500\text{m}, \text{Grade} \ge 3\%$) |
 
 ---
 

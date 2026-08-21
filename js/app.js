@@ -318,6 +318,33 @@ function updateUI() {
   bindTooltipHover();
 }
 
+/**
+ * Highlights or unhighlights a climb segment on both the SVG profile and the sidebar table.
+ *
+ * @param {string|number} climbId - ID of the climb to highlight
+ * @param {boolean} active - Highlight state
+ */
+function setClimbHighlight(climbId, active) {
+  const row = document.querySelector(`#climbs-table-body tr[data-climb-id="${climbId}"]`);
+  const svgEl = document.querySelector(`#profile-svg-elem .climb-segment[data-climb-id="${climbId}"]`);
+
+  if (row) {
+    if (active) row.classList.add('hover-active');
+    else row.classList.remove('hover-active');
+  }
+
+  if (svgEl) {
+    if (active) {
+      svgEl.classList.add('active');
+    } else if (!row || !row.classList.contains('active')) {
+      svgEl.classList.remove('active');
+    }
+  }
+}
+
+/**
+ * Renders the detected climbs breakdown table and binds interactive cross-highlighting.
+ */
 function renderClimbsTable() {
   const host = document.getElementById('climbs-table-body');
   const emptyHint = document.getElementById('climbs-empty-hint');
@@ -338,7 +365,7 @@ function renderClimbsTable() {
   climbs.forEach(c => {
     const catClass = c.category.toLowerCase().replace(/\s+/g, '-');
     html += `
-      <tr>
+      <tr data-climb-id="${c.id}">
         <td><span class="cat-pill ${catClass}">${c.category}</span></td>
         <td>${c.startKm.toFixed(1)} → ${c.summitKm.toFixed(1)}k</td>
         <td>${c.lengthKm.toFixed(1)}km</td>
@@ -349,8 +376,37 @@ function renderClimbsTable() {
     `;
   });
   host.innerHTML = html;
+
+  // Bind interactive row events for cross-highlighting (Table -> SVG)
+  const rows = host.querySelectorAll('tr[data-climb-id]');
+  rows.forEach(row => {
+    const climbId = row.dataset.climbId;
+
+    row.addEventListener('mouseenter', () => {
+      setClimbHighlight(climbId, true);
+    });
+
+    row.addEventListener('mouseleave', () => {
+      setClimbHighlight(climbId, false);
+    });
+
+    row.addEventListener('click', () => {
+      const isAlreadyActive = row.classList.contains('active');
+      rows.forEach(r => r.classList.remove('active'));
+      document.querySelectorAll('#profile-svg-elem .climb-segment').forEach(el => el.classList.remove('active'));
+
+      if (!isAlreadyActive) {
+        row.classList.add('active');
+        const svgEl = document.querySelector(`#profile-svg-elem .climb-segment[data-climb-id="${climbId}"]`);
+        if (svgEl) svgEl.classList.add('active');
+      }
+    });
+  });
 }
 
+/**
+ * Binds tooltip mouse tracking and bidirectional cross-highlighting (SVG -> Table).
+ */
 function bindTooltipHover() {
   const svg = document.getElementById('profile-svg-elem');
   const tip = document.getElementById('cursor-tip');
@@ -386,6 +442,26 @@ function bindTooltipHover() {
   svg.onmouseleave = function() {
     tip.style.display = 'none';
   };
+
+  // Bidirectional hover from SVG climb segments to Table
+  const svgClimbs = svg.querySelectorAll('.climb-segment');
+  svgClimbs.forEach(seg => {
+    const climbId = seg.dataset.climbId;
+    seg.addEventListener('mouseenter', () => {
+      setClimbHighlight(climbId, true);
+    });
+    seg.addEventListener('mouseleave', () => {
+      setClimbHighlight(climbId, false);
+    });
+    seg.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const row = document.querySelector(`#climbs-table-body tr[data-climb-id="${climbId}"]`);
+      if (row) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        row.click();
+      }
+    });
+  });
 }
 
 export function initApp() {

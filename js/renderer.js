@@ -195,10 +195,16 @@ export function escapeXml(s) {
  */
 
 /**
- * Multi-tier anti-collision layout engine for Climb Summit Badges.
+ * /**
+ * Multi-tier anti-collision layout engine for Climb Summit Badges and Waypoints.
  *
- * Automatically tests discrete vertical shelf tiers and horizontal candidate nudges
- * to eliminate badge overlapping on high-density mountain stages (e.g. Queen stages).
+ * Implements an alternating two-tier baseline offset:
+ * - Tier 1 (Base):    y1 = summitY - badgeH - 3.2mm  (~12px above apex)
+ * - Tier 2 (Elevated): y2 = summitY - badgeH - 7.4mm  (~28px above apex)
+ *
+ * Automatically triggers alternating tier shifts for markers in close horizontal
+ * proximity (Delta X < 10.5mm / ~40px) and generates dynamic SVG leader lines
+ * to the exact apex coordinates on the elevation curve.
  *
  * @param {import('./signal.js').DetectedClimb[]} climbs - Array of detected route climbs
  * @param {function(number): number} toX - Function mapping distance in meters to X mm
@@ -208,16 +214,17 @@ export function escapeXml(s) {
  * @param {number} minY - Topmost allowed Y coordinate for badges in mm
  * @param {number} maxY - Bottommost allowed Y coordinate for badges in mm
  * @param {number} W - Total sticker width in mm
+ * @param {Array<Object>} [waypoints=[]] - Active waypoints for joint collision avoidance
  * @returns {ClimbBadgePlacement[]} Array of non-overlapping badge placement objects
  */
-export function computeClimbBadgeLayout(climbs, toX, toY, padLeft, padRight, minY, maxY, W) {
+export function computeClimbBadgeLayout(climbs, toX, toY, padLeft, padRight, minY, maxY, W, waypoints = []) {
   if (!climbs || climbs.length === 0) return [];
 
   const sortedClimbs = [...climbs].sort((a, b) => a.summitKm - b.summitKm);
   const placedBadges = [];
   const isDense = sortedClimbs.length >= 4;
 
-  sortedClimbs.forEach(climb => {
+  sortedClimbs.forEach((climb, climbIdx) => {
     const summitX = toX(climb.summitKm * 1000);
     const summitY = toY(climb.summitEle);
 
@@ -233,16 +240,37 @@ export function computeClimbBadgeLayout(climbs, toX, toY, padLeft, padRight, min
     const naturalX = summitX - (badgeW / 2);
     const clampedNaturalX = Math.max(padLeft, Math.min(W - padRight - badgeW, naturalX));
 
-    // Vertical tiers
-    const candidateTiersY = [
-      Math.max(minY, summitY - badgeH - 1.8),            // Tier 0: Direct hover above summit
-      Math.max(minY, summitY - badgeH - 5.2),            // Tier 1: Staggered tier higher
-      Math.max(minY, summitY - badgeH - 8.6),            // Tier 2: Staggered tier 2
-      minY + 0.3,                                        // Tier 3: Top shelf tier 1
-      minY + badgeH + 0.7,                               // Tier 4: Top shelf tier 2
-      Math.max(minY, summitY - badgeH - 12.0),           // Tier 5: Very high
-      Math.min(maxY - badgeH, summitY + 2.0)             // Tier 6: Below summit shoulder
-    ];
+    // Check if near previous climb (Delta X < 10.5mm / ~40px)
+    let isConsecutiveNear = false;
+    if (climbIdx > 0) {
+      const prevSummitX = toX(sortedClimbs[climbIdx - 1].summitKm * 1000);
+      if (Math.abs(summitX - prevSummitX) < 10.5) {
+        isConsecutiveNear = true;
+      }
+    }
+
+    // Alternating Two-Tier Offsets: y1 = summit - 12px (3.2mm), y2 = summit - 28px (7.4mm)
+    const tier1Y = Math.max(minY, summitY - badgeH - 3.2);
+    const tier2Y = Math.max(minY, summitY - badgeH - 7.4);
+
+    // Primary candidates
+    const candidateTiersY = isConsecutiveNear && (climbIdx % 2 === 1)
+      ? [
+          tier2Y,                                       // Tier 2: Elevated offset for alternating proximity
+          tier1Y,                                       // Tier 1: Base offset
+          minY + 0.3,                                   // Tier 3: Top shelf
+          minY + badgeH + 0.7,                          // Tier 4: Top shelf tier 2
+          Math.max(minY, summitY - badgeH - 11.5),      // Tier 5: High
+          Math.min(maxY - badgeH, summitY + 2.0)        // Tier 6: Shoulder
+        ]
+      : [
+          tier1Y,                                       // Tier 1: Base offset
+          tier2Y,                                       // Tier 2: Elevated offset
+          minY + 0.3,                                   // Tier 3: Top shelf
+          minY + badgeH + 0.7,                          // Tier 4: Top shelf tier 2
+          Math.max(minY, summitY - badgeH - 11.5),      // Tier 5: High
+          Math.min(maxY - badgeH, summitY + 2.0)        // Tier 6: Shoulder
+        ];
 
     // Horizontal nudge offsets
     const candidateDxs = [0, -3.5, 3.5, -7.0, 7.0, -11.0, 11.0, -16.0, 16.0, -22.0, 22.0];
@@ -273,7 +301,7 @@ export function computeClimbBadgeLayout(climbs, toX, toY, padLeft, padRight, min
         }
 
         const distFromSummit = Math.hypot((candX + badgeW / 2) - summitX, (candY + badgeH) - summitY);
-        const cost = (collides ? 10000 : 0) + distFromSummit + (t * 2.5) + (Math.abs(dx) * 1.6);
+        const cost = (collides ? 10000 : 0) + distFromSummit + (t * 2.2) + (Math.abs(dx) * 1.5);
 
         if (cost < minCost) {
           minCost = cost;
@@ -291,7 +319,7 @@ export function computeClimbBadgeLayout(climbs, toX, toY, padLeft, padRight, min
     if (!bestCandidate) {
       bestCandidate = {
         x: clampedNaturalX,
-        y: Math.max(minY, summitY - badgeH - 1.8),
+        y: tier1Y,
         w: badgeW,
         h: badgeH,
         label,
@@ -317,7 +345,7 @@ export function computeClimbBadgeLayout(climbs, toX, toY, padLeft, padRight, min
  * 2. Segmented block columns or smooth linear gradient path
  * 3. Distance grid ticks and kilometer markers
  * 4. Min/max altitude telemetry labels
- * 5. Multi-tier anti-collision climb summit badges with leader lines
+ * 5. Interactive climb highlight regions & multi-tier summit badges with leader lines
  * 6. High-glanceability nutrition and race waypoints
  * 7. Title header and summary stats
  * 8. Millimeter dashed scissor cutting guides
@@ -352,31 +380,31 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
     </svg>`;
   }
 
-  const isMetric = settings.units === 'metric';
+  const isMetric = settings.units !== 'imperial';
+  const dFactor = isMetric ? 1 / 1000 : 1 / 1609.344;
+  const eFactor = isMetric ? 1 : 3.28084;
   const distUnit = isMetric ? 'km' : 'mi';
   const eleUnit = isMetric ? 'm' : 'ft';
-  const dFactor = isMetric ? 1 / 1000 : 0.000621371;
-  const eFactor = isMetric ? 1 : 3.28084;
 
   const totalDistU = stats.totalDist * dFactor;
   const elevGainU = stats.elevGain * eFactor;
   const minEleU = stats.minEle * eFactor;
   const maxEleU = stats.maxEle * eFactor;
 
-  // Exact Layout Padding (mm)
+  // SVG Geometry Layout Bounds
   const padLeft = 7.5;
   const padRight = 5.0;
-  const hasClimbs = settings.showClimbs && climbs && climbs.length > 0;
-  const padTop = settings.showHeader ? (hasClimbs ? 10.5 : 7.5) : (hasClimbs ? 7.0 : 3.5);
-  const padBottom = settings.showDistanceTicks ? 5.0 : 2.5;
+  const padTop = settings.showHeader ? 7.2 : 3.0;
+  const padBottom = 4.2;
 
   const plotW = W - padLeft - padRight;
   const plotH = H - padTop - padBottom;
   const yBase = padTop + plotH;
 
-  const eleRange = Math.max(20, stats.maxEle - stats.minEle);
-  const minElePadded = Math.max(0, stats.minEle - (eleRange * 0.05));
-  const maxElePadded = stats.maxEle + (eleRange * 0.08);
+  // Add 10% elevation headroom
+  const eleHeadroom = (stats.maxEle - stats.minEle) * 0.10;
+  const minElePadded = Math.max(0, stats.minEle - (eleHeadroom * 0.5));
+  const maxElePadded = stats.maxEle + eleHeadroom;
   const spanEle = maxElePadded - minElePadded;
 
   const toX = d => padLeft + ((d / stats.totalDist) * plotW);
@@ -536,61 +564,99 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
     `;
   }
 
-  // 5. Climb Summit Badges (Auto-Placed Multi-Tier & Anti-Collision)
+  // 5. Active Waypoints Pre-calculation for Joint Collision Avoidance
+  const activeWaypoints = (waypoints || []).filter(w => w && w.enabled !== false && w.distM >= 0 && w.distM <= stats.totalDist);
+
+  // 6. Climb Segment Overlays & Summit Badges (Interactive Cross-Highlighting & Anti-Collision)
   let climbsMarkup = '';
   if (settings.showClimbs && climbs && climbs.length > 0) {
     const minY = settings.showHeader ? 5.8 : 1.5;
     const maxY = H - padBottom - 1.0;
-    const badgeLayout = computeClimbBadgeLayout(climbs, toX, toY, padLeft, padRight, minY, maxY, W);
+    const badgeLayout = computeClimbBadgeLayout(climbs, toX, toY, padLeft, padRight, minY, maxY, W, activeWaypoints);
 
-    badgeLayout.forEach(badge => {
-      const { x, y, w, h, label, fontSize, summitX, summitY } = badge;
-      const badgeCenterX = x + (w / 2);
-      const badgeBottomY = y + h;
-      const badgeTopY = y;
+    climbs.forEach(climb => {
+      const badge = badgeLayout.find(b => b.climb.id === climb.id);
+      const startX = toX(climb.startKm * 1000);
+      const summitX = toX(climb.summitKm * 1000);
 
-      let connX = badgeCenterX;
-      let connY = badgeBottomY;
-      if (badgeBottomY <= summitY - 0.6) {
-        connX = badgeCenterX;
-        connY = badgeBottomY;
-      } else if (badgeTopY >= summitY + 0.6) {
-        connX = badgeCenterX;
-        connY = badgeTopY;
-      } else if (badgeCenterX <= summitX) {
-        connX = x + w;
-        connY = y + (h / 2);
+      // Find profile points belonging to this climb for precise highlight polygon
+      const climbPts = points.filter(p => p.dist >= climb.startKm * 1000 && p.dist <= climb.summitKm * 1000);
+      let polyD = '';
+      let lineD = '';
+      if (climbPts.length >= 2) {
+        polyD = `M ${startX.toFixed(2)} ${yBase.toFixed(2)}`;
+        lineD = `M ${toX(climbPts[0].dist).toFixed(2)} ${toY(climbPts[0].smoothEle).toFixed(2)}`;
+        climbPts.forEach(pt => {
+          const px = toX(pt.dist).toFixed(2);
+          const py = toY(pt.smoothEle).toFixed(2);
+          polyD += ` L ${px} ${py}`;
+          lineD += ` L ${px} ${py}`;
+        });
+        polyD += ` L ${summitX.toFixed(2)} ${yBase.toFixed(2)} Z`;
       } else {
-        connX = x;
-        connY = y + (h / 2);
+        const startY = toY(getInterpolatedEle(points, climb.startKm * 1000));
+        const summitY = toY(climb.summitEle);
+        polyD = `M ${startX.toFixed(2)} ${yBase.toFixed(2)} L ${startX.toFixed(2)} ${startY.toFixed(2)} L ${summitX.toFixed(2)} ${summitY.toFixed(2)} L ${summitX.toFixed(2)} ${yBase.toFixed(2)} Z`;
+        lineD = `M ${startX.toFixed(2)} ${startY.toFixed(2)} L ${summitX.toFixed(2)} ${summitY.toFixed(2)}`;
       }
 
-      const distToSummit = Math.hypot(connX - summitX, connY - summitY);
-      let leaderLine = '';
-      if (distToSummit > 1.8) {
-        leaderLine = `
-          <line x1="${connX.toFixed(2)}" y1="${connY.toFixed(2)}" x2="${summitX.toFixed(2)}" y2="${summitY.toFixed(2)}" stroke="${theme.badgeStroke}" stroke-width="0.32" stroke-dasharray="0.6,0.4" opacity="0.85"/>
+      let badgeMarkup = '';
+      if (badge) {
+        const { x, y, w, h, label, fontSize, summitX, summitY } = badge;
+        const badgeCenterX = x + (w / 2);
+        const badgeBottomY = y + h;
+        const badgeTopY = y;
+
+        let connX = badgeCenterX;
+        let connY = badgeBottomY;
+        if (badgeBottomY <= summitY - 0.6) {
+          connX = badgeCenterX;
+          connY = badgeBottomY;
+        } else if (badgeTopY >= summitY + 0.6) {
+          connX = badgeCenterX;
+          connY = badgeTopY;
+        } else if (badgeCenterX <= summitX) {
+          connX = x + w;
+          connY = y + (h / 2);
+        } else {
+          connX = x;
+          connY = y + (h / 2);
+        }
+
+        const distToSummit = Math.hypot(connX - summitX, connY - summitY);
+        let leaderLine = '';
+        if (distToSummit > 1.8) {
+          leaderLine = `
+            <line x1="${connX.toFixed(2)}" y1="${connY.toFixed(2)}" x2="${summitX.toFixed(2)}" y2="${summitY.toFixed(2)}" stroke="${theme.badgeStroke}" stroke-width="0.32" stroke-dasharray="0.6,0.4" opacity="0.85"/>
+          `;
+        }
+
+        badgeMarkup = `
+          <g class="climb-summit-group" data-climb-id="${climb.id}">
+            ${leaderLine}
+            <circle class="climb-peak-dot" cx="${summitX.toFixed(2)}" cy="${summitY.toFixed(2)}" r="1.1" fill="${theme.z4}" stroke="${theme.topStroke}" stroke-width="0.35"/>
+            <g transform="translate(${x.toFixed(2)}, ${y.toFixed(2)})">
+              <rect class="climb-badge-rect" width="${w.toFixed(2)}" height="${h.toFixed(2)}" rx="0.6" fill="${theme.badgeBg}" stroke="${theme.badgeStroke}" stroke-width="0.35"/>
+              <text class="climb-badge-text" x="${(w / 2).toFixed(2)}" y="${(h * 0.70).toFixed(2)}" fill="${theme.badgeText}" font-size="${fontSize}" font-weight="800" font-family="sans-serif" text-anchor="middle">${label}</text>
+            </g>
+          </g>
         `;
       }
 
       climbsMarkup += `
-        <g class="climb-summit-group">
-          ${leaderLine}
-          <circle cx="${summitX.toFixed(2)}" cy="${summitY.toFixed(2)}" r="1.1" fill="${theme.z4}" stroke="${theme.topStroke}" stroke-width="0.35"/>
-          <g transform="translate(${x.toFixed(2)}, ${y.toFixed(2)})">
-            <rect width="${w.toFixed(2)}" height="${h.toFixed(2)}" rx="0.6" fill="${theme.badgeBg}" stroke="${theme.badgeStroke}" stroke-width="0.35"/>
-            <text x="${(w / 2).toFixed(2)}" y="${(h * 0.70).toFixed(2)}" fill="${theme.badgeText}" font-size="${fontSize}" font-weight="800" font-family="sans-serif" text-anchor="middle">${label}</text>
-          </g>
+        <g class="climb-segment" data-climb-id="${climb.id}">
+          <path class="climb-highlight-poly" d="${polyD}" fill="url(#climb-active-grad)" opacity="0" pointer-events="none"/>
+          <path class="climb-highlight-stroke" d="${lineD}" fill="none" stroke="#2563eb" stroke-width="0.9" stroke-linecap="round" opacity="0" pointer-events="none"/>
+          ${badgeMarkup}
         </g>
       `;
     });
   }
 
-  // 6. Waypoints & Race Cues
+  // 7. Waypoints & Race Cues
   let waypointsMarkup = '';
   const showWaypoints = settings.showWaypoints !== false;
   const showWptLabels = settings.showWaypointLabels !== false;
-  const activeWaypoints = (waypoints || []).filter(w => w && w.enabled !== false && w.distM >= 0 && w.distM <= stats.totalDist);
 
   if (showWaypoints && activeWaypoints.length > 0) {
     const sortedWpts = [...activeWaypoints].sort((a, b) => a.distM - b.distM);
@@ -605,17 +671,26 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
       const distStr = `${distVal}${isMetric ? 'k' : 'm'}`;
       const customLabel = (wpt.label || '').trim();
 
-      // Staggering: if near previous waypoint, alternate height tier
+      // Staggering: check proximity to adjacent waypoints or climb summits (Delta X < 10.5mm)
       let isStaggered = false;
       if (idx > 0) {
         const prevWptX = toX(sortedWpts[idx - 1].distM);
-        if (Math.abs(wptX - prevWptX) < 9.0) {
+        if (Math.abs(wptX - prevWptX) < 10.5) {
           isStaggered = (idx % 2 === 1);
+        }
+      }
+      if (!isStaggered && climbs && climbs.length > 0) {
+        for (const c of climbs) {
+          const sX = toX(c.summitKm * 1000);
+          if (Math.abs(wptX - sX) < 10.5) {
+            isStaggered = true;
+            break;
+          }
         }
       }
 
       const badgeR = 2.0; // 4.0mm diameter pin
-      let badgeY = isStaggered ? (padTop - 2.6) : Math.max(padTop - 3.6, profY - 7.5);
+      let badgeY = isStaggered ? Math.max(padTop - 2.0, profY - 13.5) : Math.max(padTop - 3.6, profY - 7.5);
       if (badgeY < 2.5) badgeY = 2.5;
       if (badgeY > H - 6.0) badgeY = H - 6.0;
 
@@ -688,6 +763,12 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
 
   return `
     <svg id="profile-svg-elem" viewBox="0 0 ${W} ${H}" width="${W}mm" height="${H}mm" xmlns="http://www.w3.org/2000/svg" style="display:block; border-radius:${radius}mm; background:${theme.bg};">
+      <defs>
+        <linearGradient id="climb-active-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.45"/>
+          <stop offset="100%" stop-color="#1d4ed8" stop-opacity="0.08"/>
+        </linearGradient>
+      </defs>
       <rect width="100%" height="100%" fill="${theme.bg}"/>
       ${gridMarkup}
       ${profileBodyMarkup}

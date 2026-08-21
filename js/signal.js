@@ -161,23 +161,23 @@ export function buildSpatialBlocks(points, totalDist, blockSizeM = 1000) {
  * Detects sustained categorized climbs along a route.
  *
  * Implements a peak-finding and valley-dip accumulator algorithm modeled after
- * standard Grand Tour stage roadbooks and the UCI climb categorization index:
- *   Score = (Length_km) * (AvgGrade_pct)^2
+ * standard Grand Tour stage roadbooks and the standard cycling difficulty index:
+ *   Score = (Length_km) * (AvgGrade)^2 = (Length_m / 1000) * (AvgGrade)^2
  *
- * Classification thresholds:
- * - HC (Hors Catégorie): Gain >= 900m OR UCI Score > 180
- * - Category 1:          Gain >= 500m OR UCI Score > 100
- * - Category 2:          Gain >= 280m OR UCI Score > 50
- * - Category 3:          Gain >= 130m OR UCI Score > 25
- * - Category 4:          Gain >= 35m  AND Length >= 600m AND AvgGrade >= 3.0%
+ * Calibrated threshold brackets:
+ * - Cat 4: 150 <= Score < 300 (or Gain >= 80m)
+ * - Cat 3: 300 <= Score < 600
+ * - Cat 2: 600 <= Score < 1000
+ * - Cat 1: 1000 <= Score < 1600
+ * - HC (Hors Catégorie): Score >= 1600 (or Gain >= 1000m)
  *
  * @param {ProfilePoint[]} points - Filtered profile points array
  * @param {number} [minGainM=35] - Minimum required elevation gain in meters
- * @param {number} [minLengthM=600] - Minimum climb length in meters
+ * @param {number} [minLengthM=500] - Minimum climb length in meters
  * @param {number} [minGradePct=3.0] - Minimum average gradient percentage
  * @returns {DetectedClimb[]} List of detected climbs ordered along the route
  */
-export function detectClimbs(points, minGainM = 35, minLengthM = 600, minGradePct = 3.0) {
+export function detectClimbs(points, minGainM = 35, minLengthM = 500, minGradePct = 3.0) {
   const climbs = [];
   const N = points.length;
   if (N < 5) return climbs;
@@ -221,19 +221,28 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 600, minGradePc
         const climbGain = points[climbPeakIdx].smoothEle - points[startIdx].smoothEle;
         const avgGrade = climbLen > 0 ? (climbGain / climbLen) * 100 : 0;
 
-        if (climbGain >= minGainM && climbLen >= minLengthM && avgGrade >= minGradePct) {
+        // Standard Cycling Difficulty Index: (Distance_km) * (AvgGrade)^2
+        const difficultyScore = (climbLen / 1000) * Math.pow(avgGrade, 2);
+
+        if ((difficultyScore >= 150 || climbGain >= 80) && climbLen >= minLengthM && avgGrade >= minGradePct) {
           let maxG = 0;
           for (let k = startIdx; k <= climbPeakIdx; k++) {
             if (points[k].grade > maxG) maxG = points[k].grade;
           }
 
-          // UCI Score Index
-          const uciScore = (climbLen / 1000) * Math.pow(avgGrade, 2);
+          // Calibrated category brackets
           let category = 'Cat 4';
-          if (climbGain >= 900 || uciScore > 180) category = 'HC';
-          else if (climbGain >= 500 || uciScore > 100) category = 'Cat 1';
-          else if (climbGain >= 280 || uciScore > 50) category = 'Cat 2';
-          else if (climbGain >= 130 || uciScore > 25) category = 'Cat 3';
+          if (difficultyScore >= 1600 || climbGain >= 1000) {
+            category = 'HC';
+          } else if (difficultyScore >= 1000 || climbGain >= 600) {
+            category = 'Cat 1';
+          } else if (difficultyScore >= 600 || climbGain >= 350) {
+            category = 'Cat 2';
+          } else if (difficultyScore >= 300 || climbGain >= 180) {
+            category = 'Cat 3';
+          } else {
+            category = 'Cat 4';
+          }
 
           climbs.push({
             id: climbs.length + 1,
@@ -244,7 +253,7 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 600, minGradePc
             gainM: Math.round(climbGain),
             summitEle: Math.round(points[climbPeakIdx].smoothEle),
             avgGrade: parseFloat(avgGrade.toFixed(1)),
-            maxGrade: parseFloat(maxG.toFixed(1))
+            maxGrade: parseFloat(Math.min(28.0, maxG).toFixed(1))
           });
         }
 
@@ -299,63 +308,104 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
     smoothedEles[i] = sum / count;
   }
 
-  // 3. Slope & 4-tier Gradient Zone Classification
+  // 3. Robust Baseline Slope Calculation
+  const rawGrades = new Array(N).fill(0);
+  for (let i = 1; i < N; i++) {
+    const deltaD = cumDistances[i] - cumDistances[i - 1];
+    const deltaE = smoothedEles[i] - smoothedEles[i - 1];
+
+    // Compute slope over a stable ~20-30m baseline window
+    let bIdx = i - 1;
+    while (bIdx > 0 && (cumDistances[i] - cumDistances[bIdx]) < 15) {
+      bIdx--;
+    }
+    let fIdx = i;
+    while (fIdx < N - 1 && (cumDistances[fIdx] - cumDistances[i]) < 15) {
+      fIdx++;
+    }
+
+    const baseD = cumDistances[fIdx] - cumDistances[bIdx];
+    const baseE = smoothedEles[fIdx] - smoothedEles[bIdx];
+
+    let g = 0;
+    if (baseD > 8) {
+      g = (baseE / baseD) * 100;
+    } else if (deltaD > 0.5) {
+      g = (deltaE / deltaD) * 100;
+    }
+
+    // Clamp instantaneous slope
+    if (g > 30) g = 30;
+    if (g < -30) g = -30;
+    rawGrades[i] = g;
+  }
+
+  // 4. Rolling 5-Sample Gradient Moving Average Filter (eliminates false GPS spikes)
+  const filteredGrades = new Array(N);
+  const gHalf = 2; // 5-sample window
+  for (let i = 0; i < N; i++) {
+    let sumG = 0;
+    let countG = 0;
+    const s = Math.max(0, i - gHalf);
+    const e = Math.min(N - 1, i + gHalf);
+    for (let j = s; j <= e; j++) {
+      sumG += rawGrades[j];
+      countG++;
+    }
+    filteredGrades[i] = sumG / countG;
+  }
+
+  // 5. Points Assembly & Sustained Max Gradient Calculation
   const points = [];
   let totalGain = 0;
   let totalLoss = 0;
   let minEle = smoothedEles[0];
   let maxEle = smoothedEles[0];
-  let maxGrade = 0;
 
   for (let i = 0; i < N; i++) {
     const dist = cumDistances[i];
     const rawEle = coords[i].ele;
     const smoothEle = smoothedEles[i];
+    const grade = filteredGrades[i];
 
     if (smoothEle < minEle) minEle = smoothEle;
     if (smoothEle > maxEle) maxEle = smoothEle;
 
-    let grade = 0;
     if (i > 0) {
-      const deltaD = dist - cumDistances[i - 1];
       const deltaE = smoothEle - smoothedEles[i - 1];
-
       if (deltaE > 0) totalGain += deltaE;
       else totalLoss += Math.abs(deltaE);
+    }
 
-      // Central difference over ~4-5m span for stable instantaneous gradient
-      const bIdx = Math.max(0, i - 2);
-      const fIdx = Math.min(N - 1, i + 2);
-      const baseD = cumDistances[fIdx] - cumDistances[bIdx];
-      const baseE = smoothedEles[fIdx] - smoothedEles[bIdx];
+    const absG = Math.abs(grade);
 
-      if (baseD > 4) {
-        grade = (baseE / baseD) * 100;
-      } else if (deltaD > 0.5) {
-        grade = (deltaE / deltaD) * 100;
-      }
+    // 4-tier pro cycling gradient classification
+    let zone = 0;
+    if (absG < 5) zone = 0;       // Zone 1: Flat / False Flat
+    else if (absG < 8) zone = 1;  // Zone 2: Moderate Climb
+    else if (absG < 12) zone = 2; // Zone 3: Steep Climb
+    else zone = 3;                // Zone 4: Severe Gradient
 
-      // Clamp unreasonable GPS spike outliers
-      if (grade > 35) grade = 35;
-      if (grade < -35) grade = -35;
+    points.push({ dist, rawEle, smoothEle, grade: parseFloat(grade.toFixed(1)), zone });
+  }
 
-      const absG = Math.abs(grade);
-      if (absG > maxGrade) maxGrade = absG;
-
-      // 4-tier pro cycling gradient classification
-      let zone = 0;
-      if (absG < 5) zone = 0;       // Zone 1: Flat / False Flat
-      else if (absG < 8) zone = 1;  // Zone 2: Moderate Climb
-      else if (absG < 12) zone = 2; // Zone 3: Steep Climb
-      else zone = 3;                // Zone 4: Severe Gradient
-
-      points.push({ dist, rawEle, smoothEle, grade, zone });
-    } else {
-      points.push({ dist: 0, rawEle, smoothEle, grade: 0, zone: 0 });
+  // Sustained Max Gradient: Evaluated over >= 50m to avoid single-point spikes
+  let maxSustainedGrade = 0;
+  for (let i = 0; i < N; i++) {
+    let j = i;
+    while (j < N - 1 && (cumDistances[j] - cumDistances[i]) < 50) {
+      j++;
+    }
+    const spanD = cumDistances[j] - cumDistances[i];
+    if (spanD >= 35) {
+      const spanG = Math.abs((smoothedEles[j] - smoothedEles[i]) / spanD) * 100;
+      if (spanG > maxSustainedGrade) maxSustainedGrade = spanG;
     }
   }
 
-  // 4. Discretize into configurable spatial blocks (e.g. 2.5km, 1.0km, 500m)
+  const maxGrade = Math.min(28.0, parseFloat(maxSustainedGrade.toFixed(1)));
+
+  // 6. Spatial Blocks & Climbs
   const blocks = buildSpatialBlocks(points, runningDist, blockSizeM);
   const climbs = detectClimbs(points);
 
