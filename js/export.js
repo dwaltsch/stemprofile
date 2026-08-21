@@ -1,9 +1,27 @@
 /**
  * Export & Print Module
+ *
+ * Provides high-resolution export pipelines:
+ * 1. Vector SVG File Download (`.svg`)
+ * 2. High-Resolution Raster PNG Download at 300 DPI for vinyl label printers
+ * 3. Clipboard Vector SVG Copy
+ * 4. Print Sheet Matrix Generator for `@media print` layout
+ *
+ * @module export
  */
 
 import { renderProfileSVG, THEMES } from './renderer.js';
 
+/**
+ * Exports and downloads the generated profile as a vector `.svg` file.
+ *
+ * @param {import('./signal.js').ProfilePoint[]} points - Profile coordinates
+ * @param {import('./signal.js').RouteStats} stats - Route telemetry
+ * @param {import('./signal.js').DetectedClimb[]} [climbs=[]] - Detected climbs
+ * @param {import('./signal.js').SpatialBlock[]} [blocks=[]] - Discretized blocks
+ * @param {Array<Object>} [waypoints=[]] - Active waypoints
+ * @param {Object} settings - Physical dimensions and styling settings
+ */
 export function exportSVG(points, stats, climbs, blocks, waypoints, settings) {
   if (!Array.isArray(waypoints) && typeof waypoints === 'object') {
     settings = waypoints;
@@ -23,6 +41,17 @@ export function exportSVG(points, stats, climbs, blocks, waypoints, settings) {
   URL.revokeObjectURL(url);
 }
 
+/**
+ * Copies the raw SVG markup directly to the system clipboard.
+ *
+ * @param {import('./signal.js').ProfilePoint[]} points - Profile coordinates
+ * @param {import('./signal.js').RouteStats} stats - Route telemetry
+ * @param {import('./signal.js').DetectedClimb[]} [climbs=[]] - Detected climbs
+ * @param {import('./signal.js').SpatialBlock[]} [blocks=[]] - Discretized blocks
+ * @param {Array<Object>} [waypoints=[]] - Active waypoints
+ * @param {Object} settings - Physical dimensions and styling settings
+ * @param {function(Error|null): void} [callback] - Invoked upon completion or failure
+ */
 export function copySVG(points, stats, climbs, blocks, waypoints, settings, callback) {
   if (!Array.isArray(waypoints) && typeof waypoints === 'object') {
     callback = settings;
@@ -38,6 +67,18 @@ export function copySVG(points, stats, climbs, blocks, waypoints, settings, call
   });
 }
 
+/**
+ * Renders the profile SVG onto an offscreen canvas at 300 DPI and downloads as a PNG.
+ * Calculation: $px = \frac{\text{mm}}{25.4} \times 300\text{ DPI}$.
+ *
+ * @param {import('./signal.js').ProfilePoint[]} points - Profile coordinates
+ * @param {import('./signal.js').RouteStats} stats - Route telemetry
+ * @param {import('./signal.js').DetectedClimb[]} [climbs=[]] - Detected climbs
+ * @param {import('./signal.js').SpatialBlock[]} [blocks=[]] - Discretized blocks
+ * @param {Array<Object>} [waypoints=[]] - Active waypoints
+ * @param {Object} settings - Physical dimensions and styling settings
+ * @param {function(Error|null): void} [callback] - Invoked upon completion or failure
+ */
 export function exportPNG(points, stats, climbs, blocks, waypoints, settings, callback) {
   if (!Array.isArray(waypoints) && typeof waypoints === 'object') {
     callback = settings;
@@ -86,6 +127,16 @@ export function exportPNG(points, stats, climbs, blocks, waypoints, settings, ca
   img.src = url;
 }
 
+/**
+ * Builds the print sheet DOM matrix with multiple sticker copies and scissor guidelines.
+ *
+ * @param {import('./signal.js').ProfilePoint[]} points - Profile coordinates
+ * @param {import('./signal.js').RouteStats} stats - Route telemetry
+ * @param {import('./signal.js').DetectedClimb[]} [climbs=[]] - Detected climbs
+ * @param {import('./signal.js').SpatialBlock[]} [blocks=[]] - Discretized blocks
+ * @param {Array<Object>} [waypoints=[]] - Active waypoints
+ * @param {Object} settings - Physical dimensions and print copies settings
+ */
 export function updatePrintMatrix(points, stats, climbs, blocks, waypoints, settings) {
   if (!Array.isArray(waypoints) && typeof waypoints === 'object') {
     settings = waypoints;
@@ -105,3 +156,4 @@ export function updatePrintMatrix(points, stats, climbs, blocks, waypoints, sett
     host.appendChild(cell);
   }
 }
+

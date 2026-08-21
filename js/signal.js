@@ -1,13 +1,75 @@
 /**
  * Signal Processing Module
- * - Cumulative Haversine distance
- * - 7-point Moving Average elevation filter
- * - Uniform Spatial Discretization (Configurable Block Segments: 1000m, 500m, 250m, 100m)
- * - Pro Climb Segmentation & Categorization (HC, Cat 1-4)
+ *
+ * Implements core geospatial and digital signal processing algorithms:
+ * 1. Cumulative Haversine Distance ($R = 6,371,000\text{ m}$)
+ * 2. Moving Average Elevation Smoothing (eliminates GPS quantization jitter)
+ * 3. Spatial Discretization (uniform roadbook kilometer/block columns)
+ * 4. UCI Pro Climb Categorization & Peak Detection (HC, Cat 1, 2, 3, 4)
+ * 5. Waypoint Proximity Matching & Semantic Classification
+ *
+ * @module signal
  */
 
+/** Radius of the Earth in meters for spherical geodesy */
 export const EARTH_RADIUS_METERS = 6371000;
 
+/**
+ * @typedef {Object} ProfilePoint
+ * @property {number} dist - Cumulative distance from start in meters
+ * @property {number} rawEle - Original unsmoothed elevation in meters
+ * @property {number} smoothEle - Moving-average filtered elevation in meters
+ * @property {number} grade - Instantaneous gradient percentage (%)
+ * @property {number} zone - Gradient zone index (0: <5%, 1: 5-8%, 2: 8-12%, 3: >12%)
+ */
+
+/**
+ * @typedef {Object} RouteStats
+ * @property {number} totalDist - Total route distance in meters
+ * @property {number} elevGain - Total cumulative vertical ascent in meters
+ * @property {number} elevLoss - Total cumulative vertical descent in meters
+ * @property {number} minEle - Minimum route elevation in meters
+ * @property {number} maxEle - Maximum route elevation in meters
+ * @property {number} maxGrade - Maximum gradient percentage encountered (%)
+ * @property {number} climbsCount - Number of categorized climbs detected
+ * @property {number} blocksCount - Number of discretized spatial blocks generated
+ */
+
+/**
+ * @typedef {Object} SpatialBlock
+ * @property {number} index - 1-based sequential block index
+ * @property {number} startDist - Start distance along track in meters
+ * @property {number} endDist - End distance along track in meters
+ * @property {number} lengthM - Physical block length in meters
+ * @property {number} startEle - Interpolated start elevation in meters
+ * @property {number} endEle - Interpolated end elevation in meters
+ * @property {number} grade - Average block gradient percentage (%)
+ * @property {number} absGrade - Absolute average block gradient percentage (%)
+ * @property {number} zone - Gradient color zone index (0 to 3)
+ */
+
+/**
+ * @typedef {Object} DetectedClimb
+ * @property {number} id - Unique climb identifier
+ * @property {'HC'|'Cat 1'|'Cat 2'|'Cat 3'|'Cat 4'} category - Official UCI climb category
+ * @property {number} startKm - Distance of climb start in kilometers
+ * @property {number} summitKm - Distance of climb summit/crest in kilometers
+ * @property {number} lengthKm - Total climb length in kilometers
+ * @property {number} gainM - Total vertical ascent of climb in meters
+ * @property {number} summitEle - Summit altitude in meters
+ * @property {number} avgGrade - Average gradient percentage of the climb (%)
+ * @property {number} maxGrade - Maximum localized pitch encountered on the climb (%)
+ */
+
+/**
+ * Computes great-circle distance between two GPS coordinates using the Haversine formula.
+ *
+ * @param {number} lat1 - Latitude of start point in degrees
+ * @param {number} lon1 - Longitude of start point in degrees
+ * @param {number} lat2 - Latitude of destination point in degrees
+ * @param {number} lon2 - Longitude of destination point in degrees
+ * @returns {number} Distance in meters
+ */
 export function calcHaversine(lat1, lon1, lat2, lon2) {
   const rad = d => (d * Math.PI) / 180;
   const dLat = rad(lat2 - lat1);
@@ -19,7 +81,11 @@ export function calcHaversine(lat1, lon1, lat2, lon2) {
 }
 
 /**
- * Helper to interpolate smoothed elevation at exact distance d
+ * Binary-searches and linearly interpolates smoothed elevation at an exact target distance.
+ *
+ * @param {ProfilePoint[]} points - Array of ordered route profile points
+ * @param {number} targetDist - Distance along the track in meters
+ * @returns {number} Interpolated elevation in meters
  */
 export function getInterpolatedEle(points, targetDist) {
   if (!points || points.length === 0) return 0;
@@ -41,7 +107,13 @@ export function getInterpolatedEle(points, targetDist) {
 }
 
 /**
- * Builds discrete, uniform spatial blocks (e.g. 1000m, 500m, 250m, 100m)
+ * Discretizes continuous route elevation into uniform spatial block columns (e.g. 2.5km, 1.0km, 500m).
+ * Mimics Grand Tour roadbook elevation profiles with exact column average gradients.
+ *
+ * @param {ProfilePoint[]} points - Ordered route profile points
+ * @param {number} totalDist - Total distance in meters
+ * @param {number} [blockSizeM=1000] - Uniform block column length in meters (0 for continuous)
+ * @returns {SpatialBlock[]} Array of discretized block segments
  */
 export function buildSpatialBlocks(points, totalDist, blockSizeM = 1000) {
   if (!points || points.length < 2 || totalDist <= 0) return [];
@@ -62,11 +134,12 @@ export function buildSpatialBlocks(points, totalDist, blockSizeM = 1000) {
     const grade = ((eEnd - eStart) / spanM) * 100;
     const absGrade = Math.abs(grade);
 
+    // 4-tier pro cycling gradient classification
     let zone = 0;
-    if (absGrade < 5) zone = 0;
-    else if (absGrade < 8) zone = 1;
-    else if (absGrade < 12) zone = 2;
-    else zone = 3;
+    if (absGrade < 5) zone = 0;       // Zone 1: Flat / False Flat
+    else if (absGrade < 8) zone = 1;  // Zone 2: Moderate Climb
+    else if (absGrade < 12) zone = 2; // Zone 3: Steep Climb
+    else zone = 3;                    // Zone 4: Severe Gradient
 
     blocks.push({
       index: k + 1,
@@ -84,6 +157,26 @@ export function buildSpatialBlocks(points, totalDist, blockSizeM = 1000) {
   return blocks;
 }
 
+/**
+ * Detects sustained categorized climbs along a route.
+ *
+ * Implements a peak-finding and valley-dip accumulator algorithm modeled after
+ * standard Grand Tour stage roadbooks and the UCI climb categorization index:
+ *   Score = (Length_km) * (AvgGrade_pct)^2
+ *
+ * Classification thresholds:
+ * - HC (Hors Catégorie): Gain >= 900m OR UCI Score > 180
+ * - Category 1:          Gain >= 500m OR UCI Score > 100
+ * - Category 2:          Gain >= 280m OR UCI Score > 50
+ * - Category 3:          Gain >= 130m OR UCI Score > 25
+ * - Category 4:          Gain >= 35m  AND Length >= 600m AND AvgGrade >= 3.0%
+ *
+ * @param {ProfilePoint[]} points - Filtered profile points array
+ * @param {number} [minGainM=35] - Minimum required elevation gain in meters
+ * @param {number} [minLengthM=600] - Minimum climb length in meters
+ * @param {number} [minGradePct=3.0] - Minimum average gradient percentage
+ * @returns {DetectedClimb[]} List of detected climbs ordered along the route
+ */
 export function detectClimbs(points, minGainM = 35, minLengthM = 600, minGradePct = 3.0) {
   const climbs = [];
   const N = points.length;
@@ -101,6 +194,7 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 600, minGradePc
     const deltaE = currE - prevE;
 
     if (!inClimb) {
+      // Trigger climb detection upon positive gradient onset
       if (deltaE > 0.3 && points[i].grade >= minGradePct) {
         inClimb = true;
         startIdx = i - 1;
@@ -110,14 +204,18 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 600, minGradePc
       }
     } else {
       if (currE > points[climbPeakIdx].smoothEle) {
+        // New highest peak within current climb
         climbPeakIdx = i;
         runningGain += (currE - points[climbPeakIdx - 1].smoothEle);
         dipAccumulator = 0;
       } else {
+        // Accumulate descent dip to identify false flats vs true downhill
         dipAccumulator += (points[i - 1].smoothEle - currE);
       }
 
       const distFromPeak = points[i].dist - points[climbPeakIdx].dist;
+      
+      // End climb if descent exceeds 25m, downhill distance > 1.2km, or reached track end
       if (dipAccumulator > 25 || distFromPeak > 1200 || i === N - 1) {
         const climbLen = points[climbPeakIdx].dist - points[startIdx].dist;
         const climbGain = points[climbPeakIdx].smoothEle - points[startIdx].smoothEle;
@@ -129,6 +227,7 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 600, minGradePc
             if (points[k].grade > maxG) maxG = points[k].grade;
           }
 
+          // UCI Score Index
           const uciScore = (climbLen / 1000) * Math.pow(avgGrade, 2);
           let category = 'Cat 4';
           if (climbGain >= 900 || uciScore > 180) category = 'HC';
@@ -158,6 +257,16 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 600, minGradePc
   return climbs;
 }
 
+/**
+ * Main signal processing pipeline:
+ * Ingests GPS raw coordinates, executes smoothing, calculates telemetry stats,
+ * detects climbs, and discretizes spatial blocks.
+ *
+ * @param {GpxCoordinate[]} coords - Raw GPS track coordinates
+ * @param {number} [smoothingWindow=7] - Moving average window size in points (must be odd)
+ * @param {number} [blockSizeM=1000] - Roadbook block segment size in meters (0 for continuous)
+ * @returns {{ points: ProfilePoint[], stats: RouteStats|null, climbs: DetectedClimb[], blocks: SpatialBlock[] }}
+ */
 export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 1000) {
   const N = coords.length;
   if (N < 2) {
@@ -173,7 +282,7 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
     cumDistances.push(runningDist);
   }
 
-  // 2. Moving Average Elevation Smoothing
+  // 2. Moving Average Elevation Smoothing (eliminates barometric/GPS jitter)
   const W = Math.max(1, smoothingWindow);
   const halfW = Math.floor(W / 2);
   const smoothedEles = new Array(N);
@@ -214,6 +323,7 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
       if (deltaE > 0) totalGain += deltaE;
       else totalLoss += Math.abs(deltaE);
 
+      // Central difference over ~4-5m span for stable instantaneous gradient
       const bIdx = Math.max(0, i - 2);
       const fIdx = Math.min(N - 1, i + 2);
       const baseD = cumDistances[fIdx] - cumDistances[bIdx];
@@ -225,17 +335,19 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
         grade = (deltaE / deltaD) * 100;
       }
 
+      // Clamp unreasonable GPS spike outliers
       if (grade > 35) grade = 35;
       if (grade < -35) grade = -35;
 
       const absG = Math.abs(grade);
       if (absG > maxGrade) maxGrade = absG;
 
+      // 4-tier pro cycling gradient classification
       let zone = 0;
-      if (absG < 5) zone = 0;
-      else if (absG < 8) zone = 1;
-      else if (absG < 12) zone = 2;
-      else zone = 3;
+      if (absG < 5) zone = 0;       // Zone 1: Flat / False Flat
+      else if (absG < 8) zone = 1;  // Zone 2: Moderate Climb
+      else if (absG < 12) zone = 2; // Zone 3: Steep Climb
+      else zone = 3;                // Zone 4: Severe Gradient
 
       points.push({ dist, rawEle, smoothEle, grade, zone });
     } else {
@@ -243,7 +355,7 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
     }
   }
 
-  // 4. Discretize into configurable spatial blocks (e.g. 1000m, 500m, 250m, 100m)
+  // 4. Discretize into configurable spatial blocks (e.g. 2.5km, 1.0km, 500m)
   const blocks = buildSpatialBlocks(points, runningDist, blockSizeM);
   const climbs = detectClimbs(points);
 
@@ -262,7 +374,23 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
 }
 
 /**
- * Matches raw GPX waypoints to track distances and infers waypoint types for racing
+ * Matches raw GPX waypoints to track distances and infers waypoint types for racing.
+ *
+ * Scans waypoint labels, descriptions, and symbol attributes using multilingual
+ * regex keywords to automatically assign categories:
+ * - 'feed' (Feed zone / Ravito)
+ * - 'water' (Hydration / Fountain / Bidon)
+ * - 'food' (Fuel / Gels / Bars)
+ * - 'sprint' (Intermediate sprint / Green flag)
+ * - 'summit' (Mountain pass / Col / Peak)
+ * - 'caution' (Hazards / Cobbles / Sharp descent)
+ * - 'mech' (Tech support / Bike service)
+ * - 'checkpoint' (Timing check / Control point)
+ *
+ * @param {GpxRawWaypoint[]} rawWaypoints - Raw waypoints from GPX file
+ * @param {GpxCoordinate[]} coords - Route track GPS coordinates
+ * @param {ProfilePoint[]} points - Processed profile points
+ * @returns {Array<{ id: string, distM: number, type: string, label: string, enabled: boolean }>}
  */
 export function matchWaypointsToTrack(rawWaypoints, coords, points) {
   if (!rawWaypoints || rawWaypoints.length === 0 || !coords || coords.length < 2 || !points || points.length < 2) {
@@ -324,3 +452,4 @@ export function matchWaypointsToTrack(rawWaypoints, coords, points) {
   results.sort((a, b) => a.distM - b.distM);
   return results;
 }
+

@@ -1,6 +1,10 @@
 /**
- * StemProfile App Controller
- * Block-Segmented Pro Elevation Profile Studio
+ * StemProfile Application Controller
+ *
+ * Coordinates UI state, GPX file ingestion, signal processing, vector SVG rendering,
+ * and high-resolution export pipelines.
+ *
+ * @module app
  */
 
 import { parseGPX } from './parser.js';
@@ -8,6 +12,30 @@ import { processTrackSignal, matchWaypointsToTrack } from './signal.js';
 import { renderProfileSVG, WAYPOINT_CONFIG, escapeXml } from './renderer.js';
 import { exportSVG, exportPNG, copySVG, updatePrintMatrix } from './export.js';
 
+/**
+ * @typedef {Object} StickerSettings
+ * @property {number} widthMm - Physical sticker width in millimeters
+ * @property {number} heightMm - Physical sticker height in millimeters
+ * @property {number} radiusMm - Corner radius in millimeters
+ * @property {number} smoothingWindow - Moving average smoothing window (odd integer)
+ * @property {number} blockSizeM - Spatial block size in meters (0 for smooth continuous)
+ * @property {boolean} showBlockPct - Whether to render in-block gradient percentages
+ * @property {'metric'|'imperial'} units - Measurement units system
+ * @property {'white'|'dark'} theme - Color theme key
+ * @property {string} title - Custom header title string
+ * @property {boolean} showHeader - Whether to display top telemetry header
+ * @property {boolean} showDistanceTicks - Whether to display distance axis grid & ticks
+ * @property {boolean} showElevationLabels - Whether to display min/max altitude tags
+ * @property {boolean} showClimbs - Whether to render climb summit badges
+ * @property {boolean} showWaypoints - Whether to render race waypoint cues
+ * @property {boolean} showWaypointLabels - Whether to render text labels next to waypoints
+ * @property {boolean} showCutGuidelines - Whether to render dashed border cutting guides
+ * @property {number} printCopies - Number of sticker copies per print sheet (1, 2, or 4)
+ */
+
+/**
+ * Global reactive application state
+ */
 const appState = {
   rawCoords: [],
   rawWaypoints: [],
@@ -40,6 +68,9 @@ const appState = {
 // ============================================================================
 // Theme Management (Light Mode Default)
 // ============================================================================
+/**
+ * Initializes and binds theme toggling (Light / Dark Cockpit) with localStorage persistence.
+ */
 function initTheme() {
   const savedTheme = localStorage.getItem('stemprofile_theme') || 'light';
   document.documentElement.setAttribute('data-theme', savedTheme);

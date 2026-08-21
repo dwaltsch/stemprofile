@@ -1,10 +1,46 @@
 /**
- * Vector SVG Profile Renderer
- * Supports both Block-Segmented (1000m, 500m, 250m, 100m) and Smooth Continuous modes
+ * Vector SVG Profile Renderer Module
+ *
+ * Generates millimeter-accurate, print-ready SVG elevation profiles for
+ * top tubes and bicycle stems. Supports both block-segmented Grand Tour roadbook
+ * mode (2.5km, 1.0km, 500m, custom) and smooth continuous elevation curves.
+ *
+ * Features:
+ * - Anti-collision, multi-tier climb summit badge layout engine with leader lines
+ * - In-block gradient percentage rendering with adaptive orientation
+ * - High-contrast feed zone, water, sprint, and hazard waypoints
+ * - Metric (km/m) and Imperial (mi/ft) unit systems
+ * - Light (Print White) and Dark (Cockpit) theme palettes
+ *
+ * @module renderer
  */
 
 import { getInterpolatedEle } from './signal.js';
 
+/**
+ * @typedef {Object} RenderTheme
+ * @property {string} name - Human-readable theme name
+ * @property {string} bg - Background color hex
+ * @property {string} text - Primary high-contrast text color
+ * @property {string} textMuted - Secondary muted text color
+ * @property {string} grid - Elevation and distance grid line color
+ * @property {string} topStroke - Profile skyline stroke color
+ * @property {string} divider - Segment block divider line color
+ * @property {string} blockStroke - Segment block border stroke color
+ * @property {string} badgeBg - Climb and waypoint badge background fill
+ * @property {string} badgeStroke - Climb and waypoint badge border stroke
+ * @property {string} badgeText - Climb and waypoint badge text color
+ * @property {string} cutLine - Scissor guideline dashed stroke color
+ * @property {string} z1 - Zone 1 (<5%) color hex (Emerald Green)
+ * @property {string} z2 - Zone 2 (5-8%) color hex (Amber Yellow)
+ * @property {string} z3 - Zone 3 (8-12%) color hex (Deep Orange)
+ * @property {string} z4 - Zone 4 (>12%) color hex (Crimson Red)
+ */
+
+/**
+ * Available color themes for stickers and print exports
+ * @type {Record<'white'|'dark', RenderTheme>}
+ */
 export const THEMES = {
   'white': {
     name: 'Print White',
@@ -44,6 +80,9 @@ export const THEMES = {
   }
 };
 
+/**
+ * Visual styling and iconography configuration for race waypoints and nutrition cues
+ */
 export const WAYPOINT_CONFIG = {
   feed: {
     label: 'Feed Zone',
@@ -101,6 +140,13 @@ export const WAYPOINT_CONFIG = {
   }
 };
 
+/**
+ * Generates vector glyph paths for waypoint pins.
+ *
+ * @param {string} type - Waypoint category type identifier
+ * @param {string} [textColor='#ffffff'] - Glyph icon fill/stroke color
+ * @returns {string} SVG path/polygon markup centered at origin (0,0)
+ */
 function renderWaypointGlyph(type, textColor = '#ffffff') {
   switch (type) {
     case 'water':
@@ -124,13 +170,45 @@ function renderWaypointGlyph(type, textColor = '#ffffff') {
   }
 }
 
+/**
+ * Escapes unsafe characters for XML/SVG text embedding.
+ *
+ * @param {string} s - Input text string
+ * @returns {string} Sanitized XML-safe string
+ */
 export function escapeXml(s) {
   const map = { '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' };
   return (s || '').replace(/[<>&'"]/g, c => map[c] || c);
 }
 
 /**
- * Auto-placement & collision avoidance engine for Climb Summit Badges
+ * @typedef {Object} ClimbBadgePlacement
+ * @property {number} x - Top-left X coordinate in millimeters
+ * @property {number} y - Top-left Y coordinate in millimeters
+ * @property {number} w - Badge bounding box width in millimeters
+ * @property {number} h - Badge bounding box height in millimeters
+ * @property {string} label - Formatted category & slope label text
+ * @property {number} fontSize - Font size in millimeters
+ * @property {number} summitX - Peak summit pin X coordinate in millimeters
+ * @property {number} summitY - Peak summit pin Y coordinate in millimeters
+ * @property {import('./signal.js').DetectedClimb} climb - Source climb metadata
+ */
+
+/**
+ * Multi-tier anti-collision layout engine for Climb Summit Badges.
+ *
+ * Automatically tests discrete vertical shelf tiers and horizontal candidate nudges
+ * to eliminate badge overlapping on high-density mountain stages (e.g. Queen stages).
+ *
+ * @param {import('./signal.js').DetectedClimb[]} climbs - Array of detected route climbs
+ * @param {function(number): number} toX - Function mapping distance in meters to X mm
+ * @param {function(number): number} toY - Function mapping elevation in meters to Y mm
+ * @param {number} padLeft - Left plotting boundary padding in mm
+ * @param {number} padRight - Right plotting boundary padding in mm
+ * @param {number} minY - Topmost allowed Y coordinate for badges in mm
+ * @param {number} maxY - Bottommost allowed Y coordinate for badges in mm
+ * @param {number} W - Total sticker width in mm
+ * @returns {ClimbBadgePlacement[]} Array of non-overlapping badge placement objects
  */
 export function computeClimbBadgeLayout(climbs, toX, toY, padLeft, padRight, minY, maxY, W) {
   if (!climbs || climbs.length === 0) return [];
@@ -230,6 +308,29 @@ export function computeClimbBadgeLayout(climbs, toX, toY, padLeft, padRight, min
   return placedBadges;
 }
 
+/**
+ * Main vector SVG rendering pipeline for elevation stickers.
+ *
+ * Generates an SVG document sized precisely to millimeter physical dimensions (`W` mm x `H` mm).
+ * Constructs:
+ * 1. Background rectangle with configurable corner radius
+ * 2. Segmented block columns or smooth linear gradient path
+ * 3. Distance grid ticks and kilometer markers
+ * 4. Min/max altitude telemetry labels
+ * 5. Multi-tier anti-collision climb summit badges with leader lines
+ * 6. High-glanceability nutrition and race waypoints
+ * 7. Title header and summary stats
+ * 8. Millimeter dashed scissor cutting guides
+ *
+ * @param {import('./signal.js').ProfilePoint[]} points - Filtered route points
+ * @param {import('./signal.js').RouteStats} stats - Telemetry metrics (gain, distance, max grade)
+ * @param {import('./signal.js').DetectedClimb[]} [climbs=[]] - Detected categorized climbs
+ * @param {import('./signal.js').SpatialBlock[]} [blocks=[]] - Discretized spatial blocks
+ * @param {Array<Object>} [waypoints=[]] - Active race waypoints
+ * @param {Object} [settings={}] - User configuration settings
+ * @param {boolean} [isPrint=false] - When true, forces print-optimized white theme
+ * @returns {string} Pure vector SVG XML markup
+ */
 export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoints = [], settings = {}, isPrint = false) {
   // Support polymorphic parameter calls: (points, stats, climbs, blocks, settings, isPrint)
   if (!Array.isArray(waypoints) && typeof waypoints === 'object') {
