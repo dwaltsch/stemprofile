@@ -356,7 +356,7 @@ export function computeBlockPctLayout({
 
   const hasSpacing = (lastRenderedTextX === -999) || (midX - lastRenderedTextX >= minSpacingMm);
   const isStride = (baseStride === 1) || (idx % baseStride === 0);
-  const isKeyPitch = (block.absGrade >= 5.0) && (midX - lastRenderedTextX >= (minSpacingMm * 0.8));
+  const isKeyPitch = (block.absGrade >= 5.0) && (midX - lastRenderedTextX >= (minSpacingMm * 0.65));
 
   const minRequiredHeight = isCompactHeight ? (1.6 * sizeScale) : (2.0 * sizeScale);
   const shouldRender = (isStride || isKeyPitch) && (hasSpacing || isKeyPitch) && (colHeight >= minRequiredHeight);

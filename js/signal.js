@@ -482,10 +482,10 @@ export function matchWaypointsToTrack(rawWaypoints, coords, points) {
 
       if (/(water|h2o|bottle|drink|fountain|source|bidon|eau|wasser)/i.test(combinedText)) {
         inferredType = 'water';
-      } else if (/(gel|nutrition|energy|snack|bar|banana|food|bakery|cafe)/i.test(combinedText)) {
-        inferredType = 'food';
       } else if (/(feed|ravito|verpflegung|aid|zone|resupply|refreshment)/i.test(combinedText)) {
         inferredType = 'feed';
+      } else if (/(gel|nutrition|energy|snack|bar|banana|food|bakery|cafe)/i.test(combinedText)) {
+        inferredType = 'food';
       } else if (/(sprint|intermediate|hotspot|green)/i.test(combinedText)) {
         inferredType = 'sprint';
       } else if (/(summit|pass|col|peak|berg|climb|kom|qom|côte)/i.test(combinedText)) {

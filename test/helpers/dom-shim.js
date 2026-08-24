@@ -52,11 +52,11 @@ export class MiniDOMParser {
   parseFromString(xmlString, mimeType) {
     const root = new MiniNode('#document');
 
-    // Basic tag tokenizer
-    const tagRegex = /<([a-zA-Z0-9_:-]+)([^>]*)>([\s\S]*?)<\/\1>|<([a-zA-Z0-9_:-]+)([^>]*?)\/>/g;
-    const attrRegex = /([a-zA-Z0-9_:-]+)=["']([^"']*)["']/g;
-
     const parseElements = (xml, parentNode) => {
+      // Local regex per recursive frame to prevent lastIndex corruption
+      const tagRegex = /<([a-zA-Z0-9_:-]+)([^>]*)>([\s\S]*?)<\/\1>|<([a-zA-Z0-9_:-]+)([^>]*?)\/>/g;
+      const attrRegex = /([a-zA-Z0-9_:-]+)=["']([^"']*)["']/g;
+
       let match;
       let hasTags = false;
       const cleanXml = xml.replace(/<!--[\s\S]*?-->/g, ''); // strip XML comments

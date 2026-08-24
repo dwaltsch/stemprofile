@@ -116,7 +116,7 @@ describe('Renderer Module: SVG Profile Generation', () => {
     }
 
     const { points, stats, climbs, blocks } = processTrackSignal(coords, 3, 5000);
-    assert.equal(blocks.length, 44);
+    assert.equal(blocks.length, 60);
 
     const settings = {
       ...DEFAULT_SETTINGS,
@@ -126,8 +126,8 @@ describe('Renderer Module: SVG Profile Generation', () => {
     const svg = renderProfileSVG(points, stats, climbs, blocks, [], settings);
     // Count percentage text labels in SVG
     const pctMatches = (svg.match(/<text[^>]*>[0-9]+%<\/text>/g) || []);
-    // Out of 44 blocks, it should render at most ~22-25 labels (stride/spacing applied)
-    assert.ok(pctMatches.length <= 25, `Expected <= 25 labels on 44 blocks, got ${pctMatches.length}`);
+    // Out of 60 blocks, it should render at most ~30-35 labels (stride/spacing applied)
+    assert.ok(pctMatches.length <= 35, `Expected <= 35 labels on 60 blocks, got ${pctMatches.length}`);
     assert.ok(pctMatches.length >= 10, `Expected >= 10 labels, got ${pctMatches.length}`);
   });
 

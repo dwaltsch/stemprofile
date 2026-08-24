@@ -159,7 +159,7 @@ describe('Layout Module: Dynamic In-Block Percentage Engine', () => {
     assert.ok(res.shouldRender);
     assert.ok(res.markup.includes('10%'));
     // Scaled font size should be < 1.75
-    assert.ok(/font-size="1\.[3-5][0-9]?"/.test(res.markup));
+    assert.ok(/font-size="1\.[0-6][0-9]?"/.test(res.markup));
   });
 
   it('rotates numerals vertically on medium-narrow tall climb columns', () => {

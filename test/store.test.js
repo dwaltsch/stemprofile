@@ -39,9 +39,11 @@ describe('Store Module: State & Lifecycle', () => {
   it('processes track coordinates and calculates telemetry stats', () => {
     const store = createStore();
     const coords = [
-      { lat: 45.00, lon: 6.00, ele: 500 },
-      { lat: 45.01, lon: 6.01, ele: 750 },
-      { lat: 45.02, lon: 6.02, ele: 1000 }
+      { lat: 45.000, lon: 6.000, ele: 500 },
+      { lat: 45.005, lon: 6.000, ele: 550 },
+      { lat: 45.010, lon: 6.000, ele: 650 },
+      { lat: 45.015, lon: 6.000, ele: 750 },
+      { lat: 45.020, lon: 6.000, ele: 900 }
     ];
 
     store.setTrack({ title: 'Test Climb', coords });
