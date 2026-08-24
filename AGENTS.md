@@ -22,3 +22,19 @@ These rules apply unconditionally across this repository.
   - `git push --force`
   - `git branch -D` without confirmation
 - **Review Changes:** Always check `git status` and `git diff` to verify changes before and after making modifications.
+
+## 4. Automated Testing & Regression Prevention
+- **Mandatory Test Execution:** After modifying any JavaScript file in `js/`, run the test suite to ensure zero regressions:
+  ```bash
+  node --test
+  # or
+  node test/run.js
+  ```
+- **Zero External Dependencies:** Tests use Node's native `node:test` and `node:assert` standard library modules. Do NOT install heavy third-party testing frameworks or build tools (Jest, Vitest, Webpack, etc.) to keep the project 100% dependency-free and future-proof.
+- **Core Test Coverage:**
+  - `test/signal.test.js`: Geodesy (Haversine), elevation smoothing, spatial discretization, UCI climb categorization.
+  - `test/share.test.js`: 3D polyline delta encoding, extrema/summit downsampling, gzip payload serialization.
+  - `test/parser.test.js`: GPX XML ingestion, elevation forward-filling, waypoint classification.
+  - `test/renderer.test.js`: Physical dimension scaling, color themes, SVG markup structure.
+- **Keep Tests Updated:** When introducing new algorithms, formulas, or formats, add corresponding test cases to `test/`.
+

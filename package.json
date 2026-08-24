@@ -1,0 +1,18 @@
+{
+  "name": "stemprofile",
+  "version": "1.0.0",
+  "description": "Millimeter-accurate elevation sticker studio for bicycle stems and top tubes",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "cycling",
+    "elevation-profile",
+    "gpx",
+    "roadbook",
+    "svg"
+  ],
+  "author": "",
+  "license": "MIT"
+}

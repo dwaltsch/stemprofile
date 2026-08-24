@@ -1,0 +1,14 @@
+/**
+ * StemProfile Standalone Test Runner
+ *
+ * Runs all test suites under test/ using Node's built-in test runner.
+ * Usage:
+ *   node --test
+ *   or
+ *   node test/run.js
+ */
+
+import './signal.test.js';
+import './share.test.js';
+import './parser.test.js';
+import './renderer.test.js';
