@@ -556,9 +556,10 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
 
     topPath = `M ${toX(blocks[0].startDist).toFixed(2)} ${toY(blocks[0].startEle).toFixed(2)}`;
 
-    // Stride calculation for very narrow blocks on long stages so text never overlaps
+    // Stride & density calculation so percentage numbers never clutter or overlap
     const avgBlockWidthMm = plotW / Math.max(1, blocks.length);
-    const stride = avgBlockWidthMm < 1.2 ? Math.max(1, Math.ceil(1.6 / avgBlockWidthMm)) : 1;
+    const baseStride = avgBlockWidthMm >= 3.2 ? 1 : (avgBlockWidthMm >= 1.6 ? 2 : Math.max(2, Math.ceil(3.2 / avgBlockWidthMm)));
+    let lastRenderedTextX = -999;
 
     blocks.forEach((b, idx) => {
       const x1 = toX(b.startDist);
@@ -569,7 +570,7 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
 
       topPath += ` L ${x2.toFixed(2)} ${y2.toFixed(2)}`;
 
-      // Block Trapezoid (Adaptive border to preserve color visibility on 500m / narrow blocks)
+      // Block Trapezoid (Adaptive border to preserve color visibility on narrow blocks)
       const polyStrokeWidth = blockWidthMm >= 1.5 ? 0.2 : (blockWidthMm >= 0.8 ? 0.08 : 0);
       const polyStrokeAttr = polyStrokeWidth > 0 ? `stroke="${theme.blockStroke}" stroke-width="${polyStrokeWidth}"` : '';
 
@@ -585,7 +586,7 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
         `;
       }
 
-      // Block Percentage Text (Always visible for 2.5km, 1.0km, 500m, Custom)
+      // Block Percentage Text (Smart uncluttered rendering with guaranteed physical spacing)
       if (settings.showBlockPct !== false) {
         const topMidY = (y1 + y2) / 2;
         const colHeight = yBase - topMidY;
@@ -593,11 +594,18 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
         const gradeVal = Math.round(b.absGrade);
         const gradeText = `${gradeVal}%`;
 
-        const shouldRender = (stride === 1) || (idx % stride === 0) || (b.absGrade >= 4.0);
+        const minSpacingMm = blockWidthMm >= 3.2 ? 2.8 : (blockWidthMm >= 2.0 ? 3.4 : 4.2);
+        const hasSpacing = (lastRenderedTextX === -999) || (midX - lastRenderedTextX >= minSpacingMm);
+        const isStride = (baseStride === 1) || (idx % baseStride === 0);
+        const isKeyPitch = (b.absGrade >= 6.0) && (midX - lastRenderedTextX >= (minSpacingMm * 0.85));
 
-        if (shouldRender && colHeight >= 2.0) {
+        const shouldRender = (isStride || isKeyPitch) && hasSpacing && (colHeight >= 2.0);
+
+        if (shouldRender) {
+          lastRenderedTextX = midX;
+
           // Dynamic adaptive contrast based on zone and theme brightness
-          const isLightBackground = (b.zone <= 1) && (themeKey === 'white' || themeKey === 'tour' || themeKey === 'giro');
+          const isLightBackground = (b.zone <= 1) && (themeKey === 'white' || themeKey === 'tour' || themeKey === 'giro' || themeKey === 'gravel');
           const textFill = isLightBackground ? '#000000' : '#ffffff';
           const strokeColor = isLightBackground ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.85)';
           const strokeWidth = isLightBackground ? '0.42' : '0.34';

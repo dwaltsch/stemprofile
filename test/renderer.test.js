@@ -108,6 +108,29 @@ describe('Renderer Module: SVG Profile Generation', () => {
     assert.ok(svg.includes(`data-drag-id="climb-${climb2Id}"`), 'Visible climb badge should be rendered');
   });
 
+  it('limits block percentage text density on long stages with many blocks', () => {
+    // 220km stage with 5000m blocks (44 blocks)
+    const coords = [];
+    for (let i = 0; i <= 220; i++) {
+      coords.push({ lat: 45.0 + i * 0.01, lon: 6.0 + i * 0.01, ele: 200 + Math.sin(i / 10) * 150 });
+    }
+
+    const { points, stats, climbs, blocks } = processTrackSignal(coords, 3, 5000);
+    assert.equal(blocks.length, 44);
+
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      showBlockPct: true
+    };
+
+    const svg = renderProfileSVG(points, stats, climbs, blocks, [], settings);
+    // Count percentage text labels in SVG
+    const pctMatches = (svg.match(/<text[^>]*>[0-9]+%<\/text>/g) || []);
+    // Out of 44 blocks, it should render at most ~22-25 labels (stride/spacing applied)
+    assert.ok(pctMatches.length <= 25, `Expected <= 25 labels on 44 blocks, got ${pctMatches.length}`);
+    assert.ok(pctMatches.length >= 10, `Expected >= 10 labels, got ${pctMatches.length}`);
+  });
+
   it('handles empty or minimal point sets without throwing', () => {
     const svg = renderProfileSVG([], null, [], [], [], DEFAULT_SETTINGS);
     assert.ok(typeof svg === 'string' && svg.includes('<svg'));

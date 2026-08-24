@@ -123,8 +123,139 @@ function handleGPXFile(file) {
   reader.readAsText(file);
 }
 
+/**
+ * Calculates recommended block size preset options and default for a given track distance.
+ *
+ * @param {number} totalDistMeters - Total track distance in meters
+ * @returns {{ defaultBlockM: number, options: Array<{ label: string, value: number|string }> }}
+ */
+export function getRecommendedBlockPresets(totalDistMeters) {
+  const km = (totalDistMeters || 0) / 1000;
+  if (km < 40) {
+    return {
+      defaultBlockM: 500,
+      options: [
+        { label: '250 m', value: 250 },
+        { label: '500 m', value: 500 },
+        { label: '1.0 km', value: 1000 },
+        { label: 'Smooth', value: 0 },
+        { label: 'Custom', value: 'custom' }
+      ]
+    };
+  } else if (km < 100) {
+    return {
+      defaultBlockM: 1000,
+      options: [
+        { label: '500 m', value: 500 },
+        { label: '1.0 km', value: 1000 },
+        { label: '2.5 km', value: 2500 },
+        { label: 'Smooth', value: 0 },
+        { label: 'Custom', value: 'custom' }
+      ]
+    };
+  } else if (km < 180) {
+    return {
+      defaultBlockM: 2000,
+      options: [
+        { label: '1.0 km', value: 1000 },
+        { label: '2.0 km', value: 2000 },
+        { label: '5.0 km', value: 5000 },
+        { label: 'Smooth', value: 0 },
+        { label: 'Custom', value: 'custom' }
+      ]
+    };
+  } else {
+    // Ultra-distance stages (180 km – 350+ km, e.g. 220 km)
+    return {
+      defaultBlockM: 5000,
+      options: [
+        { label: '2.0 km', value: 2000 },
+        { label: '5.0 km', value: 5000 },
+        { label: '10.0 km', value: 10000 },
+        { label: 'Smooth', value: 0 },
+        { label: 'Custom', value: 'custom' }
+      ]
+    };
+  }
+}
+
+/**
+ * Updates the roadbook block size pill buttons and presets to match the route distance.
+ *
+ * @param {number} totalDistMeters - Total track distance in meters
+ * @param {boolean} [isNewGPX=false] - Whether this is a freshly loaded GPX track
+ */
+export function updateBlockSizePills(totalDistMeters, isNewGPX = false) {
+  const container = document.getElementById('block-size-pill-group');
+  const fieldCustomBlock = document.getElementById('field-custom-block');
+  const inputCustomBlock = document.getElementById('input-custom-block');
+  if (!container) return;
+
+  const presets = getRecommendedBlockPresets(totalDistMeters);
+
+  if (isNewGPX) {
+    appState.settings.blockSizeM = presets.defaultBlockM;
+  }
+
+  const currentVal = appState.settings.blockSizeM;
+  let html = '';
+  let matched = false;
+
+  presets.options.forEach(opt => {
+    const isSelected = (opt.value === 'custom')
+      ? (!matched && currentVal !== 0 && !presets.options.some(o => o.value === currentVal))
+      : (currentVal === opt.value);
+
+    if (isSelected && opt.value !== 'custom') matched = true;
+    const activeClass = isSelected ? 'active' : '';
+    html += `<button type="button" class="pill-opt ${activeClass}" data-value="${opt.value}">${opt.label}</button>`;
+  });
+
+  container.innerHTML = html;
+
+  if (matched || currentVal === 0) {
+    if (fieldCustomBlock) fieldCustomBlock.style.display = 'none';
+  } else {
+    const customBtn = container.querySelector('[data-value="custom"]');
+    if (customBtn) customBtn.classList.add('active');
+    if (fieldCustomBlock) fieldCustomBlock.style.display = 'block';
+    if (inputCustomBlock) inputCustomBlock.value = currentVal;
+  }
+
+  const pills = container.querySelectorAll('.pill-opt');
+  pills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      pills.forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      const val = pill.dataset.value;
+
+      if (val === 'custom') {
+        if (fieldCustomBlock) fieldCustomBlock.style.display = 'block';
+        const numVal = parseInt(inputCustomBlock ? inputCustomBlock.value : presets.defaultBlockM, 10) || presets.defaultBlockM;
+        appState.settings.blockSizeM = numVal;
+      } else {
+        if (fieldCustomBlock) fieldCustomBlock.style.display = 'none';
+        const numVal = parseInt(val, 10);
+        appState.settings.blockSizeM = numVal;
+        if (inputCustomBlock && numVal > 0) inputCustomBlock.value = numVal;
+      }
+      reprocessAndRender(false);
+    });
+  });
+}
+
 function reprocessAndRender(isNewGPX = false) {
   if (appState.rawCoords.length >= 2) {
+    if (isNewGPX) {
+      // Determine track distance to initialize stage-aware block preset options
+      const initial = processTrackSignal(
+        appState.rawCoords,
+        appState.settings.smoothingWindow,
+        1000
+      );
+      updateBlockSizePills(initial.stats.totalDist, true);
+    }
+
     const { points, stats, climbs, blocks } = processTrackSignal(
       appState.rawCoords, 
       appState.settings.smoothingWindow,
@@ -141,6 +272,8 @@ function reprocessAndRender(isNewGPX = false) {
         const matched = matchWaypointsToTrack(appState.rawWaypoints, appState.rawCoords, points);
         appState.waypoints = matched;
       }
+    } else if (stats) {
+      updateBlockSizePills(stats.totalDist, false);
     }
   }
   updateUI();
@@ -671,58 +804,18 @@ export function initApp() {
   }
 
   // Segment Block Size & Granularity Pills
-  const blockPills = document.querySelectorAll('#block-size-pill-group .pill-opt');
-  const blockSelect = document.getElementById('select-block-size');
-  const fieldCustomBlock = document.getElementById('field-custom-block');
+  updateBlockSizePills(appState.stats ? appState.stats.totalDist : 0, false);
   const inputCustomBlock = document.getElementById('input-custom-block');
-
-  blockPills.forEach(pill => {
-    pill.addEventListener('click', () => {
-      blockPills.forEach(p => p.classList.remove('active'));
-      pill.classList.add('active');
-      const val = pill.dataset.value;
-      if (blockSelect) blockSelect.value = val;
-
-      if (val === 'custom') {
-        if (fieldCustomBlock) fieldCustomBlock.style.display = 'block';
-        const numVal = parseInt(inputCustomBlock ? inputCustomBlock.value : '1000', 10) || 1000;
-        appState.settings.blockSizeM = numVal;
-      } else {
-        if (fieldCustomBlock) fieldCustomBlock.style.display = 'none';
-        const numVal = parseInt(val, 10);
-        appState.settings.blockSizeM = numVal;
-        if (inputCustomBlock && numVal > 0) inputCustomBlock.value = numVal;
-      }
-      reprocessAndRender();
-    });
-  });
-
-  if (blockSelect) {
-    blockSelect.addEventListener('change', e => {
-      const val = e.target.value;
-      blockPills.forEach(p => p.classList.toggle('active', p.dataset.value === val));
-      if (val === 'custom') {
-        if (fieldCustomBlock) fieldCustomBlock.style.display = 'block';
-        const numVal = parseInt(inputCustomBlock ? inputCustomBlock.value : '1000', 10) || 1000;
-        appState.settings.blockSizeM = numVal;
-      } else {
-        if (fieldCustomBlock) fieldCustomBlock.style.display = 'none';
-        const numVal = parseInt(val, 10);
-        appState.settings.blockSizeM = numVal;
-        if (inputCustomBlock && numVal > 0) inputCustomBlock.value = numVal;
-      }
-      reprocessAndRender();
-    });
-  }
-
   if (inputCustomBlock) {
     inputCustomBlock.addEventListener('input', e => {
       const v = parseInt(e.target.value, 10);
       if (v >= 50 && v <= 50000) {
         appState.settings.blockSizeM = v;
-        blockPills.forEach(p => p.classList.toggle('active', p.dataset.value === 'custom'));
-        if (blockSelect) blockSelect.value = 'custom';
-        reprocessAndRender();
+        const container = document.getElementById('block-size-pill-group');
+        if (container) {
+          container.querySelectorAll('.pill-opt').forEach(p => p.classList.toggle('active', p.dataset.value === 'custom'));
+        }
+        reprocessAndRender(false);
       }
     });
   }
@@ -986,22 +1079,7 @@ function syncFormControlsFromSettings() {
   if (smLabel) smLabel.textContent = `${s.smoothingWindow} pt`;
 
   // Block size pills
-  const blockPills = document.querySelectorAll('#block-size-pill-group .pill-opt');
-  const fieldCustomBlock = document.getElementById('field-custom-block');
-  const inputCustomBlock = document.getElementById('input-custom-block');
-  let matchedBlock = false;
-  blockPills.forEach(p => {
-    const isMatch = p.dataset.value === String(s.blockSizeM);
-    p.classList.toggle('active', isMatch);
-    if (isMatch) matchedBlock = true;
-  });
-  if (!matchedBlock) {
-    blockPills.forEach(p => p.classList.toggle('active', p.dataset.value === 'custom'));
-    if (fieldCustomBlock) fieldCustomBlock.style.display = 'block';
-    if (inputCustomBlock) inputCustomBlock.value = s.blockSizeM;
-  } else {
-    if (fieldCustomBlock) fieldCustomBlock.style.display = 'none';
-  }
+  updateBlockSizePills(appState.stats ? appState.stats.totalDist : 0, false);
 
   // Theme & Units
   const themeSelect = document.getElementById('select-theme');
