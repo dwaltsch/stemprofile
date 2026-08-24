@@ -33,7 +33,8 @@ export const DEFAULT_SETTINGS = {
   showWaypoints: true,
   showWaypointLabels: true,
   showCutGuidelines: true,
-  printCopies: 2
+  printCopies: 2,
+  hiddenClimbIds: []
 };
 
 /**
@@ -230,6 +231,9 @@ export function normalizePayload(rawPayload) {
     ...DEFAULT_SETTINGS,
     ...(rawPayload.s || {})
   };
+  if (rawPayload.s && rawPayload.s.hc && !rawPayload.s.hiddenClimbIds) {
+    settings.hiddenClimbIds = rawPayload.s.hc;
+  }
 
   const waypoints = (rawPayload.w || []).map((item, idx) => ({
     id: `wpt-sh-${idx + 1}`,
@@ -344,9 +348,13 @@ export async function serializeStateToHash(appState) {
   const customSettings = {};
   if (appState.settings) {
     for (const [key, defaultVal] of Object.entries(DEFAULT_SETTINGS)) {
+      if (key === 'hiddenClimbIds') continue;
       if (appState.settings[key] !== undefined && appState.settings[key] !== defaultVal) {
         customSettings[key] = appState.settings[key];
       }
+    }
+    if (appState.settings.hiddenClimbIds && appState.settings.hiddenClimbIds.length > 0) {
+      customSettings.hc = appState.settings.hiddenClimbIds;
     }
     if (appState.settings.customPositions && Object.keys(appState.settings.customPositions).length > 0) {
       customSettings.customPositions = appState.settings.customPositions;
@@ -418,4 +426,20 @@ export async function copyShareableLink(appState) {
 
   return shareUrl;
 }
+
+/**
+ * Deserializes a shareable hash string into normalized application state.
+ *
+ * @param {string} hashStr - Raw hash string (e.g. '#stage=...')
+ * @returns {Promise<Object|null>} Normalized payload
+ */
+export async function deserializeHashToState(hashStr) {
+  if (!hashStr) return null;
+  let b64 = hashStr.trim().replace(/^[#?]/, '');
+  if (b64.includes('stage=')) b64 = b64.split('stage=')[1].split('&')[0];
+  else if (b64.includes('data=')) b64 = b64.split('data=')[1].split('&')[0];
+  else if (b64.includes('route=')) b64 = b64.split('route=')[1].split('&')[0];
+  return decompressPayload(b64);
+}
+
 

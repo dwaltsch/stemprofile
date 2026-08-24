@@ -39,7 +39,7 @@ import { getInterpolatedEle } from './signal.js';
 
 /**
  * Available color themes for stickers and print exports
- * @type {Record<'white'|'dark', RenderTheme>}
+ * @type {Record<'white'|'dark'|'tour'|'neon'|'giro'|'gravel', RenderTheme>}
  */
 export const THEMES = {
   'white': {
@@ -47,7 +47,7 @@ export const THEMES = {
     bg: '#ffffff',
     text: '#0f172a',          // Crisp deep slate/black
     textMuted: '#334155',     // High-contrast slate 700
-    grid: 'rgba(15, 23, 42, 0.15)',
+    grid: 'rgba(15, 23, 42, 0.16)',
     topStroke: '#0f172a',
     divider: '#ffffff',
     blockStroke: 'rgba(15, 23, 42, 0.35)',
@@ -60,12 +60,66 @@ export const THEMES = {
     z3: '#ea580c',            // Deep Orange
     z4: '#dc2626'             // Bold Crimson Red
   },
+  'giro': {
+    name: 'Giro Rosa (Gazzetta Pink)',
+    bg: '#fff0f3',            // Signature Gazzetta Dello Sport warm pink paper
+    text: '#4c0519',          // Deep Italian racing burgundy / espresso
+    textMuted: '#881337',     // Rose Slate
+    grid: 'rgba(136, 19, 55, 0.16)',
+    topStroke: '#4c0519',
+    divider: '#fff0f3',
+    blockStroke: 'rgba(76, 5, 25, 0.35)',
+    badgeBg: '#ffffff',
+    badgeStroke: '#be185d',   // Iconic Maglia Rosa Magenta
+    badgeText: '#4c0519',
+    cutLine: 'rgba(190, 24, 93, 0.40)',
+    z1: '#059669',            // Italian Alpine Mint
+    z2: '#d97706',            // Tuscan Ochre
+    z3: '#ea580c',            // Dolomite Terracotta
+    z4: '#be123c'             // Giro Rose Crimson
+  },
+  'tour': {
+    name: 'Tour de France (L\'Étape Gold)',
+    bg: '#ffffff',
+    text: '#000000',          // Pure Jet Black for 21:1 sunlight contrast
+    textMuted: '#27272a',     // Asphalt Dark
+    grid: 'rgba(0, 0, 0, 0.20)',
+    topStroke: '#000000',
+    divider: '#ffffff',
+    blockStroke: 'rgba(0, 0, 0, 0.50)',
+    badgeBg: '#fef08a',       // Maillot Jaune Gold Badge Fill
+    badgeStroke: '#000000',
+    badgeText: '#000000',
+    cutLine: 'rgba(0, 0, 0, 0.45)',
+    z1: '#16a34a',            // French Meadow Green
+    z2: '#eab308',            // Tour Gold
+    z3: '#f97316',            // Alpine Orange
+    z4: '#dc2626'             // Pois Rouges Red
+  },
+  'gravel': {
+    name: 'Gravel Brevet (Expedition Sand)',
+    bg: '#f5efe6',            // Warm desert parchment / sand
+    text: '#1c1917',          // Deep espresso / earth
+    textMuted: '#57534e',     // Stone Slate
+    grid: 'rgba(41, 37, 36, 0.18)',
+    topStroke: '#292524',
+    divider: '#f5efe6',
+    blockStroke: 'rgba(41, 37, 36, 0.35)',
+    badgeBg: '#fffbf5',
+    badgeStroke: '#78350f',   // Cognac leather brown
+    badgeText: '#1c1917',
+    cutLine: 'rgba(120, 53, 15, 0.40)',
+    z1: '#4d7c0f',            // Forest Moss / Sage
+    z2: '#b45309',            // Desert Clay / Ochre
+    z3: '#c2410c',            // Burnt Sienna / Rust
+    z4: '#7f1d1d'             // Deep Mahogany
+  },
   'dark': {
     name: 'Dark Cockpit',
     bg: '#0d1117',
     text: '#f8fafc',          // Pure bright text
     textMuted: '#94a3b8',     // Slate 400
-    grid: 'rgba(255, 255, 255, 0.12)',
+    grid: 'rgba(255, 255, 255, 0.15)',
     topStroke: '#ffffff',
     divider: '#0d1117',
     blockStroke: 'rgba(0, 0, 0, 0.5)',
@@ -77,8 +131,41 @@ export const THEMES = {
     z2: '#eab308',            // Bright Yellow
     z3: '#f97316',            // Bright Orange
     z4: '#ef4444'             // Bright Red
+  },
+  'neon': {
+    name: 'Cyberpunk Neon (OLED Black)',
+    bg: '#000000',            // True OLED Pitch Black
+    text: '#ffffff',          // Pure Stark White
+    textMuted: '#94a3b8',     // Slate 400
+    grid: 'rgba(56, 189, 248, 0.18)',
+    topStroke: '#38bdf8',     // Laser Sky Cyan
+    divider: '#000000',
+    blockStroke: 'rgba(0, 0, 0, 0.9)',
+    badgeBg: '#090d16',
+    badgeStroke: '#38bdf8',
+    badgeText: '#ffffff',
+    cutLine: 'rgba(56, 189, 248, 0.4)',
+    z1: '#06b6d4',            // Electric Cyan (<5%)
+    z2: '#a3e635',            // Acid Lime (5-8%)
+    z3: '#fb923c',            // Electric Blaze Amber (8-12%)
+    z4: '#f43f5e'             // Ultraviolet Hot Pink (>12%)
   }
 };
+
+/**
+ * Resolves the categorical color for a climb's summit pill badge based on UCI severity.
+ *
+ * @param {string} category - Climb category (HC, Cat 1, Cat 2, Cat 3, Cat 4)
+ * @param {RenderTheme} theme - Active color theme
+ * @returns {string} Hex color string
+ */
+export function getClimbCategoryColor(category, theme) {
+  const cat = (category || '').toUpperCase();
+  if (cat.includes('HC') || cat.includes('1')) return theme.z4 || '#dc2626';
+  if (cat.includes('2')) return theme.z3 || '#ea580c';
+  if (cat.includes('3')) return theme.z2 || '#d97706';
+  return theme.z1 || '#16a34a';
+}
 
 /**
  * Visual styling and iconography configuration for race waypoints and nutrition cues
@@ -228,14 +315,21 @@ export function computeClimbBadgeLayout(climbs, toX, toY, padLeft, padRight, min
     const summitX = toX(climb.summitKm * 1000);
     const summitY = toY(climb.summitEle);
 
-    const label = isDense
-      ? `${climb.category} · ${climb.lengthKm.toFixed(1)}k ${climb.avgGrade}%`
-      : `${climb.category} • ${climb.lengthKm.toFixed(1)}k @ ${climb.avgGrade}%`;
+    const catStr = (climb.category || '').toUpperCase();
+    const catCode = isDense ? catStr.replace(/CAT\s*/i, 'C') : catStr;
+    const statsLength = `${climb.lengthKm.toFixed(1)}k`;
+    const statsGrade = `${climb.avgGrade}%`;
 
-    const fontSize = isDense ? 1.45 : 1.6;
-    const badgeH = isDense ? 2.8 : 3.0;
-    const charWidth = isDense ? 1.05 : 1.15;
-    const badgeW = Math.min(25, label.length * charWidth + 2.4);
+    const fontSize = isDense ? 1.5 : 1.65;
+    const badgeH = isDense ? 3.1 : 3.4;
+
+    const catCharW = isDense ? 0.95 : 1.05;
+    const catW = Math.max(isDense ? 4.2 : 5.0, catCode.length * catCharW + 1.8);
+    const statsText = `${statsLength} ${statsGrade}`;
+    const statsW = statsText.length * (isDense ? 0.92 : 1.0) + 2.0;
+    const badgeW = Math.min(28, catW + statsW);
+
+    const label = `${catCode} | ${statsLength} · ${statsGrade}`;
 
     // If custom drag position was saved by the user, prioritize it directly
     if (customPositions && customPositions['climb-' + climb.id]) {
@@ -245,6 +339,10 @@ export function computeClimbBadgeLayout(climbs, toX, toY, padLeft, padRight, min
         y: customPos.y,
         w: badgeW,
         h: badgeH,
+        catW,
+        catCode,
+        statsLength,
+        statsGrade,
         label,
         fontSize,
         summitX,
@@ -322,7 +420,21 @@ export function computeClimbBadgeLayout(climbs, toX, toY, padLeft, padRight, min
 
         if (cost < minCost) {
           minCost = cost;
-          bestCandidate = { x: candX, y: candY, w: badgeW, h: badgeH, label, fontSize, summitX, summitY, climb };
+          bestCandidate = {
+            x: candX,
+            y: candY,
+            w: badgeW,
+            h: badgeH,
+            catW,
+            catCode,
+            statsLength,
+            statsGrade,
+            label,
+            fontSize,
+            summitX,
+            summitY,
+            climb
+          };
           if (!collides && d === 0 && t === 0) {
             break;
           }
@@ -339,6 +451,10 @@ export function computeClimbBadgeLayout(climbs, toX, toY, padLeft, padRight, min
         y: tier1Y,
         w: badgeW,
         h: badgeH,
+        catW,
+        catCode,
+        statsLength,
+        statsGrade,
         label,
         fontSize,
         summitX,
@@ -383,17 +499,16 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
     settings = waypoints;
     waypoints = settings.waypoints || [];
   }
-
   const W = settings.widthMm || 110;
   const H = settings.heightMm || 35;
   const radius = settings.radiusMm || 0;
-  const themeKey = isPrint ? 'white' : (settings.theme === 'dark' ? 'dark' : 'white');
+  const themeKey = isPrint ? 'white' : (THEMES[settings.theme] ? settings.theme : (settings.theme === 'dark' ? 'dark' : 'white'));
   const theme = THEMES[themeKey] || THEMES['white'];
 
   if (!points || points.length < 2 || !stats) {
     return `<svg id="profile-svg-elem" viewBox="0 0 ${W} ${H}" width="${W}mm" height="${H}mm" xmlns="http://www.w3.org/2000/svg" style="display:block; border-radius:${radius}mm; background:${theme.bg};">
       <rect width="100%" height="100%" fill="${theme.bg}"/>
-      <text x="50%" y="50%" fill="${theme.textMuted}" text-anchor="middle" font-size="3" font-weight="700" font-family="sans-serif">Drop GPX to render profile</text>
+      <text x="50%" y="50%" fill="${theme.textMuted}" text-anchor="middle" font-size="3" font-weight="700" font-family="system-ui, -apple-system, sans-serif">Drop GPX to render profile</text>
     </svg>`;
   }
 
@@ -420,12 +535,12 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
 
   // Add 10% elevation headroom
   const eleHeadroom = (stats.maxEle - stats.minEle) * 0.10;
-  const minElePadded = Math.max(0, stats.minEle - (eleHeadroom * 0.5));
-  const maxElePadded = stats.maxEle + eleHeadroom;
-  const spanEle = maxElePadded - minElePadded;
+  const minElePlot = Math.max(0, stats.minEle - eleHeadroom);
+  const maxElePlot = stats.maxEle + eleHeadroom;
+  const eleSpan = Math.max(1, maxElePlot - minElePlot);
 
-  const toX = d => padLeft + ((d / stats.totalDist) * plotW);
-  const toY = e => padTop + plotH - (((e - minElePadded) / spanEle) * plotH);
+  const toX = distM => padLeft + (distM / stats.totalDist) * plotW;
+  const toY = eleM => yBase - ((eleM - minElePlot) / eleSpan) * plotH;
 
   const zoneColors = [theme.z1, theme.z2, theme.z3, theme.z4];
   let profileBodyMarkup = '';
@@ -481,23 +596,29 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
         const shouldRender = (stride === 1) || (idx % stride === 0) || (b.absGrade >= 4.0);
 
         if (shouldRender && colHeight >= 2.0) {
+          // Dynamic adaptive contrast based on zone and theme brightness
+          const isLightBackground = (b.zone <= 1) && (themeKey === 'white' || themeKey === 'tour' || themeKey === 'giro');
+          const textFill = isLightBackground ? '#000000' : '#ffffff';
+          const strokeColor = isLightBackground ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.85)';
+          const strokeWidth = isLightBackground ? '0.42' : '0.34';
+
           if (blockWidthMm >= 3.0) {
             // Wide block: Horizontal text with outline halo
             const textY = Math.min(yBase - 1.2, topMidY + (colHeight * 0.45));
             blockTextLabels += `
-              <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" fill="#ffffff" stroke="rgba(0,0,0,0.85)" stroke-width="0.36" stroke-linejoin="round" paint-order="stroke fill" font-size="1.7" font-weight="900" font-family="monospace, sans-serif" text-anchor="middle">${gradeText}</text>
+              <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" fill="${textFill}" stroke="${strokeColor}" stroke-width="${strokeWidth}" stroke-linejoin="round" paint-order="stroke fill" font-size="1.75" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${gradeText}</text>
             `;
           } else if (blockWidthMm >= 1.5) {
             // Medium block: Compact horizontal or vertical text depending on height
             if (colHeight >= 5.5) {
               const textY = (topMidY + yBase) / 2;
               blockTextLabels += `
-                <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" transform="rotate(-90, ${midX.toFixed(2)}, ${textY.toFixed(2)})" fill="#ffffff" stroke="rgba(0,0,0,0.85)" stroke-width="0.32" stroke-linejoin="round" paint-order="stroke fill" font-size="1.45" font-weight="900" font-family="monospace, sans-serif" text-anchor="middle">${gradeText}</text>
+                <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" transform="rotate(-90, ${midX.toFixed(2)}, ${textY.toFixed(2)})" fill="${textFill}" stroke="${strokeColor}" stroke-width="${strokeWidth}" stroke-linejoin="round" paint-order="stroke fill" font-size="1.5" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${gradeText}</text>
               `;
             } else {
               const textY = Math.min(yBase - 0.8, topMidY + (colHeight * 0.48));
               blockTextLabels += `
-                <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" fill="#ffffff" stroke="rgba(0,0,0,0.85)" stroke-width="0.30" stroke-linejoin="round" paint-order="stroke fill" font-size="1.35" font-weight="900" font-family="monospace, sans-serif" text-anchor="middle">${gradeText}</text>
+                <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" fill="${textFill}" stroke="${strokeColor}" stroke-width="${strokeWidth}" stroke-linejoin="round" paint-order="stroke fill" font-size="1.4" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${gradeText}</text>
               `;
             }
           } else if (blockWidthMm >= 0.45) {
@@ -505,7 +626,7 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
             if (colHeight >= 4.0) {
               const textY = (topMidY + yBase) / 2;
               blockTextLabels += `
-                <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" transform="rotate(-90, ${midX.toFixed(2)}, ${textY.toFixed(2)})" fill="#ffffff" stroke="rgba(0,0,0,0.85)" stroke-width="0.28" stroke-linejoin="round" paint-order="stroke fill" font-size="1.25" font-weight="900" font-family="monospace, sans-serif" text-anchor="middle">${gradeText}</text>
+                <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" transform="rotate(-90, ${midX.toFixed(2)}, ${textY.toFixed(2)})" fill="${textFill}" stroke="${strokeColor}" stroke-width="${strokeWidth}" stroke-linejoin="round" paint-order="stroke fill" font-size="1.3" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${gradeText}</text>
               `;
             }
           }
@@ -565,12 +686,12 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
       const x = toX(tickDist).toFixed(2);
       gridMarkup += `
         <line x1="${x}" y1="${padTop.toFixed(2)}" x2="${x}" y2="${yBase.toFixed(2)}" stroke="${theme.grid}" stroke-width="0.25" stroke-dasharray="0.5,0.5"/>
-        <text x="${x}" y="${(yBase + 2.5).toFixed(2)}" fill="${theme.textMuted}" font-size="1.9" font-weight="700" font-family="monospace" text-anchor="middle">${t * stepKm}</text>
+        <text x="${x}" y="${(yBase + 2.5).toFixed(2)}" fill="${theme.textMuted}" font-size="1.95" font-weight="800" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${t * stepKm}</text>
       `;
     }
     gridMarkup += `
-      <text x="${padLeft.toFixed(2)}" y="${(yBase + 2.5).toFixed(2)}" fill="${theme.textMuted}" font-size="1.9" font-weight="700" font-family="monospace" text-anchor="start">0</text>
-      <text x="${(padLeft + plotW).toFixed(2)}" y="${(yBase + 2.5).toFixed(2)}" fill="${theme.textMuted}" font-size="1.8" font-weight="800" font-family="sans-serif" text-anchor="end">${distUnit}</text>
+      <text x="${padLeft.toFixed(2)}" y="${(yBase + 2.5).toFixed(2)}" fill="${theme.textMuted}" font-size="1.95" font-weight="800" font-family="system-ui, -apple-system, sans-serif" text-anchor="start">0</text>
+      <text x="${(padLeft + plotW).toFixed(2)}" y="${(yBase + 2.5).toFixed(2)}" fill="${theme.textMuted}" font-size="1.8" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="end">${distUnit}</text>
     `;
   }
 
@@ -580,8 +701,8 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
     const minStr = `${Math.round(minEleU)}${eleUnit}`;
     const maxStr = `${Math.round(maxEleU)}${eleUnit}`;
     eleMarkup += `
-      <text x="${(padLeft - 1.0).toFixed(2)}" y="${(toY(stats.maxEle) + 0.9).toFixed(2)}" fill="${theme.textMuted}" font-size="1.8" font-weight="700" font-family="sans-serif" text-anchor="end">${maxStr}</text>
-      <text x="${(padLeft - 1.0).toFixed(2)}" y="${(toY(stats.minEle) + 0.6).toFixed(2)}" fill="${theme.textMuted}" font-size="1.8" font-weight="700" font-family="sans-serif" text-anchor="end">${minStr}</text>
+      <text x="${(padLeft - 1.0).toFixed(2)}" y="${(toY(stats.maxEle) + 0.9).toFixed(2)}" fill="${theme.textMuted}" font-size="1.8" font-weight="800" font-family="system-ui, -apple-system, sans-serif" text-anchor="end">${maxStr}</text>
+      <text x="${(padLeft - 1.0).toFixed(2)}" y="${(toY(stats.minEle) + 0.6).toFixed(2)}" fill="${theme.textMuted}" font-size="1.8" font-weight="800" font-family="system-ui, -apple-system, sans-serif" text-anchor="end">${minStr}</text>
     `;
   }
 
@@ -589,15 +710,19 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
   const activeWaypoints = (waypoints || []).filter(w => w && w.enabled !== false && w.distM >= 0 && w.distM <= stats.totalDist);
   const customPositions = settings.customPositions || {};
 
-  // 6. Climb Segment Overlays & Summit Badges (Interactive Cross-Highlighting & Anti-Collision)
+  // 6. Climb Segment Overlays & Summit Badges (Two-Tone High-Contrast Roadbook Badges)
   let climbsMarkup = '';
   if (settings.showClimbs && climbs && climbs.length > 0) {
+    const hiddenClimbIds = new Set((settings.hiddenClimbIds || []).map(id => String(id)));
+    const visibleClimbs = climbs.filter(c => !hiddenClimbIds.has(String(c.id)) && c.enabled !== false);
+
     const minY = settings.showHeader ? 5.8 : 1.5;
     const maxY = H - padBottom - 1.0;
-    const badgeLayout = computeClimbBadgeLayout(climbs, toX, toY, padLeft, padRight, minY, maxY, W, activeWaypoints, customPositions);
+    const badgeLayout = computeClimbBadgeLayout(visibleClimbs, toX, toY, padLeft, padRight, minY, maxY, W, activeWaypoints, customPositions);
 
     climbs.forEach(climb => {
-      const badge = badgeLayout.find(b => b.climb.id === climb.id);
+      const isHidden = hiddenClimbIds.has(String(climb.id)) || climb.enabled === false;
+      const badge = isHidden ? null : badgeLayout.find(b => b.climb.id === climb.id);
       const startX = toX(climb.startKm * 1000);
       const summitX = toX(climb.summitKm * 1000);
 
@@ -624,7 +749,7 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
 
       let badgeMarkup = '';
       if (badge) {
-        const { x, y, w, h, label, fontSize, summitX, summitY } = badge;
+        const { x, y, w, h, catW, catCode, statsLength, statsGrade, fontSize, summitX, summitY } = badge;
         const badgeCenterX = x + (w / 2);
         const badgeBottomY = y + h;
         const badgeTopY = y;
@@ -650,13 +775,28 @@ export function renderProfileSVG(points, stats, climbs = [], blocks = [], waypoi
           <line id="leader-climb-${climb.id}" class="climb-leader-line" x1="${connX.toFixed(2)}" y1="${connY.toFixed(2)}" x2="${summitX.toFixed(2)}" y2="${summitY.toFixed(2)}" stroke="${theme.badgeStroke}" stroke-width="0.32" stroke-dasharray="0.6,0.4" opacity="${distToSummit > 1.8 ? '0.85' : '0'}"/>
         `;
 
+        const catColor = getClimbCategoryColor(climb.category, theme);
+        const actualCatW = catW || Math.max(4.5, w * 0.35);
+        const statsW = w - actualCatW;
+        const statsMidX = actualCatW + (statsW / 2);
+
         badgeMarkup = `
           <g class="climb-summit-group" data-climb-id="${climb.id}">
             ${leaderLine}
-            <circle class="climb-peak-dot" cx="${summitX.toFixed(2)}" cy="${summitY.toFixed(2)}" r="1.1" fill="${theme.z4}" stroke="${theme.topStroke}" stroke-width="0.35"/>
+            <circle class="climb-peak-dot" cx="${summitX.toFixed(2)}" cy="${summitY.toFixed(2)}" r="1.1" fill="${catColor}" stroke="${theme.topStroke}" stroke-width="0.35"/>
             <g class="draggable-label climb-badge-drag" data-drag-type="climb" data-drag-id="climb-${climb.id}" data-summit-x="${summitX.toFixed(2)}" data-summit-y="${summitY.toFixed(2)}" data-w="${w.toFixed(2)}" data-h="${h.toFixed(2)}" transform="translate(${x.toFixed(2)}, ${y.toFixed(2)})">
-              <rect class="climb-badge-rect" width="${w.toFixed(2)}" height="${h.toFixed(2)}" rx="0.6" fill="${theme.badgeBg}" stroke="${theme.badgeStroke}" stroke-width="0.35"/>
-              <text class="climb-badge-text" x="${(w / 2).toFixed(2)}" y="${(h * 0.70).toFixed(2)}" fill="${theme.badgeText}" font-size="${fontSize}" font-weight="800" font-family="sans-serif" text-anchor="middle">${label}</text>
+              <!-- Outer Badge Box -->
+              <rect class="climb-badge-rect" width="${w.toFixed(2)}" height="${h.toFixed(2)}" rx="0.7" fill="${theme.badgeBg}" stroke="${theme.badgeStroke}" stroke-width="0.35"/>
+              <!-- Category Pill (Left Segment) -->
+              <path class="climb-cat-pill" d="M 0.7 0 L ${actualCatW.toFixed(2)} 0 L ${actualCatW.toFixed(2)} ${h.toFixed(2)} L 0.7 ${h.toFixed(2)} A 0.7 0.7 0 0 1 0 ${(h - 0.7).toFixed(2)} L 0 0.7 A 0.7 0.7 0 0 1 0.7 0 Z" fill="${catColor}"/>
+              <line x1="${actualCatW.toFixed(2)}" y1="0" x2="${actualCatW.toFixed(2)}" y2="${h.toFixed(2)}" stroke="${theme.badgeStroke}" stroke-width="0.3"/>
+              <!-- Category Code Text -->
+              <text class="climb-cat-text" x="${(actualCatW / 2).toFixed(2)}" y="${(h * 0.72).toFixed(2)}" fill="#ffffff" font-size="${fontSize}" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${catCode || 'CLIMB'}</text>
+              <!-- Length & High-Contrast Bold Percentage Text (Right Segment) -->
+              <text class="climb-stats-text" x="${statsMidX.toFixed(2)}" y="${(h * 0.72).toFixed(2)}" fill="${theme.badgeText}" font-size="${fontSize}" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">
+                <tspan font-weight="600" fill="${theme.textMuted}">${statsLength || (climb.lengthKm.toFixed(1) + 'k')} </tspan>
+                <tspan font-weight="900" fill="${theme.badgeText}">${statsGrade || (climb.avgGrade + '%')}</tspan>
+              </text>
             </g>
           </g>
         `;

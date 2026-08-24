@@ -12,14 +12,15 @@ import { processTrackSignal } from '../js/signal.js';
 import { DEFAULT_SETTINGS } from '../js/share.js';
 
 describe('Renderer Module: Theme & Config Validation', () => {
-  it('defines valid color palettes for white and dark themes', () => {
-    assert.ok(THEMES.white);
-    assert.ok(THEMES.dark);
-
+  it('defines valid color palettes for all themes (white, dark, tour, neon, giro, gravel)', () => {
+    const themeKeys = ['white', 'dark', 'tour', 'neon', 'giro', 'gravel'];
     const requiredKeys = ['bg', 'text', 'grid', 'topStroke', 'z1', 'z2', 'z3', 'z4'];
-    for (const key of requiredKeys) {
-      assert.ok(THEMES.white[key], `Missing key ${key} in white theme`);
-      assert.ok(THEMES.dark[key], `Missing key ${key} in dark theme`);
+
+    for (const t of themeKeys) {
+      assert.ok(THEMES[t], `Missing theme definition for ${t}`);
+      for (const key of requiredKeys) {
+        assert.ok(THEMES[t][key], `Missing key ${key} in ${t} theme`);
+      }
     }
   });
 

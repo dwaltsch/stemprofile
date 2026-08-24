@@ -27,7 +27,7 @@ export function exportSVG(points, stats, climbs, blocks, waypoints, settings) {
     settings = waypoints;
     waypoints = [];
   }
-  const themeKey = settings.theme === 'dark' ? 'dark' : 'white';
+  const themeKey = THEMES[settings.theme] ? settings.theme : 'white';
   const svgMarkup = renderProfileSVG(points, stats, climbs, blocks, waypoints, { ...settings, theme: themeKey }, false);
   const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -58,7 +58,7 @@ export function copySVG(points, stats, climbs, blocks, waypoints, settings, call
     settings = waypoints;
     waypoints = [];
   }
-  const themeKey = settings.theme === 'dark' ? 'dark' : 'white';
+  const themeKey = THEMES[settings.theme] ? settings.theme : 'white';
   const svgMarkup = renderProfileSVG(points, stats, climbs, blocks, waypoints, { ...settings, theme: themeKey }, false);
   navigator.clipboard.writeText(svgMarkup).then(() => {
     if (callback) callback(null);
@@ -92,7 +92,7 @@ export function exportPNG(points, stats, climbs, blocks, waypoints, settings, ca
   const pxW = Math.round(wMm * mmToIn * dpi);
   const pxH = Math.round(hMm * mmToIn * dpi);
 
-  const themeKey = settings.theme === 'dark' ? 'dark' : 'white';
+  const themeKey = THEMES[settings.theme] ? settings.theme : 'white';
   const theme = THEMES[themeKey] || THEMES['white'];
 
   const svgMarkup = renderProfileSVG(points, stats, climbs, blocks, waypoints, { ...settings, theme: themeKey }, false);
