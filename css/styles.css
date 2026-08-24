@@ -897,6 +897,38 @@ main.stage-area {
   color: var(--text-primary);
 }
 
+.climbs-table tbody tr.climb-label-hidden {
+  opacity: 0.6;
+}
+
+.climbs-table tbody tr.climb-label-hidden .cat-pill {
+  filter: grayscale(0.6);
+  opacity: 0.7;
+}
+
+.climb-toggle-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 3px;
+  border-radius: 4px;
+  color: var(--text-dim);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.climb-toggle-btn:hover {
+  background: var(--bg-pill-hover);
+  color: var(--text-primary);
+}
+
+.climb-toggle-btn.hidden-badge {
+  color: var(--text-dim);
+  opacity: 0.55;
+}
+
 .climbs-empty-hint {
   font-size: 0.7rem;
   color: var(--text-dim);

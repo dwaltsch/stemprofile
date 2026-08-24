@@ -63,6 +63,7 @@ const appState = {
     showWaypointLabels: true,
     showCutGuidelines: true,
     printCopies: 2,
+    hiddenClimbIds: [],
     customPositions: {}
   }
 };
@@ -322,8 +323,28 @@ function updateUI() {
     }
   }
 
+  renderClimbsTable();
   updatePrintMatrix(pts, stats, climbs, blocks, waypoints, cfg);
   bindTooltipHover();
+}
+
+/**
+ * Toggles the visibility of a climb summit badge on the sticker profile.
+ *
+ * @param {string|number} climbId - ID of the climb to toggle
+ */
+export function toggleClimbLabelVisibility(climbId) {
+  if (!appState.settings.hiddenClimbIds) {
+    appState.settings.hiddenClimbIds = [];
+  }
+  const idStr = String(climbId);
+  const idx = appState.settings.hiddenClimbIds.findIndex(id => String(id) === idStr);
+  if (idx >= 0) {
+    appState.settings.hiddenClimbIds.splice(idx, 1);
+  } else {
+    appState.settings.hiddenClimbIds.push(Number(climbId) || climbId);
+  }
+  updateUI();
 }
 
 /**
@@ -351,7 +372,7 @@ function setClimbHighlight(climbId, active) {
 }
 
 /**
- * Renders the detected climbs breakdown table and binds interactive cross-highlighting.
+ * Renders the detected climbs breakdown table and binds interactive cross-highlighting and badge toggles.
  */
 function renderClimbsTable() {
   const host = document.getElementById('climbs-table-body');
@@ -369,23 +390,38 @@ function renderClimbsTable() {
   }
 
   if (emptyHint) emptyHint.style.display = 'none';
+  const hiddenSet = new Set((appState.settings.hiddenClimbIds || []).map(id => String(id)));
+
   let html = '';
   climbs.forEach(c => {
+    const isHidden = hiddenSet.has(String(c.id));
     const catClass = c.category.toLowerCase().replace(/\s+/g, '-');
+    const rowClass = isHidden ? 'climb-label-hidden' : '';
+
     html += `
-      <tr data-climb-id="${c.id}">
+      <tr data-climb-id="${c.id}" class="${rowClass}">
         <td><span class="cat-pill ${catClass}">${c.category}</span></td>
         <td>${c.startKm.toFixed(1)} → ${c.summitKm.toFixed(1)}k</td>
         <td>${c.lengthKm.toFixed(1)}km</td>
         <td style="font-weight:700; color:var(--z2);">${c.avgGrade}%</td>
         <td>+${c.gainM}m</td>
         <td>${c.summitEle}m</td>
+        <td style="text-align:right;">
+          <button class="climb-toggle-btn ${isHidden ? 'hidden-badge' : ''}" data-action="toggle-climb" data-climb-id="${c.id}" title="${isHidden ? 'Show climb badge on sticker' : 'Hide climb badge from sticker'}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              ${!isHidden
+                ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>'
+                : '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>'
+              }
+            </svg>
+          </button>
+        </td>
       </tr>
     `;
   });
   host.innerHTML = html;
 
-  // Bind interactive row events for cross-highlighting (Table -> SVG)
+  // Bind interactive row events for cross-highlighting & toggle actions
   const rows = host.querySelectorAll('tr[data-climb-id]');
   rows.forEach(row => {
     const climbId = row.dataset.climbId;
@@ -398,7 +434,15 @@ function renderClimbsTable() {
       setClimbHighlight(climbId, false);
     });
 
-    row.addEventListener('click', () => {
+    row.addEventListener('click', e => {
+      // If clicked on the toggle button
+      const toggleBtn = e.target.closest('.climb-toggle-btn');
+      if (toggleBtn) {
+        e.stopPropagation();
+        toggleClimbLabelVisibility(climbId);
+        return;
+      }
+
       const isAlreadyActive = row.classList.contains('active');
       rows.forEach(r => r.classList.remove('active'));
       document.querySelectorAll('#profile-svg-elem .climb-segment').forEach(el => el.classList.remove('active'));
@@ -1216,6 +1260,18 @@ function initLabelDragging() {
 
   window.addEventListener('pointerup', endDrag);
   window.addEventListener('pointercancel', endDrag);
+
+  // Quick-dismiss climb badges directly on canvas via double click
+  svgHost.addEventListener('dblclick', e => {
+    const dragTarget = e.target.closest('.draggable-label');
+    if (!dragTarget) return;
+    const dragType = dragTarget.dataset.dragType;
+    const dragId = dragTarget.dataset.dragId;
+    if (dragType === 'climb' && dragId) {
+      const climbId = dragId.replace(/^climb-/, '');
+      toggleClimbLabelVisibility(climbId);
+    }
+  });
 }
 
 window.addEventListener('DOMContentLoaded', initApp);
