@@ -138,24 +138,33 @@ export function initDragEngine(store) {
     }
   });
 
-  const endDrag = e => {
+    const endDrag = e => {
     if (!activeDrag) return;
 
-    activeDrag.element.classList.remove('dragging');
-    document.body.classList.remove('is-dragging-label');
+    const drag = activeDrag;
+    activeDrag = null;
 
-    try {
-      activeDrag.element.releasePointerCapture(activeDrag.pointerId);
-    } catch (_) {}
-
-    if (activeDrag.hasMoved && activeDrag.currentX !== undefined) {
-      store.setCustomPosition(activeDrag.dragId, {
-        x: activeDrag.currentX,
-        y: activeDrag.currentY
-      });
+    if (drag.element) {
+      drag.element.classList.remove('dragging');
+      try {
+        if (drag.element.hasPointerCapture && drag.element.hasPointerCapture(drag.pointerId)) {
+          drag.element.releasePointerCapture(drag.pointerId);
+        } else if (typeof drag.element.releasePointerCapture === 'function') {
+          drag.element.releasePointerCapture(drag.pointerId);
+        }
+      } catch (_) {}
     }
 
-    activeDrag = null;
+    if (document.body) {
+      document.body.classList.remove('is-dragging-label');
+    }
+
+    if (drag.hasMoved && drag.currentX !== undefined) {
+      store.setCustomPosition(drag.dragId, {
+        x: drag.currentX,
+        y: drag.currentY
+      });
+    }
   };
 
   window.addEventListener('pointerup', endDrag);

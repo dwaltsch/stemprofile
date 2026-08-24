@@ -19,8 +19,24 @@ import {
 
 describe('Signal Module: Geodesy & Interpolation', () => {
   it('computes zero distance for identical coordinates', () => {
-    const d = calcHaversine(45.0, 6.0, 45.0, 6.0);
-    assert.equal(d, 0);
+    const d1 = calcHaversine(45.0, 6.0, 45.0, 6.0);
+    assert.equal(d1, 0);
+    const d2 = calcHaversine(90.0, 0.0, 90.0, 0.0);
+    assert.equal(d2, 0);
+    const d3 = calcHaversine(-90.0, 180.0, -90.0, 180.0);
+    assert.equal(d3, 0);
+  });
+
+  it('computes exact distance for antipodal coordinates without NaN', () => {
+    // North pole to South pole: half earth circumference = PI * R ~ 20015086m
+    const dPoles = calcHaversine(90.0, 0.0, -90.0, 0.0);
+    assert.ok(!isNaN(dPoles));
+    assert.ok(Math.abs(dPoles - Math.PI * EARTH_RADIUS_METERS) < 1.0);
+
+    // Opposite sides of equator: (0, 0) to (0, 180)
+    const dEquator = calcHaversine(0.0, 0.0, 0.0, 180.0);
+    assert.ok(!isNaN(dEquator));
+    assert.ok(Math.abs(dEquator - Math.PI * EARTH_RADIUS_METERS) < 1.0);
   });
 
   it('computes accurate Haversine distance (~1000m)', () => {
@@ -154,6 +170,49 @@ describe('Signal Module: Track Processing Pipeline', () => {
     assert.ok(stats.minEle >= 500);
     assert.ok(stats.maxEle <= 700);
     assert.ok(blocks.length > 0);
+  });
+
+  it('handles completely flat tracks with zero elevation gain and zero climbs', () => {
+    const flatCoords = [
+      { lat: 45.000, lon: 6.000, ele: 250 },
+      { lat: 45.005, lon: 6.000, ele: 250 },
+      { lat: 45.010, lon: 6.000, ele: 250 },
+      { lat: 45.015, lon: 6.000, ele: 250 }
+    ];
+
+    const { points, stats, climbs, blocks } = processTrackSignal(flatCoords, 3, 500);
+    assert.equal(points.length, 4);
+    assert.equal(stats.elevGain, 0);
+    assert.equal(stats.elevLoss, 0);
+    assert.equal(stats.minEle, 250);
+    assert.equal(stats.maxEle, 250);
+    assert.equal(stats.maxGrade, 0);
+    assert.equal(climbs.length, 0);
+    for (const b of blocks) {
+      assert.equal(b.grade, 0);
+      assert.equal(b.absGrade, 0);
+      assert.equal(b.zone, 0);
+    }
+  });
+
+  it('handles zero-distance routes where all points have identical coordinates without NaN', () => {
+    const zeroDistCoords = [
+      { lat: 45.000, lon: 6.000, ele: 100 },
+      { lat: 45.000, lon: 6.000, ele: 100 },
+      { lat: 45.000, lon: 6.000, ele: 100 }
+    ];
+
+    const { points, stats, climbs, blocks } = processTrackSignal(zeroDistCoords, 3, 500);
+    assert.equal(points.length, 3);
+    assert.equal(stats.totalDist, 0);
+    assert.equal(stats.elevGain, 0);
+    assert.equal(stats.maxGrade, 0);
+    assert.equal(climbs.length, 0);
+    assert.equal(blocks.length, 0);
+    for (const p of points) {
+      assert.ok(!isNaN(p.grade));
+      assert.equal(p.grade, 0);
+    }
   });
 });
 

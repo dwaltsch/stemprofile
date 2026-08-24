@@ -15,6 +15,7 @@ import {
   simplifyProfileCurve,
   serializeBinaryState,
   deserializeBinaryState,
+  safeReadSlice,
   normalizePayload,
   serializeStateToHash,
   deserializeHashToState,
@@ -45,6 +46,16 @@ describe('Share Module: 3D Polyline Delta Encoding', () => {
   it('handles empty or single coordinate arrays gracefully', () => {
     assert.equal(encodePolyline3D([]), '');
     assert.deepEqual(decodePolyline3D(''), []);
+  });
+});
+
+describe('Share Module: Boundary Validation Helper (safeReadSlice)', () => {
+  it('safely slices bytes and clamps bounds', () => {
+    const bytes = new Uint8Array([10, 20, 30, 40, 50]);
+    assert.deepEqual(Array.from(safeReadSlice(bytes, 1, 3)), [20, 30, 40]);
+    assert.deepEqual(Array.from(safeReadSlice(bytes, 3, 10)), [40, 50]); // clamped to length
+    assert.deepEqual(Array.from(safeReadSlice(bytes, 10, 5)), []); // out of bounds
+    assert.deepEqual(Array.from(safeReadSlice(null, 0, 5)), []);
   });
 });
 
@@ -108,6 +119,36 @@ describe('Share Module: Binary Protocol (Version 3)', () => {
     assert.equal(restored.waypoints[1].label, 'Galibier');
     assert.ok(restored.coords.length >= 2);
   });
+
+  it('safely handles truncated or malformed binary buffers without throwing', () => {
+    // Null, empty, or too short buffer
+    assert.equal(deserializeBinaryState(null), null);
+    assert.equal(deserializeBinaryState(new Uint8Array(0)), null);
+    assert.equal(deserializeBinaryState(new Uint8Array([3, 1, 2])), null);
+    assert.equal(deserializeBinaryState(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])), null); // wrong magic version
+
+    // Truncated title length header claiming 100 bytes when only 5 exist
+    const corruptedTitle = new Uint8Array([3, 100, 65, 66, 67, 68]);
+    assert.equal(deserializeBinaryState(corruptedTitle), null);
+
+    // Truncated point count
+    const state = {
+      title: 'Short',
+      points: [{ dist: 0, ele: 100 }, { dist: 1000, ele: 200 }],
+      settings: DEFAULT_SETTINGS,
+      waypoints: []
+    };
+    const validBinary = serializeBinaryState(state);
+    assert.ok(validBinary.length > 10);
+
+    // Truncate at various byte offsets from 1 to validBinary.length - 1
+    for (let len = 1; len < validBinary.length; len++) {
+      const truncated = validBinary.subarray(0, len);
+      const result = deserializeBinaryState(truncated);
+      // Must either return null or a safe valid object, NEVER throw
+      assert.ok(result === null || typeof result === 'object');
+    }
+  });
 });
 
 describe('Share Module: Full Round-Trip Hash Serialization', () => {
@@ -147,5 +188,13 @@ describe('Share Module: Full Round-Trip Hash Serialization', () => {
     assert.ok(restored.coords.length >= 2);
     assert.equal(restored.waypoints.length, 1);
     assert.equal(restored.waypoints[0].type, 'feed');
+  });
+
+  it('safely handles malformed and invalid base64 hash strings without throwing', async () => {
+    assert.equal(await deserializeHashToState(''), null);
+    assert.equal(await deserializeHashToState(null), null);
+    assert.equal(await deserializeHashToState('#stage=!!!invalid@@@base64==='), null);
+    assert.equal(await deserializeHashToState('#stage=AQID'), null); // Valid base64, but invalid payload
+    assert.equal(await deserializeHashToState('#data=123'), null);
   });
 });

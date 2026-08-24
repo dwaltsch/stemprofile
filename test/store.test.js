@@ -92,4 +92,68 @@ describe('Store Module: State & Lifecycle', () => {
     store.resetCustomPositions();
     assert.deepEqual(store.getState().settings.customPositions, {});
   });
+
+  it('handles empty or single point tracks by resetting computed state', () => {
+    const store = createStore();
+    store.setTrack({ title: 'Empty Track', coords: [] });
+    let state = store.getState();
+    assert.equal(state.points.length, 0);
+    assert.equal(state.stats, null);
+
+    store.setTrack({ title: 'Single Point Track', coords: [{ lat: 45.0, lon: 6.0, ele: 100 }] });
+    state = store.getState();
+    assert.equal(state.points.length, 0);
+    assert.equal(state.stats, null);
+  });
+
+  it('restores state from valid payload and rejects invalid payload', () => {
+    const store = createStore();
+    const validPayload = {
+      title: 'Restored Stage',
+      coords: [
+        { lat: 45.0, lon: 6.0, ele: 500 },
+        { lat: 45.1, lon: 6.1, ele: 1000 }
+      ],
+      settings: { theme: 'tour', blockSizeM: 500 },
+      waypoints: [{ id: 'w1', distM: 2000, type: 'feed', label: 'Feed 1', enabled: true }]
+    };
+
+    assert.equal(store.loadPayload(validPayload), true);
+    let state = store.getState();
+    assert.equal(state.settings.title, 'Restored Stage');
+    assert.equal(state.settings.theme, 'tour');
+    assert.equal(state.waypoints.length, 1);
+    assert.ok(state.points.length >= 2);
+
+    // Invalid payloads
+    assert.equal(store.loadPayload(null), false);
+    assert.equal(store.loadPayload({ coords: [] }), false);
+    assert.equal(store.loadPayload({ coords: [{ lat: 45.0, lon: 6.0, ele: 500 }] }), false);
+  });
+
+  it('properly unsubscribes listeners and isolates subscriber errors', () => {
+    const store = createStore();
+    let count1 = 0;
+    let count2 = 0;
+
+    const unsub1 = store.subscribe(() => {
+      count1++;
+      throw new Error('Subscriber error simulation');
+    });
+
+    const unsub2 = store.subscribe(() => {
+      count2++;
+    });
+
+    store.updateSettings({ theme: 'dark' });
+    assert.equal(count1, 1);
+    assert.equal(count2, 1); // Second subscriber still runs despite error in first
+
+    unsub1();
+    store.updateSettings({ theme: 'white' });
+    assert.equal(count1, 1); // Unsubscribed
+    assert.equal(count2, 2);
+
+    unsub2();
+  });
 });

@@ -338,6 +338,21 @@ export function simplifyProfileCurve(points, maxPoints = 75, epsilon = 2.0) {
   });
 }
 
+/**
+ * Safely extracts a subarray slice from a byte buffer without overflowing bounds.
+ *
+ * @param {Uint8Array} bytes - Source byte buffer
+ * @param {number} offset - Start offset
+ * @param {number} length - Desired length
+ * @returns {Uint8Array} Subarray slice
+ */
+export function safeReadSlice(bytes, offset, length) {
+  if (!bytes || offset >= bytes.length) return new Uint8Array(0);
+  const start = Math.max(0, offset);
+  const end = Math.min(bytes.length, start + Math.max(0, length));
+  return bytes.subarray(start, end);
+}
+
 function writeVarint(buf, n) {
   let v = (n << 1) ^ (n >> 31);
   while (v >= 0x80) {
@@ -350,12 +365,14 @@ function writeVarint(buf, n) {
 function readVarint(bytes, offsetObj) {
   let result = 0;
   let shift = 0;
+  let iterations = 0;
   while (true) {
-    if (offsetObj.offset >= bytes.length) break;
+    if (offsetObj.offset >= bytes.length || iterations > 5) break;
     const b = bytes[offsetObj.offset++];
     result |= (b & 0x7f) << shift;
     if (!(b & 0x80)) break;
     shift += 7;
+    iterations++;
   }
   return (result >>> 1) ^ -(result & 1);
 }
@@ -484,136 +501,150 @@ export function serializeBinaryState(appState) {
 export function deserializeBinaryState(bytes) {
   if (!bytes || bytes.length < 8 || bytes[0] !== 3) return null;
 
-  const offsetObj = { offset: 1 };
-  const titleDecoder = new TextDecoder();
+  try {
+    const offsetObj = { offset: 1 };
+    const titleDecoder = new TextDecoder();
 
-  // 1. Title
-  const titleLen = bytes[offsetObj.offset++];
-  const title = titleDecoder.decode(bytes.subarray(offsetObj.offset, offsetObj.offset + titleLen));
-  offsetObj.offset += titleLen;
+    // 1. Title
+    if (offsetObj.offset >= bytes.length) return null;
+    const titleLen = bytes[offsetObj.offset++];
+    if (offsetObj.offset + titleLen > bytes.length) return null;
+    const title = titleDecoder.decode(safeReadSlice(bytes, offsetObj.offset, titleLen));
+    offsetObj.offset += titleLen;
 
-  // 2. Route Profile
-  const totalD = (bytes[offsetObj.offset] << 16) | (bytes[offsetObj.offset + 1] << 8) | bytes[offsetObj.offset + 2];
-  offsetObj.offset += 3;
+    // 2. Route Profile
+    if (offsetObj.offset + 6 > bytes.length) return null;
+    const totalD = (bytes[offsetObj.offset] << 16) | (bytes[offsetObj.offset + 1] << 8) | bytes[offsetObj.offset + 2];
+    offsetObj.offset += 3;
 
-  let startE = (bytes[offsetObj.offset] << 8) | bytes[offsetObj.offset + 1];
-  if (startE >= 0x8000) startE -= 0x10000;
-  offsetObj.offset += 2;
-
-  const nPts = bytes[offsetObj.offset++];
-  const simplified = [[0, startE]];
-  let prevD = 0;
-  let prevE = startE;
-
-  for (let i = 1; i < nPts; i++) {
-    const deltaD = readVarint(bytes, offsetObj);
-    const deltaE = readVarint(bytes, offsetObj);
-    prevD += deltaD * 10;
-    prevE += deltaE / 10.0;
-    simplified.push([prevD, prevE]);
-  }
-
-  // 3. Settings
-  const bTheme = bytes[offsetObj.offset++];
-  const units = (bTheme & 0x80) ? 'imperial' : 'metric';
-  const theme = THEME_NAMES[bTheme & 0x7f] || 'white';
-
-  const flags = bytes[offsetObj.offset++];
-  const showHeader = Boolean(flags & (1 << 0));
-  const showDistanceTicks = Boolean(flags & (1 << 1));
-  const showElevationLabels = Boolean(flags & (1 << 2));
-  const showClimbs = Boolean(flags & (1 << 3));
-  const showWaypoints = Boolean(flags & (1 << 4));
-  const showWaypointLabels = Boolean(flags & (1 << 5));
-  const showCutGuidelines = Boolean(flags & (1 << 6));
-  const showBlockPct = Boolean(flags & (1 << 7));
-
-  const widthMm = bytes[offsetObj.offset++];
-  const heightMm = bytes[offsetObj.offset++];
-  const blockSizeM = (bytes[offsetObj.offset] << 8) | bytes[offsetObj.offset + 1];
-  offsetObj.offset += 2;
-  const smoothingWindow = bytes[offsetObj.offset++];
-
-  // 4. Hidden Climbs
-  const nHc = bytes[offsetObj.offset++];
-  const hiddenClimbIds = [];
-  for (let i = 0; i < nHc; i++) {
-    hiddenClimbIds.push(bytes[offsetObj.offset++]);
-  }
-
-  // 5. Waypoints
-  const nWpts = bytes[offsetObj.offset++];
-  const waypoints = [];
-  for (let i = 0; i < nWpts; i++) {
-    const dm = (bytes[offsetObj.offset] << 8) | bytes[offsetObj.offset + 1];
+    let startE = (bytes[offsetObj.offset] << 8) | bytes[offsetObj.offset + 1];
+    if (startE >= 0x8000) startE -= 0x10000;
     offsetObj.offset += 2;
 
-    const bType = bytes[offsetObj.offset++];
-    const enabled = Boolean(bType & 0x80);
-    const typeIdx = bType & 0x7f;
-    const type = WPT_TYPE_NAMES[typeIdx] || 'feed';
+    const nPts = bytes[offsetObj.offset++];
+    const simplified = [[0, startE]];
+    let prevD = 0;
+    let prevE = startE;
 
-    const lblLen = bytes[offsetObj.offset++];
-    const label = titleDecoder.decode(bytes.subarray(offsetObj.offset, offsetObj.offset + lblLen));
-    offsetObj.offset += lblLen;
-
-    waypoints.push({
-      id: `wpt-sh-${i + 1}`,
-      distM: dm * 10,
-      type,
-      label,
-      enabled
-    });
-  }
-
-  // 6. Dense Coordinate Signal Reconstruction for Smooth Telemetry
-  const denseCoords = [];
-  const maxD = simplified[simplified.length - 1][0] || totalD || 1000;
-  const stepM = Math.max(50, Math.min(200, maxD / 600));
-  let curIdx = 0;
-
-  for (let d = 0; d <= maxD; d += stepM) {
-    while (curIdx < simplified.length - 1 && simplified[curIdx + 1][0] < d) {
-      curIdx++;
+    for (let i = 1; i < nPts; i++) {
+      if (offsetObj.offset >= bytes.length) return null;
+      const deltaD = readVarint(bytes, offsetObj);
+      const deltaE = readVarint(bytes, offsetObj);
+      prevD += deltaD * 10;
+      prevE += deltaE / 10.0;
+      simplified.push([prevD, prevE]);
     }
-    const [d0, e0] = simplified[curIdx];
-    const [d1, e1] = simplified[Math.min(simplified.length - 1, curIdx + 1)];
-    const ratio = d1 > d0 ? (d - d0) / (d1 - d0) : 0;
-    const ele = e0 + ratio * (e1 - e0);
-    denseCoords.push({
-      dist: d,
-      lat: d / 111319.5,
-      lon: 0,
-      ele
-    });
+
+    // 3. Settings
+    if (offsetObj.offset + 6 > bytes.length) return null;
+    const bTheme = bytes[offsetObj.offset++];
+    const units = (bTheme & 0x80) ? 'imperial' : 'metric';
+    const theme = THEME_NAMES[bTheme & 0x7f] || 'white';
+
+    const flags = bytes[offsetObj.offset++];
+    const showHeader = Boolean(flags & (1 << 0));
+    const showDistanceTicks = Boolean(flags & (1 << 1));
+    const showElevationLabels = Boolean(flags & (1 << 2));
+    const showClimbs = Boolean(flags & (1 << 3));
+    const showWaypoints = Boolean(flags & (1 << 4));
+    const showWaypointLabels = Boolean(flags & (1 << 5));
+    const showCutGuidelines = Boolean(flags & (1 << 6));
+    const showBlockPct = Boolean(flags & (1 << 7));
+
+    const widthMm = bytes[offsetObj.offset++];
+    const heightMm = bytes[offsetObj.offset++];
+    const blockSizeM = (bytes[offsetObj.offset] << 8) | bytes[offsetObj.offset + 1];
+    offsetObj.offset += 2;
+    const smoothingWindow = bytes[offsetObj.offset++];
+
+    // 4. Hidden Climbs
+    if (offsetObj.offset >= bytes.length) return null;
+    const nHc = bytes[offsetObj.offset++];
+    if (offsetObj.offset + nHc > bytes.length) return null;
+    const hiddenClimbIds = [];
+    for (let i = 0; i < nHc; i++) {
+      hiddenClimbIds.push(bytes[offsetObj.offset++]);
+    }
+
+    // 5. Waypoints
+    if (offsetObj.offset >= bytes.length) return null;
+    const nWpts = bytes[offsetObj.offset++];
+    const waypoints = [];
+    for (let i = 0; i < nWpts; i++) {
+      if (offsetObj.offset + 4 > bytes.length) return null;
+      const dm = (bytes[offsetObj.offset] << 8) | bytes[offsetObj.offset + 1];
+      offsetObj.offset += 2;
+
+      const bType = bytes[offsetObj.offset++];
+      const enabled = Boolean(bType & 0x80);
+      const typeIdx = bType & 0x7f;
+      const type = WPT_TYPE_NAMES[typeIdx] || 'feed';
+
+      const lblLen = bytes[offsetObj.offset++];
+      if (offsetObj.offset + lblLen > bytes.length) return null;
+      const label = titleDecoder.decode(safeReadSlice(bytes, offsetObj.offset, lblLen));
+      offsetObj.offset += lblLen;
+
+      waypoints.push({
+        id: `wpt-sh-${i + 1}`,
+        distM: dm * 10,
+        type,
+        label,
+        enabled
+      });
+    }
+
+    // 6. Dense Coordinate Signal Reconstruction for Smooth Telemetry
+    const denseCoords = [];
+    const maxD = simplified[simplified.length - 1][0] || totalD || 1000;
+    const stepM = Math.max(50, Math.min(200, maxD / 600));
+    let curIdx = 0;
+
+    for (let d = 0; d <= maxD; d += stepM) {
+      while (curIdx < simplified.length - 1 && simplified[curIdx + 1][0] < d) {
+        curIdx++;
+      }
+      const [d0, e0] = simplified[curIdx];
+      const [d1, e1] = simplified[Math.min(simplified.length - 1, curIdx + 1)];
+      const ratio = d1 > d0 ? (d - d0) / (d1 - d0) : 0;
+      const ele = e0 + ratio * (e1 - e0);
+      denseCoords.push({
+        dist: d,
+        lat: d / 111319.5,
+        lon: 0,
+        ele
+      });
+    }
+
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      title,
+      theme,
+      units,
+      widthMm,
+      heightMm,
+      blockSizeM,
+      smoothingWindow,
+      showHeader,
+      showDistanceTicks,
+      showElevationLabels,
+      showClimbs,
+      showWaypoints,
+      showWaypointLabels,
+      showCutGuidelines,
+      showBlockPct,
+      hiddenClimbIds
+    };
+
+    return {
+      title,
+      coords: denseCoords,
+      settings,
+      waypoints
+    };
+  } catch (_) {
+    return null;
   }
-
-  const settings = {
-    ...DEFAULT_SETTINGS,
-    title,
-    theme,
-    units,
-    widthMm,
-    heightMm,
-    blockSizeM,
-    smoothingWindow,
-    showHeader,
-    showDistanceTicks,
-    showElevationLabels,
-    showClimbs,
-    showWaypoints,
-    showWaypointLabels,
-    showCutGuidelines,
-    showBlockPct,
-    hiddenClimbIds
-  };
-
-  return {
-    title,
-    coords: denseCoords,
-    settings,
-    waypoints
-  };
 }
 
 /**
@@ -623,6 +654,7 @@ export function deserializeBinaryState(bytes) {
  * @returns {string} Base64URL string
  */
 export function uint8ToBase64Url(bytes) {
+  if (!bytes || bytes.length === 0) return '';
   let binary = '';
   const chunkSize = 8192;
   for (let i = 0; i < bytes.length; i += chunkSize) {
@@ -641,14 +673,19 @@ export function uint8ToBase64Url(bytes) {
  * @returns {Uint8Array} Output buffer
  */
 export function base64UrlToUint8(b64url) {
-  let base64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
-  while (base64.length % 4) base64 += '=';
-  const binaryStr = atob(base64);
-  const bytes = new Uint8Array(binaryStr.length);
-  for (let i = 0; i < binaryStr.length; i++) {
-    bytes[i] = binaryStr.charCodeAt(i);
+  if (!b64url || typeof b64url !== 'string') return new Uint8Array(0);
+  try {
+    let base64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4) base64 += '=';
+    const binaryStr = atob(base64);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    return bytes;
+  } catch (_) {
+    return new Uint8Array(0);
   }
-  return bytes;
 }
 
 /**
@@ -669,11 +706,13 @@ export async function compressPayload(data) {
       const buffer = await response.arrayBuffer();
       return uint8ToBase64Url(new Uint8Array(buffer));
     } catch (_) {
-      const stream = new Blob([bytes]).stream();
-      const compressedStream = stream.pipeThrough(new CompressionStream('gzip'));
-      const response = await new Response(compressedStream);
-      const buffer = await response.arrayBuffer();
-      return uint8ToBase64Url(new Uint8Array(buffer));
+      try {
+        const stream = new Blob([bytes]).stream();
+        const compressedStream = stream.pipeThrough(new CompressionStream('gzip'));
+        const response = await new Response(compressedStream);
+        const buffer = await response.arrayBuffer();
+        return uint8ToBase64Url(new Uint8Array(buffer));
+      } catch (_) {}
     }
   }
 
@@ -687,10 +726,11 @@ export async function compressPayload(data) {
  * @returns {Promise<Object|null>} Parsed and normalized JavaScript state
  */
 export async function decompressPayload(b64url) {
-  if (!b64url) return null;
+  if (!b64url || typeof b64url !== 'string') return null;
 
   try {
     const bytes = base64UrlToUint8(b64url);
+    if (!bytes || bytes.length === 0) return null;
 
     // 1. Try Decompressing with deflate-raw
     let decompressedBytes = null;
@@ -713,6 +753,7 @@ export async function decompressPayload(b64url) {
     }
 
     const payloadData = decompressedBytes || bytes;
+    if (!payloadData || payloadData.length === 0) return null;
 
     // Check if Version 3 binary protocol
     if (payloadData.length >= 8 && payloadData[0] === 3) {
@@ -720,11 +761,14 @@ export async function decompressPayload(b64url) {
     }
 
     // Fallback: parse JSON v2 / legacy
-    const jsonStr = new TextDecoder().decode(payloadData);
-    return normalizePayload(JSON.parse(jsonStr));
+    try {
+      const jsonStr = new TextDecoder().decode(payloadData);
+      return normalizePayload(JSON.parse(jsonStr));
+    } catch (_) {
+      return null;
+    }
 
-  } catch (err) {
-    console.error('Failed to decompress route hash payload:', err);
+  } catch (_) {
     return null;
   }
 }

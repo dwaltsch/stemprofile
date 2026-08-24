@@ -14,6 +14,21 @@ import { getRecommendedBlockPresets } from './layout.js';
 import { normalizeCoordinates } from './units.js';
 
 /**
+ * @typedef {Object} StemStore
+ * @property {function(function(Object, string): void): function(): void} subscribe - Subscribes listener callback
+ * @property {function(): Object} getState - Returns current state snapshot
+ * @property {function({ title?: string, coords: Array<Object|Array<number>>, rawWaypoints?: Array<Object> }): void} setTrack - Sets active track coordinates
+ * @property {function(Object, boolean=): void} updateSettings - Updates settings
+ * @property {function(number, string=, string=): Object} addWaypoint - Adds waypoint pin
+ * @property {function(string): void} removeWaypoint - Removes waypoint pin by ID
+ * @property {function(string): void} toggleWaypoint - Toggles waypoint pin visibility
+ * @property {function(string|number): void} toggleClimbVisibility - Toggles climb badge visibility
+ * @property {function(string, { x: number, y: number }): void} setCustomPosition - Saves custom drag position
+ * @property {function(): void} resetCustomPositions - Resets custom drag positions
+ * @property {function(Object): boolean} loadPayload - Restores payload state
+ */
+
+/**
  * Creates and initializes a reactive application store instance.
  *
  * @param {Object} [initialSettings={}] - Initial configuration overrides
@@ -156,7 +171,10 @@ export function createStore(initialSettings = {}) {
      * @returns {Object} The created waypoint
      */
     addWaypoint(distM, type = 'feed', label = '') {
-      const id = `wpt-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+      const uniqueSuffix = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+        ? crypto.randomUUID().slice(0, 8)
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const id = `wpt-${uniqueSuffix}`;
       const wpt = {
         id,
         distM: Math.max(0, distM),

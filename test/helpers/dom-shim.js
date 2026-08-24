@@ -8,13 +8,40 @@
 class MiniNode {
   constructor(tagName, attributes = {}, textContent = '') {
     this.tagName = tagName;
+    this.localName = (tagName || '').replace(/^.*:/, '').toLowerCase();
     this.attributes = attributes;
     this.textContent = textContent;
     this.children = [];
   }
 
   getAttribute(name) {
-    return this.attributes[name] !== undefined ? this.attributes[name] : null;
+    if (!name) return null;
+    if (this.attributes[name] !== undefined) return this.attributes[name];
+    const lower = name.toLowerCase();
+    for (const key of Object.keys(this.attributes)) {
+      if (key.toLowerCase() === lower) {
+        return this.attributes[key];
+      }
+    }
+    return null;
+  }
+
+  getElementsByTagName(tagName) {
+    const target = (tagName || '').replace(/^.*:/, '').toLowerCase();
+    const isAll = target === '*';
+    const matches = [];
+
+    const traverse = (node) => {
+      for (const child of node.children) {
+        if (isAll || child.localName === target) {
+          matches.push(child);
+        }
+        traverse(child);
+      }
+    };
+
+    traverse(this);
+    return matches;
   }
 
   querySelector(selector) {
@@ -26,17 +53,27 @@ class MiniNode {
     const selectors = selector.split(',').map(s => s.trim().toLowerCase());
     const matches = [];
 
+    const getLocal = tag => (tag || '').replace(/^.*:/, '').toLowerCase();
+
     const traverse = (node) => {
       for (const child of node.children) {
-        const tag = child.tagName.toLowerCase();
+        const childLocal = child.localName || getLocal(child.tagName);
+        const parentLocal = node.localName || getLocal(node.tagName);
+        const childFull = (child.tagName || '').toLowerCase();
+
         for (const sel of selectors) {
           if (sel.includes('>')) {
             const parts = sel.split('>').map(p => p.trim());
-            if (parts.length === 2 && node.tagName.toLowerCase() === parts[0] && tag === parts[1]) {
+            const p0 = parts[0].replace(/^.*:/, '');
+            const p1 = parts[1].replace(/^.*:/, '');
+            if (parts.length === 2 && parentLocal === p0 && childLocal === p1) {
               matches.push(child);
             }
-          } else if (sel === tag) {
-            matches.push(child);
+          } else {
+            const selLocal = sel.replace(/^.*:/, '');
+            if (selLocal === childLocal || sel === childFull) {
+              matches.push(child);
+            }
           }
         }
         traverse(child);

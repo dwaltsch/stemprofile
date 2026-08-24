@@ -202,5 +202,38 @@ describe('Layout Module: Dynamic In-Block Percentage Engine', () => {
 
     assert.ok(res.shouldRender, 'Steep pitch (>=5%) should render with prioritized spacing');
   });
+
+  it('handles empty climbs array and zero distance gracefully', () => {
+    const emptyBadges = computeClimbBadgeLayout([], dist => dist, ele => ele, 5, 5, 2, 33, 110);
+    assert.deepEqual(emptyBadges, []);
+
+    const nullBadges = computeClimbBadgeLayout(null, dist => dist, ele => ele, 5, 5, 2, 33, 110);
+    assert.deepEqual(nullBadges, []);
+
+    const zeroDistRec = getRecommendedBlockPresets(0);
+    assert.equal(zeroDistRec.defaultBlockM, 500);
+    assert.ok(zeroDistRec.options.length >= 3);
+  });
+
+  it('does not render percentage labels on very flat/low height columns', () => {
+    const flatBlock = { absGrade: 1.0, zone: 0 };
+    const res = computeBlockPctLayout({
+      block: flatBlock,
+      idx: 0,
+      baseStride: 1,
+      blockWidthMm: 3.5,
+      colHeight: 0.5, // extremely low column
+      topMidY: 26.5,
+      yBase: 27.0,
+      midX: 20.0,
+      lastRenderedTextX: -999,
+      widthMm: 110,
+      heightMm: 35,
+      themeKey: 'white'
+    });
+
+    assert.equal(res.shouldRender, false);
+    assert.equal(res.markup, '');
+  });
 });
 

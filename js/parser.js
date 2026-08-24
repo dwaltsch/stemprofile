@@ -42,27 +42,128 @@
  * @returns {GpxParseResult} Parsed route metadata, coordinate array, and waypoints
  * @throws {Error} When XML syntax is invalid or no trackpoints are found
  */
+/**
+ * Parses raw decimal numbers from coordinate attributes or text content,
+ * normalizing comma decimals (e.g. '450,5' -> 450.5).
+ *
+ * @param {string|number|null|undefined} val - Raw value
+ * @returns {number} Parsed float number or NaN
+ */
+function parseDecimal(val) {
+  if (val === null || val === undefined) return NaN;
+  if (typeof val === 'number') return val;
+  const str = String(val).trim().replace(',', '.');
+  return parseFloat(str);
+}
+
+/**
+ * Finds all descendant elements matching one or more local tag names (ignoring XML namespaces and case).
+ *
+ * @param {Document|Element} parent - Parent node
+ * @param {string[]} tagNames - Array of local tag names (lowercase)
+ * @returns {Element[]} Array of matching elements
+ */
+function findElementsByLocalNames(parent, ...tagNames) {
+  if (!parent) return [];
+  const targetSet = new Set(tagNames.map(t => t.toLowerCase()));
+  const matches = [];
+
+  const traverse = (node) => {
+    if (!node) return;
+    const children = node.children || [];
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i];
+      const local = (child.localName || child.tagName || '').replace(/^.*:/, '').toLowerCase();
+      if (targetSet.has(local)) {
+        matches.push(child);
+      }
+      traverse(child);
+    }
+  };
+
+  traverse(parent);
+  return matches;
+}
+
+/**
+ * Finds direct child text content matching a local tag name (ignoring namespace and case).
+ *
+ * @param {Element} parent - Parent element
+ * @param {string} tagName - Local tag name to match
+ * @returns {string} Trimmed text content
+ */
+function findChildText(parent, tagName) {
+  if (!parent) return '';
+  const target = tagName.toLowerCase();
+  const children = parent.children || [];
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i];
+    const local = (child.localName || child.tagName || '').replace(/^.*:/, '').toLowerCase();
+    if (local === target) {
+      return (child.textContent || '').trim();
+    }
+  }
+  return '';
+}
+
+/**
+ * Gets element attribute value case-insensitively.
+ *
+ * @param {Element} node - DOM element
+ * @param {string} name - Attribute name
+ * @returns {string|null} Attribute value or null
+ */
+function getAttr(node, name) {
+  if (!node || typeof node.getAttribute !== 'function') return null;
+  const direct = node.getAttribute(name);
+  if (direct !== null) return direct;
+  return node.getAttribute(name.toLowerCase()) || node.getAttribute(name.toUpperCase());
+}
+
+/**
+ * Parses raw GPX XML string into structured coordinates and waypoints.
+ *
+ * Supports tracks (`<trkpt>`), routes (`<rtept>`), and standalone waypoints (`<wpt>`).
+ * Handles missing elevation gracefully by forward-filling previous known elevation.
+ *
+ * @param {string} xmlText - Raw GPX XML content string
+ * @returns {GpxParseResult} Parsed route metadata, coordinate array, and waypoints
+ * @throws {Error} When XML syntax is invalid or no trackpoints are found
+ */
 export function parseGPX(xmlText) {
   const domParser = new DOMParser();
   const xmlDoc = domParser.parseFromString(xmlText, "text/xml");
 
   // Check for XML parsing syntax errors
-  const parseError = xmlDoc.querySelector("parsererror");
-  if (parseError) {
-    throw new Error("Invalid GPX XML syntax: " + parseError.textContent);
+  const parseErrors = findElementsByLocalNames(xmlDoc, "parsererror");
+  if (parseErrors.length > 0) {
+    throw new Error("Invalid GPX XML syntax: " + parseErrors[0].textContent);
   }
 
-  // 1. Extract track or route title from metadata / trk name
+  // 1. Extract track or route title: metadata > name -> trk > name -> rte > name -> default
   let title = "StemProfile";
-  const nameNode = xmlDoc.querySelector("trk > name, metadata > name");
-  if (nameNode && nameNode.textContent.trim()) {
-    title = nameNode.textContent.trim();
+  const metaNodes = findElementsByLocalNames(xmlDoc, "metadata");
+  const trkNodes = findElementsByLocalNames(xmlDoc, "trk");
+  const rteNodes = findElementsByLocalNames(xmlDoc, "rte");
+
+  let extractedTitle = '';
+  if (metaNodes.length > 0) {
+    extractedTitle = findChildText(metaNodes[0], "name");
+  }
+  if (!extractedTitle && trkNodes.length > 0) {
+    extractedTitle = findChildText(trkNodes[0], "name");
+  }
+  if (!extractedTitle && rteNodes.length > 0) {
+    extractedTitle = findChildText(rteNodes[0], "name");
+  }
+  if (extractedTitle) {
+    title = extractedTitle;
   }
 
   // 2. Extract trackpoints with fallback priority: <trkpt> -> <rtept> -> <wpt>
-  let ptNodes = xmlDoc.querySelectorAll("trkpt");
-  if (ptNodes.length === 0) ptNodes = xmlDoc.querySelectorAll("rtept");
-  if (ptNodes.length === 0) ptNodes = xmlDoc.querySelectorAll("wpt");
+  let ptNodes = findElementsByLocalNames(xmlDoc, "trkpt");
+  if (ptNodes.length === 0) ptNodes = findElementsByLocalNames(xmlDoc, "rtept");
+  if (ptNodes.length === 0) ptNodes = findElementsByLocalNames(xmlDoc, "wpt");
 
   if (ptNodes.length === 0) {
     throw new Error("No trackpoints (<trkpt>, <rtept>, <wpt>) found in GPX file.");
@@ -71,13 +172,13 @@ export function parseGPX(xmlText) {
   const coords = [];
   for (let i = 0; i < ptNodes.length; i++) {
     const node = ptNodes[i];
-    const lat = parseFloat(node.getAttribute("lat"));
-    const lon = parseFloat(node.getAttribute("lon"));
-    const eleNode = node.querySelector("ele");
+    const lat = parseDecimal(getAttr(node, "lat"));
+    const lon = parseDecimal(getAttr(node, "lon"));
+    const eleNodes = findElementsByLocalNames(node, "ele");
 
     // Forward-fill elevation if specific point is missing <ele> tag
-    const ele = eleNode 
-      ? parseFloat(eleNode.textContent) 
+    const ele = eleNodes.length > 0 
+      ? parseDecimal(eleNodes[0].textContent) 
       : (coords.length > 0 ? coords[coords.length - 1].ele : 0);
 
     if (!isNaN(lat) && !isNaN(lon) && !isNaN(ele)) {
@@ -91,22 +192,18 @@ export function parseGPX(xmlText) {
 
   // 3. Extract separate race waypoints (<wpt>) when trackpoints are present
   const rawWaypoints = [];
-  const hasTrackElements = xmlDoc.querySelectorAll("trkpt, rtept").length > 0;
+  const hasTrackElements = findElementsByLocalNames(xmlDoc, "trkpt", "rtept").length > 0;
   if (hasTrackElements) {
-    const wptNodes = xmlDoc.querySelectorAll("wpt");
+    const wptNodes = findElementsByLocalNames(xmlDoc, "wpt");
     for (let i = 0; i < wptNodes.length; i++) {
       const node = wptNodes[i];
-      const lat = parseFloat(node.getAttribute("lat"));
-      const lon = parseFloat(node.getAttribute("lon"));
-      const nameNode = node.querySelector("name");
-      const symNode = node.querySelector("sym");
-      const descNode = node.querySelector("desc");
-      const typeNode = node.querySelector("type");
+      const lat = parseDecimal(getAttr(node, "lat"));
+      const lon = parseDecimal(getAttr(node, "lon"));
 
-      const name = nameNode ? nameNode.textContent.trim() : "";
-      const sym = symNode ? symNode.textContent.trim() : "";
-      const desc = descNode ? descNode.textContent.trim() : "";
-      const typeStr = typeNode ? typeNode.textContent.trim() : "";
+      const name = findChildText(node, "name");
+      const sym = findChildText(node, "sym");
+      const desc = findChildText(node, "desc");
+      const typeStr = findChildText(node, "type");
 
       if (!isNaN(lat) && !isNaN(lon)) {
         rawWaypoints.push({ lat, lon, name, sym, desc, typeStr });

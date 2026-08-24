@@ -83,4 +83,87 @@ describe('Parser Module: GPX Ingestion', () => {
     const emptyXml = `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1"><metadata><name>Empty</name></metadata></gpx>`;
     assert.throws(() => parseGPX(emptyXml), /No trackpoints/);
   });
+
+  it('parses coordinates and elevations with comma decimals', () => {
+    const gpxXml = `<?xml version="1.0" encoding="UTF-8"?>
+    <gpx version="1.1">
+      <trk>
+        <name>Comma Decimal Track</name>
+        <trkseg>
+          <trkpt lat="44,1738" lon="5,2786"><ele>300,5</ele></trkpt>
+          <trkpt lat="44,1745" lon="5,2800"><ele>320,8</ele></trkpt>
+        </trkseg>
+      </trk>
+    </gpx>`;
+
+    const result = parseGPX(gpxXml);
+    assert.equal(result.title, 'Comma Decimal Track');
+    assert.equal(result.coords.length, 2);
+    assert.equal(result.coords[0].lat, 44.1738);
+    assert.equal(result.coords[0].lon, 5.2786);
+    assert.equal(result.coords[0].ele, 300.5);
+    assert.equal(result.coords[1].ele, 320.8);
+  });
+
+  it('parses GPX with uppercase XML tags and attributes', () => {
+    const gpxXml = `<?xml version="1.0" encoding="UTF-8"?>
+    <GPX VERSION="1.1">
+      <TRK>
+        <NAME>Uppercase Route</NAME>
+        <TRKSEG>
+          <TRKPT LAT="45.1" LON="6.1"><ELE>500.0</ELE></TRKPT>
+          <TRKPT LAT="45.2" LON="6.2"><ELE>600.0</ELE></TRKPT>
+        </TRKSEG>
+      </TRK>
+    </GPX>`;
+
+    const result = parseGPX(gpxXml);
+    assert.equal(result.title, 'Uppercase Route');
+    assert.equal(result.coords.length, 2);
+    assert.equal(result.coords[0].lat, 45.1);
+    assert.equal(result.coords[1].ele, 600.0);
+  });
+
+  it('parses namespaced GPX XML elements', () => {
+    const gpxXml = `<?xml version="1.0" encoding="UTF-8"?>
+    <gpx:gpx xmlns:gpx="http://www.topografix.com/GPX/1/1" version="1.1">
+      <gpx:metadata>
+        <gpx:name>Namespaced Stage</gpx:name>
+      </gpx:metadata>
+      <gpx:trk>
+        <gpx:trkseg>
+          <gpx:trkpt lat="45.0" lon="6.0"><gpx:ele>1200</gpx:ele></gpx:trkpt>
+          <gpx:trkpt lat="45.1" lon="6.1"><gpx:ele>1300</gpx:ele></gpx:trkpt>
+        </gpx:trkseg>
+      </gpx:trk>
+      <gpx:wpt lat="45.05" lon="6.05">
+        <gpx:name>Feed 1</gpx:name>
+        <gpx:sym>Food</gpx:sym>
+      </gpx:wpt>
+    </gpx:gpx>`;
+
+    const result = parseGPX(gpxXml);
+    assert.equal(result.title, 'Namespaced Stage');
+    assert.equal(result.coords.length, 2);
+    assert.equal(result.coords[0].ele, 1200);
+    assert.equal(result.rawWaypoints.length, 1);
+    assert.equal(result.rawWaypoints[0].name, 'Feed 1');
+  });
+
+  it('extracts title and route points from rte element when trk is absent', () => {
+    const gpxXml = `<?xml version="1.0" encoding="UTF-8"?>
+    <gpx version="1.1">
+      <rte>
+        <name>Direct Route Title</name>
+        <rtept lat="45.0" lon="6.0"><ele>100</ele></rtept>
+        <rtept lat="45.1" lon="6.1"><ele>200</ele></rtept>
+      </rte>
+    </gpx>`;
+
+    const result = parseGPX(gpxXml);
+    assert.equal(result.title, 'Direct Route Title');
+    assert.equal(result.coords.length, 2);
+    assert.equal(result.coords[0].ele, 100);
+    assert.equal(result.coords[1].ele, 200);
+  });
 });

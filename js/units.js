@@ -104,11 +104,19 @@ export function formatGrade(gradePct, decimals = 1, prefix = '') {
 }
 
 /**
+ * @typedef {Object} NormalizedCoordinate
+ * @property {number} lat - Latitude in decimal degrees
+ * @property {number} lon - Longitude in decimal degrees
+ * @property {number} ele - Elevation in meters
+ * @property {number} [dist] - Cumulative distance in meters
+ */
+
+/**
  * Standardizes coordinate input into uniform {lat, lon, ele} objects.
  * Handles array tuples [lat, lon, ele], objects {lat, lon, ele}, or synthetic distance coords {dist, ele}.
  *
  * @param {Array<Object|Array<number>>} rawCoords - Raw coordinates in any supported format
- * @returns {Array<{lat: number, lon: number, ele: number, dist?: number}>} Normalized coordinates
+ * @returns {NormalizedCoordinate[]} Normalized coordinates
  */
 export function normalizeCoordinates(rawCoords) {
   if (!rawCoords || !Array.isArray(rawCoords)) return [];

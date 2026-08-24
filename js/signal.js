@@ -51,6 +51,24 @@ export const EARTH_RADIUS_METERS = 6371000;
  */
 
 /**
+ * @typedef {Object} GpxCoordinate
+ * @property {number} lat - Latitude in decimal degrees
+ * @property {number} lon - Longitude in decimal degrees
+ * @property {number} ele - Elevation in meters
+ * @property {number} [dist] - Optional pre-computed distance in meters
+ */
+
+/**
+ * @typedef {Object} GpxRawWaypoint
+ * @property {number} lat - Latitude in decimal degrees
+ * @property {number} lon - Longitude in decimal degrees
+ * @property {string} [name] - Waypoint label or name
+ * @property {string} [sym] - Waypoint symbol descriptor
+ * @property {string} [desc] - Waypoint note or description
+ * @property {string} [typeStr] - Waypoint type category
+ */
+
+/**
  * @typedef {Object} DetectedClimb
  * @property {number} id - Unique climb identifier
  * @property {'HC'|'Cat 1'|'Cat 2'|'Cat 3'|'Cat 4'} category - Official UCI climb category
@@ -79,7 +97,8 @@ export function calcHaversine(lat1, lon1, lat2, lon2) {
   const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
             Math.cos(rad(lat1)) * Math.cos(rad(lat2)) *
             Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  return EARTH_RADIUS_METERS * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const clampedA = Math.min(1, Math.max(0, a));
+  return EARTH_RADIUS_METERS * 2 * Math.atan2(Math.sqrt(clampedA), Math.sqrt(1 - clampedA));
 }
 
 /**
@@ -134,8 +153,9 @@ export function buildSpatialBlocks(points, totalDist, blockSizeM = 1000) {
     const eStart = getInterpolatedEle(points, dStart);
     const eEnd = getInterpolatedEle(points, dEnd);
 
-    const grade = ((eEnd - eStart) / spanM) * 100;
-    const absGrade = Math.abs(grade);
+    const grade = spanM > 0 ? ((eEnd - eStart) / spanM) * 100 : 0;
+    const safeGrade = isFinite(grade) ? grade : 0;
+    const absGrade = Math.abs(safeGrade);
 
     // 4-tier pro cycling gradient classification
     let zone = 0;
@@ -151,7 +171,7 @@ export function buildSpatialBlocks(points, totalDist, blockSizeM = 1000) {
       lengthM: spanM,
       startEle: eStart,
       endEle: eEnd,
-      grade: parseFloat(grade.toFixed(1)),
+      grade: parseFloat(safeGrade.toFixed(1)),
       absGrade: parseFloat(absGrade.toFixed(1)),
       zone
     });
@@ -190,8 +210,9 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 500, minGradePc
   let climbPeakIdx = 0;
   let runningGain = 0;
   let dipAccumulator = 0;
+  let i = 1;
 
-  for (let i = 1; i < N; i++) {
+  while (i < N) {
     const prevE = points[i - 1].smoothEle;
     const currE = points[i].smoothEle;
     const deltaE = currE - prevE;
@@ -205,6 +226,7 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 500, minGradePc
         runningGain = deltaE;
         dipAccumulator = 0;
       }
+      i++;
     } else {
       if (currE > points[climbPeakIdx].smoothEle) {
         // New highest peak within current climb
@@ -261,7 +283,9 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 500, minGradePc
         }
 
         inClimb = false;
-        i = climbPeakIdx;
+        i = Math.max(i + 1, climbPeakIdx + 1);
+      } else {
+        i++;
       }
     }
   }
@@ -345,6 +369,8 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
       g = (deltaE / deltaD) * 100;
     }
 
+    if (!isFinite(g) || isNaN(g)) g = 0;
+
     // Clamp instantaneous slope
     if (g > 30) g = 30;
     if (g < -30) g = -30;
@@ -363,7 +389,8 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
       sumG += rawGrades[j];
       countG++;
     }
-    filteredGrades[i] = sumG / countG;
+    const avgG = countG > 0 ? (sumG / countG) : 0;
+    filteredGrades[i] = isFinite(avgG) ? avgG : 0;
   }
 
   // 5. Points Assembly & Sustained Max Gradient Calculation
@@ -388,7 +415,8 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
       else totalLoss += Math.abs(deltaE);
     }
 
-    const absG = Math.abs(grade);
+    const safeGrade = isFinite(grade) ? grade : 0;
+    const absG = Math.abs(safeGrade);
 
     // 4-tier pro cycling gradient classification
     let zone = 0;
@@ -397,7 +425,7 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
     else if (absG < 12) zone = 2; // Zone 3: Steep Climb
     else zone = 3;                // Zone 4: Severe Gradient
 
-    points.push({ dist, rawEle, smoothEle, grade: parseFloat(grade.toFixed(1)), zone });
+    points.push({ dist, rawEle, smoothEle, grade: parseFloat(safeGrade.toFixed(1)), zone });
   }
 
   // Sustained Max Gradient: Evaluated over >= 50m to avoid single-point spikes
@@ -410,11 +438,11 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
     const spanD = cumDistances[j] - cumDistances[i];
     if (spanD >= 35) {
       const spanG = Math.abs((smoothedEles[j] - smoothedEles[i]) / spanD) * 100;
-      if (spanG > maxSustainedGrade) maxSustainedGrade = spanG;
+      if (isFinite(spanG) && spanG > maxSustainedGrade) maxSustainedGrade = spanG;
     }
   }
 
-  const maxGrade = Math.min(28.0, parseFloat(maxSustainedGrade.toFixed(1)));
+  const maxGrade = Math.min(28.0, isFinite(maxSustainedGrade) ? parseFloat(maxSustainedGrade.toFixed(1)) : 0);
 
   // 6. Spatial Blocks & Climbs
   const blocks = buildSpatialBlocks(points, runningDist, blockSizeM);

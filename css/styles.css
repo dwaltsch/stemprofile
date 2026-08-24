@@ -987,9 +987,12 @@ main.stage-area {
 }
 
 /* Draggable Labels */
-.draggable-label {
+.draggable-label,
+.climb-badge-drag,
+.wpt-badge-drag {
   cursor: grab;
   user-select: none;
+  -webkit-user-select: none;
   touch-action: none;
   transition: filter 0.12s ease;
 }

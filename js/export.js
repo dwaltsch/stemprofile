@@ -18,10 +18,10 @@ import { renderProfileSVG, THEMES } from './renderer.js';
  * @private
  */
 function resolveExportParams(pointsOrOptions, stats, climbs, blocks, waypoints, settings, callback) {
-  if (pointsOrOptions && !Array.isArray(pointsOrOptions) && typeof pointsOrOptions === 'object' && pointsOrOptions.points) {
+  if (pointsOrOptions && typeof pointsOrOptions === 'object' && !Array.isArray(pointsOrOptions) && pointsOrOptions.points) {
     return {
       points: pointsOrOptions.points,
-      stats: pointsOrOptions.stats,
+      stats: pointsOrOptions.stats || null,
       climbs: pointsOrOptions.climbs || [],
       blocks: pointsOrOptions.blocks || [],
       waypoints: pointsOrOptions.waypoints || [],
@@ -31,26 +31,25 @@ function resolveExportParams(pointsOrOptions, stats, climbs, blocks, waypoints, 
   }
 
   // Handle legacy polymorphic signatures where waypoints was passed as settings
-  let resolvedWaypoints = waypoints;
-  let resolvedSettings = settings;
-  let resolvedCallback = callback;
+  let resolvedWaypoints = Array.isArray(waypoints) ? waypoints : [];
+  let resolvedSettings = (typeof settings === 'object' && settings !== null && !Array.isArray(settings)) ? settings : {};
+  let resolvedCallback = typeof callback === 'function' ? callback : null;
 
-  if (!Array.isArray(waypoints) && typeof waypoints === 'object') {
-    resolvedCallback = typeof settings === 'function' ? settings : null;
+  if (!Array.isArray(waypoints) && typeof waypoints === 'object' && waypoints !== null) {
     resolvedSettings = waypoints;
-    resolvedWaypoints = [];
+    resolvedCallback = typeof settings === 'function' ? settings : null;
   } else if (typeof settings === 'function') {
     resolvedCallback = settings;
     resolvedSettings = {};
   }
 
   return {
-    points: pointsOrOptions,
-    stats,
+    points: Array.isArray(pointsOrOptions) ? pointsOrOptions : [],
+    stats: stats || null,
     climbs: climbs || [],
     blocks: blocks || [],
-    waypoints: resolvedWaypoints || [],
-    settings: resolvedSettings || {},
+    waypoints: resolvedWaypoints,
+    settings: resolvedSettings,
     callback: resolvedCallback
   };
 }
@@ -100,11 +99,35 @@ export function copySVG(pointsOrOptions, stats, climbs, blocks, waypoints, setti
   const themeKey = THEMES[p.settings.theme] ? p.settings.theme : 'white';
   const svgMarkup = renderProfileSVG({ ...p, settings: { ...p.settings, theme: themeKey }, isPrint: false });
 
-  navigator.clipboard.writeText(svgMarkup).then(() => {
-    if (p.callback) p.callback(null);
-  }).catch(err => {
-    if (p.callback) p.callback(err);
-  });
+  const fallbackCopy = () => {
+    let ta = null;
+    try {
+      ta = document.createElement('textarea');
+      ta.value = svgMarkup;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      if (p.callback) p.callback(null);
+    } catch (err) {
+      if (p.callback) p.callback(err);
+    } finally {
+      if (ta && ta.parentNode) {
+        ta.parentNode.removeChild(ta);
+      }
+    }
+  };
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(svgMarkup).then(() => {
+      if (p.callback) p.callback(null);
+    }).catch(() => {
+      fallbackCopy();
+    });
+  } else {
+    fallbackCopy();
+  }
 }
 
 /**
@@ -137,28 +160,34 @@ export function exportPNG(pointsOrOptions, stats, climbs, blocks, waypoints, set
 
   const img = new Image();
   img.onload = function() {
-    const canvas = document.createElement('canvas');
-    canvas.width = pxW;
-    canvas.height = pxH;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = theme.bg;
-    ctx.fillRect(0, 0, pxW, pxH);
-    ctx.drawImage(img, 0, 0, pxW, pxH);
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = pxW;
+      canvas.height = pxH;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = theme.bg;
+      ctx.fillRect(0, 0, pxW, pxH);
+      ctx.drawImage(img, 0, 0, pxW, pxH);
 
-    const pngUrl = canvas.toDataURL('image/png');
-    const a = document.createElement('a');
-    const filename = (p.settings.title || 'stem_profile').toLowerCase().replace(/[^a-z0-9]/g, '_') +
-      `_${wMm}x${hMm}mm_300dpi.png`;
-    a.href = pngUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+      const pngUrl = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      const filename = (p.settings.title || 'stem_profile').toLowerCase().replace(/[^a-z0-9]/g, '_') +
+        `_${wMm}x${hMm}mm_300dpi.png`;
+      a.href = pngUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
 
-    if (p.callback) p.callback(null);
+      if (p.callback) p.callback(null);
+    } catch (err) {
+      if (p.callback) p.callback(err);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
   };
   img.onerror = function(err) {
+    URL.revokeObjectURL(url);
     if (p.callback) p.callback(err);
   };
   img.src = url;

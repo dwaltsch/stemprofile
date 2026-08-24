@@ -132,7 +132,65 @@ describe('Renderer Module: SVG Profile Generation', () => {
   });
 
   it('handles empty or minimal point sets without throwing', () => {
-    const svg = renderProfileSVG([], null, [], [], [], DEFAULT_SETTINGS);
-    assert.ok(typeof svg === 'string' && svg.includes('<svg'));
+    const svg1 = renderProfileSVG([], null, [], [], [], DEFAULT_SETTINGS);
+    assert.ok(typeof svg1 === 'string' && svg1.includes('<svg'));
+
+    const svg2 = renderProfileSVG([{ dist: 0, smoothEle: 100 }], null, [], [], [], DEFAULT_SETTINGS);
+    assert.ok(typeof svg2 === 'string' && svg2.includes('<svg'));
+
+    const svg3 = renderProfileSVG(null, null);
+    assert.ok(typeof svg3 === 'string' && svg3.includes('<svg'));
+  });
+
+  it('supports options object signature for polymorphic rendering', () => {
+    const coords = [
+      { lat: 45.0, lon: 6.0, ele: 500 },
+      { lat: 45.1, lon: 6.1, ele: 1000 }
+    ];
+    const { points, stats, climbs, blocks } = processTrackSignal(coords, 3, 1000);
+    const svg = renderProfileSVG({
+      points,
+      stats,
+      climbs,
+      blocks,
+      waypoints: [],
+      settings: { ...DEFAULT_SETTINGS, title: 'Poly Test', theme: 'giro' }
+    });
+
+    assert.ok(svg.includes('Poly Test'));
+    assert.ok(svg.includes('width="110mm"'));
+  });
+
+  it('forces print white palette when isPrint is true', () => {
+    const coords = [
+      { lat: 45.0, lon: 6.0, ele: 500 },
+      { lat: 45.1, lon: 6.1, ele: 1000 }
+    ];
+    const { points, stats, climbs, blocks } = processTrackSignal(coords, 3, 1000);
+    const svg = renderProfileSVG({
+      points,
+      stats,
+      climbs,
+      blocks,
+      waypoints: [],
+      settings: { ...DEFAULT_SETTINGS, theme: 'dark' },
+      isPrint: true
+    });
+
+    assert.ok(svg.includes(`background:${THEMES.white.bg}`));
+  });
+
+  it('renders all theme color schemes cleanly', () => {
+    const coords = [
+      { lat: 45.0, lon: 6.0, ele: 500 },
+      { lat: 45.1, lon: 6.1, ele: 1000 }
+    ];
+    const { points, stats, climbs, blocks } = processTrackSignal(coords, 3, 1000);
+    const themeKeys = ['white', 'dark', 'tour', 'neon', 'giro', 'gravel'];
+
+    for (const theme of themeKeys) {
+      const svg = renderProfileSVG(points, stats, climbs, blocks, [], { ...DEFAULT_SETTINGS, theme });
+      assert.ok(svg.includes(`background:${THEMES[theme].bg}`), `Theme ${theme} failed`);
+    }
   });
 });
