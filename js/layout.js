@@ -4,7 +4,8 @@
  * Implements:
  * 1. Multi-tier anti-collision solver for climb summit badges and waypoints
  * 2. Unified leader line connector anchor calculations
- * 3. Distance-aware roadbook block size recommendation heuristics
+ * 3. Distance & physical sticker size aware roadbook block recommendation heuristics
+ * 4. Dynamic in-block gradient percentage scaling, spacing & orientation engine
  *
  * @module layout
  */
@@ -263,14 +264,21 @@ export function computeClimbBadgeLayout(
 }
 
 /**
- * Calculates recommended block size preset options and default for a given track distance.
+ * Calculates recommended block size preset options and default dynamically
+ * based on both track distance AND physical sticker dimensions (width & height).
  *
  * @param {number} totalDistMeters - Total track distance in meters
+ * @param {number} [widthMm=110] - Physical sticker width in millimeters
+ * @param {number} [heightMm=35] - Physical sticker height in millimeters
  * @returns {{ defaultBlockM: number, options: Array<{ label: string, value: number|string }> }}
  */
-export function getRecommendedBlockPresets(totalDistMeters) {
+export function getRecommendedBlockPresets(totalDistMeters, widthMm = 110, heightMm = 35) {
   const km = (totalDistMeters || 0) / 1000;
-  if (km < 40) {
+  // Effective distance normalized to standard 110mm width baseline
+  const widthFactor = 110 / Math.max(35, widthMm || 110);
+  const effectiveKm = km * widthFactor;
+
+  if (effectiveKm < 40) {
     return {
       defaultBlockM: 500,
       options: [
@@ -281,7 +289,7 @@ export function getRecommendedBlockPresets(totalDistMeters) {
         { label: 'Custom', value: 'custom' }
       ]
     };
-  } else if (km < 100) {
+  } else if (effectiveKm < 100) {
     return {
       defaultBlockM: 1000,
       options: [
@@ -292,7 +300,7 @@ export function getRecommendedBlockPresets(totalDistMeters) {
         { label: 'Custom', value: 'custom' }
       ]
     };
-  } else if (km < 180) {
+  } else if (effectiveKm < 180) {
     return {
       defaultBlockM: 2000,
       options: [
@@ -304,7 +312,7 @@ export function getRecommendedBlockPresets(totalDistMeters) {
       ]
     };
   } else {
-    // Ultra-distance stages (180 km – 350+ km)
+    // Ultra-distance stages or compact width stickers
     return {
       defaultBlockM: 5000,
       options: [
@@ -316,4 +324,94 @@ export function getRecommendedBlockPresets(totalDistMeters) {
       ]
     };
   }
+}
+
+/**
+ * Computes dynamic in-block gradient percentage layout, sizing, and orientation
+ * based on physical sticker dimensions, column height, and block width.
+ *
+ * @param {Object} params - Layout computation parameters
+ * @returns {{ shouldRender: boolean, markup: string, nextRenderedTextX: number }}
+ */
+export function computeBlockPctLayout({
+  block,
+  idx,
+  baseStride = 1,
+  blockWidthMm,
+  colHeight,
+  topMidY,
+  yBase,
+  midX,
+  lastRenderedTextX = -999,
+  widthMm = 110,
+  heightMm = 35,
+  themeKey = 'white'
+}) {
+  const sizeScale = Math.min(1.4, Math.max(0.72, Math.min(widthMm / 110, heightMm / 35)));
+  const isCompactHeight = heightMm <= 28;
+
+  const minSpacingMm = blockWidthMm >= (3.2 * sizeScale)
+    ? (2.8 * sizeScale)
+    : (blockWidthMm >= (2.0 * sizeScale) ? (3.4 * sizeScale) : (4.2 * sizeScale));
+
+  const hasSpacing = (lastRenderedTextX === -999) || (midX - lastRenderedTextX >= minSpacingMm);
+  const isStride = (baseStride === 1) || (idx % baseStride === 0);
+  const isKeyPitch = (block.absGrade >= 5.0) && (midX - lastRenderedTextX >= (minSpacingMm * 0.8));
+
+  const minRequiredHeight = isCompactHeight ? (1.6 * sizeScale) : (2.0 * sizeScale);
+  const shouldRender = (isStride || isKeyPitch) && (hasSpacing || isKeyPitch) && (colHeight >= minRequiredHeight);
+
+  if (!shouldRender) {
+    return { shouldRender: false, markup: '', nextRenderedTextX: lastRenderedTextX };
+  }
+
+  const gradeVal = Math.round(block.absGrade);
+  const gradeText = `${gradeVal}%`;
+
+  // Dynamic adaptive contrast based on zone and theme brightness
+  const isLightBackground = (block.zone <= 1) && (themeKey === 'white' || themeKey === 'tour' || themeKey === 'giro' || themeKey === 'gravel');
+  const textFill = isLightBackground ? '#000000' : '#ffffff';
+  const strokeColor = isLightBackground ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.85)';
+  const strokeWidth = ((isLightBackground ? 0.42 : 0.34) * sizeScale).toFixed(2);
+
+  let labelMarkup = '';
+
+  if (blockWidthMm >= (2.8 * sizeScale)) {
+    // Wide block: Horizontal text with outline halo
+    const fontSize = (1.75 * sizeScale).toFixed(2);
+    const textY = Math.min(yBase - 1.0 * sizeScale, topMidY + (colHeight * (isCompactHeight ? 0.42 : 0.45)));
+    labelMarkup = `
+      <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" fill="${textFill}" stroke="${strokeColor}" stroke-width="${strokeWidth}" stroke-linejoin="round" paint-order="stroke fill" font-size="${fontSize}" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${gradeText}</text>
+    `;
+  } else if (blockWidthMm >= (1.3 * sizeScale)) {
+    // Medium block: Compact horizontal or vertical text depending on available height
+    if (colHeight >= (5.0 * sizeScale)) {
+      const fontSize = (1.5 * sizeScale).toFixed(2);
+      const textY = (topMidY + yBase) / 2;
+      labelMarkup = `
+        <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" transform="rotate(-90, ${midX.toFixed(2)}, ${textY.toFixed(2)})" fill="${textFill}" stroke="${strokeColor}" stroke-width="${strokeWidth}" stroke-linejoin="round" paint-order="stroke fill" font-size="${fontSize}" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${gradeText}</text>
+      `;
+    } else {
+      const fontSize = (1.35 * sizeScale).toFixed(2);
+      const textY = Math.min(yBase - 0.7 * sizeScale, topMidY + (colHeight * 0.48));
+      labelMarkup = `
+        <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" fill="${textFill}" stroke="${strokeColor}" stroke-width="${strokeWidth}" stroke-linejoin="round" paint-order="stroke fill" font-size="${fontSize}" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${gradeText}</text>
+      `;
+    }
+  } else if (blockWidthMm >= (0.42 * sizeScale)) {
+    // Narrow block: Vertical text like Grand Tour roadbooks
+    if (colHeight >= (3.5 * sizeScale)) {
+      const fontSize = (1.25 * sizeScale).toFixed(2);
+      const textY = (topMidY + yBase) / 2;
+      labelMarkup = `
+        <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" transform="rotate(-90, ${midX.toFixed(2)}, ${textY.toFixed(2)})" fill="${textFill}" stroke="${strokeColor}" stroke-width="${strokeWidth}" stroke-linejoin="round" paint-order="stroke fill" font-size="${fontSize}" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${gradeText}</text>
+      `;
+    }
+  }
+
+  return {
+    shouldRender: Boolean(labelMarkup),
+    markup: labelMarkup,
+    nextRenderedTextX: labelMarkup ? midX : lastRenderedTextX
+  };
 }

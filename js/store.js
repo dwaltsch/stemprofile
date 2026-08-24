@@ -58,9 +58,13 @@ export function createStore(initialSettings = {}) {
     }
 
     if (isNewGPX) {
-      // Determine initial track distance to choose recommended block size preset
+      // Determine initial track distance & sticker width to choose recommended block size preset
       const initial = processTrackSignal(state.rawCoords, state.settings.smoothingWindow, 1000);
-      const recommended = getRecommendedBlockPresets(initial.stats ? initial.stats.totalDist : 0);
+      const recommended = getRecommendedBlockPresets(
+        initial.stats ? initial.stats.totalDist : 0,
+        state.settings.widthMm,
+        state.settings.heightMm
+      );
       state.settings.blockSizeM = recommended.defaultBlockM;
       state.settings.customPositions = {};
     }

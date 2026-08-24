@@ -10,7 +10,8 @@ import assert from 'node:assert/strict';
 import {
   calculateLeaderLineAnchor,
   computeClimbBadgeLayout,
-  getRecommendedBlockPresets
+  getRecommendedBlockPresets,
+  computeBlockPctLayout
 } from '../js/layout.js';
 
 describe('Layout Module: Leader Line Anchor Geometry', () => {
@@ -102,4 +103,104 @@ describe('Layout Module: Block Size Recommendations', () => {
     const rec = getRecommendedBlockPresets(240000);
     assert.equal(rec.defaultBlockM, 5000);
   });
+
+  it('adapts recommended block size based on physical sticker dimensions', () => {
+    // 75km on a compact 75mm stem sticker -> recommends 2000m blocks for clarity
+    const compactRec = getRecommendedBlockPresets(75000, 75, 30);
+    assert.equal(compactRec.defaultBlockM, 2000);
+
+    // 75km on a long 140mm top tube sticker -> recommends 1000m blocks for high detail
+    const longRec = getRecommendedBlockPresets(75000, 140, 35);
+    assert.equal(longRec.defaultBlockM, 1000);
+  });
 });
+
+describe('Layout Module: Dynamic In-Block Percentage Engine', () => {
+  it('renders horizontal text with scaled font on wide block columns', () => {
+    const block = { absGrade: 8.4, zone: 2 };
+    const res = computeBlockPctLayout({
+      block,
+      idx: 0,
+      baseStride: 1,
+      blockWidthMm: 4.5,
+      colHeight: 12.0,
+      topMidY: 15.0,
+      yBase: 27.0,
+      midX: 20.0,
+      lastRenderedTextX: -999,
+      widthMm: 110,
+      heightMm: 35,
+      themeKey: 'white'
+    });
+
+    assert.ok(res.shouldRender);
+    assert.ok(res.markup.includes('8%'));
+    assert.ok(res.markup.includes('font-size="1.75"'));
+    assert.equal(res.nextRenderedTextX, 20.0);
+  });
+
+  it('scales down font size on compact stem stickers (75x28mm)', () => {
+    const block = { absGrade: 10.2, zone: 2 };
+    const res = computeBlockPctLayout({
+      block,
+      idx: 0,
+      baseStride: 1,
+      blockWidthMm: 3.5,
+      colHeight: 8.0,
+      topMidY: 10.0,
+      yBase: 18.0,
+      midX: 15.0,
+      lastRenderedTextX: -999,
+      widthMm: 75,
+      heightMm: 28,
+      themeKey: 'white'
+    });
+
+    assert.ok(res.shouldRender);
+    assert.ok(res.markup.includes('10%'));
+    // Scaled font size should be < 1.75
+    assert.ok(/font-size="1\.[3-5][0-9]?"/.test(res.markup));
+  });
+
+  it('rotates numerals vertically on medium-narrow tall climb columns', () => {
+    const block = { absGrade: 12.0, zone: 3 };
+    const res = computeBlockPctLayout({
+      block,
+      idx: 0,
+      baseStride: 1,
+      blockWidthMm: 1.8,
+      colHeight: 9.0,
+      topMidY: 10.0,
+      yBase: 19.0,
+      midX: 30.0,
+      lastRenderedTextX: -999,
+      widthMm: 110,
+      heightMm: 35,
+      themeKey: 'white'
+    });
+
+    assert.ok(res.shouldRender);
+    assert.ok(res.markup.includes('rotate(-90'));
+  });
+
+  it('prioritizes steep climbs over flat segments when spacing is tight', () => {
+    const steepBlock = { absGrade: 9.0, zone: 2 };
+    const res = computeBlockPctLayout({
+      block: steepBlock,
+      idx: 1,
+      baseStride: 2,
+      blockWidthMm: 2.2,
+      colHeight: 8.0,
+      topMidY: 12.0,
+      yBase: 20.0,
+      midX: 23.0,
+      lastRenderedTextX: 20.5, // Tight spacing (2.5mm delta)
+      widthMm: 110,
+      heightMm: 35,
+      themeKey: 'white'
+    });
+
+    assert.ok(res.shouldRender, 'Steep pitch (>=5%) should render with prioritized spacing');
+  });
+});
+

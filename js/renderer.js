@@ -16,11 +16,11 @@
  */
 
 import { getInterpolatedEle } from './signal.js';
-import { computeClimbBadgeLayout, calculateLeaderLineAnchor } from './layout.js';
+import { computeClimbBadgeLayout, calculateLeaderLineAnchor, computeBlockPctLayout } from './layout.js';
 import { getUnitFactors, getUnitLabels, formatElevation } from './units.js';
 
 // Re-export layout computation for backward compatibility
-export { computeClimbBadgeLayout } from './layout.js';
+export { computeClimbBadgeLayout, computeBlockPctLayout } from './layout.js';
 
 /**
  * @typedef {Object} RenderTheme
@@ -402,58 +402,30 @@ export function renderProfileSVG(
         `;
       }
 
-      // Block Percentage Text (Smart uncluttered rendering with guaranteed physical spacing)
+      // Block Percentage Text (Dynamic responsive roadbook rendering based on sticker size)
       if (settings.showBlockPct !== false) {
         const topMidY = (y1 + y2) / 2;
         const colHeight = yBase - topMidY;
         const midX = (x1 + x2) / 2;
-        const gradeVal = Math.round(b.absGrade);
-        const gradeText = `${gradeVal}%`;
 
-        const minSpacingMm = blockWidthMm >= 3.2 ? 2.8 : (blockWidthMm >= 2.0 ? 3.4 : 4.2);
-        const hasSpacing = (lastRenderedTextX === -999) || (midX - lastRenderedTextX >= minSpacingMm);
-        const isStride = (baseStride === 1) || (idx % baseStride === 0);
-        const isKeyPitch = (b.absGrade >= 6.0) && (midX - lastRenderedTextX >= (minSpacingMm * 0.85));
+        const pctResult = computeBlockPctLayout({
+          block: b,
+          idx,
+          baseStride,
+          blockWidthMm,
+          colHeight,
+          topMidY,
+          yBase,
+          midX,
+          lastRenderedTextX,
+          widthMm: W,
+          heightMm: H,
+          themeKey
+        });
 
-        const shouldRender = (isStride || isKeyPitch) && hasSpacing && (colHeight >= 2.0);
-
-        if (shouldRender) {
-          lastRenderedTextX = midX;
-
-          // Dynamic adaptive contrast based on zone and theme brightness
-          const isLightBackground = (b.zone <= 1) && (themeKey === 'white' || themeKey === 'tour' || themeKey === 'giro' || themeKey === 'gravel');
-          const textFill = isLightBackground ? '#000000' : '#ffffff';
-          const strokeColor = isLightBackground ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.85)';
-          const strokeWidth = isLightBackground ? '0.42' : '0.34';
-
-          if (blockWidthMm >= 3.0) {
-            // Wide block: Horizontal text with outline halo
-            const textY = Math.min(yBase - 1.2, topMidY + (colHeight * 0.45));
-            blockTextLabels += `
-              <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" fill="${textFill}" stroke="${strokeColor}" stroke-width="${strokeWidth}" stroke-linejoin="round" paint-order="stroke fill" font-size="1.75" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${gradeText}</text>
-            `;
-          } else if (blockWidthMm >= 1.5) {
-            // Medium block: Compact horizontal or vertical text depending on height
-            if (colHeight >= 5.5) {
-              const textY = (topMidY + yBase) / 2;
-              blockTextLabels += `
-                <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" transform="rotate(-90, ${midX.toFixed(2)}, ${textY.toFixed(2)})" fill="${textFill}" stroke="${strokeColor}" stroke-width="${strokeWidth}" stroke-linejoin="round" paint-order="stroke fill" font-size="1.5" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${gradeText}</text>
-              `;
-            } else {
-              const textY = Math.min(yBase - 0.8, topMidY + (colHeight * 0.48));
-              blockTextLabels += `
-                <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" fill="${textFill}" stroke="${strokeColor}" stroke-width="${strokeWidth}" stroke-linejoin="round" paint-order="stroke fill" font-size="1.4" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${gradeText}</text>
-              `;
-            }
-          } else if (blockWidthMm >= 0.45) {
-            // Narrow block (e.g. 500m on long stages): Vertical text like Grand Tour roadbooks
-            if (colHeight >= 4.0) {
-              const textY = (topMidY + yBase) / 2;
-              blockTextLabels += `
-                <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" transform="rotate(-90, ${midX.toFixed(2)}, ${textY.toFixed(2)})" fill="${textFill}" stroke="${strokeColor}" stroke-width="${strokeWidth}" stroke-linejoin="round" paint-order="stroke fill" font-size="1.3" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${gradeText}</text>
-              `;
-            }
-          }
+        if (pctResult.shouldRender) {
+          blockTextLabels += pctResult.markup;
+          lastRenderedTextX = pctResult.nextRenderedTextX;
         }
       }
     });

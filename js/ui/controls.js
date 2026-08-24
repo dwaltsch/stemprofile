@@ -22,7 +22,7 @@ export function updateBlockSizePills(store) {
 
   const state = store.getState();
   const totalDist = state.stats ? state.stats.totalDist : 0;
-  const presets = getRecommendedBlockPresets(totalDist);
+  const presets = getRecommendedBlockPresets(totalDist, state.settings.widthMm, state.settings.heightMm);
   const currentVal = state.settings.blockSizeM;
 
   let html = '';
