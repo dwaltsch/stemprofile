@@ -105,12 +105,24 @@ toptube/
 ├── css/
 │   └── styles.css      # Dark cockpit & light theme, @media print matrix styles
 ├── js/
+│   ├── app.js          # Application coordinator & bootstrapper
+│   ├── store.js        # Reactive application state store & event bus
 │   ├── parser.js       # Native DOMParser GPX XML ingestion & waypoint extractor
 │   ├── signal.js       # Haversine distance, 7-pt MA, spatial blocks, & climb detection
-│   ├── renderer.js     # Vector SVG generator & anti-collision layout engine
-│   ├── share.js        # Gzip URL hash compression & GitHub Pages link sharing
+│   ├── layout.js       # Multi-tier anti-collision solver & leader line geometry
+│   ├── renderer.js     # Vector SVG elevation profile generator
 │   ├── export.js       # 300 DPI canvas rasterizer, SVG download, print sheet
-│   └── app.js          # Reactive application controller & event manager
+│   ├── share.js        # Protocol v3 binary packing & URL hash sharing
+│   ├── units.js        # Geodesy unit conversions & coordinate normalizers
+│   └── ui/             # Focused UI component controllers
+│       ├── dropzone.js       # GPX drag & drop target & file parsing
+│       ├── controls.js       # Dimension inputs, presets, theme & units
+│       ├── climbs-panel.js   # Climbs table & bi-directional highlighting
+│       ├── waypoints-panel.js # Tactical cues form & list
+│       ├── drag-engine.js    # 60fps SVG pointer drag & leader lines
+│       ├── tooltip.js        # Instantaneous hover telemetry tracking
+│       ├── theme.js          # Light / dark mode persistence
+│       └── toast.js          # Non-blocking notification toasts
 └── README.md           # Architecture & user documentation
 ```
 

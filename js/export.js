@@ -13,26 +13,69 @@
 import { renderProfileSVG, THEMES } from './renderer.js';
 
 /**
+ * Normalizes polymorphic arguments (options object vs positional parameters) for export functions.
+ *
+ * @private
+ */
+function resolveExportParams(pointsOrOptions, stats, climbs, blocks, waypoints, settings, callback) {
+  if (pointsOrOptions && !Array.isArray(pointsOrOptions) && typeof pointsOrOptions === 'object' && pointsOrOptions.points) {
+    return {
+      points: pointsOrOptions.points,
+      stats: pointsOrOptions.stats,
+      climbs: pointsOrOptions.climbs || [],
+      blocks: pointsOrOptions.blocks || [],
+      waypoints: pointsOrOptions.waypoints || [],
+      settings: pointsOrOptions.settings || {},
+      callback: typeof stats === 'function' ? stats : (pointsOrOptions.callback || null)
+    };
+  }
+
+  // Handle legacy polymorphic signatures where waypoints was passed as settings
+  let resolvedWaypoints = waypoints;
+  let resolvedSettings = settings;
+  let resolvedCallback = callback;
+
+  if (!Array.isArray(waypoints) && typeof waypoints === 'object') {
+    resolvedCallback = typeof settings === 'function' ? settings : null;
+    resolvedSettings = waypoints;
+    resolvedWaypoints = [];
+  } else if (typeof settings === 'function') {
+    resolvedCallback = settings;
+    resolvedSettings = {};
+  }
+
+  return {
+    points: pointsOrOptions,
+    stats,
+    climbs: climbs || [],
+    blocks: blocks || [],
+    waypoints: resolvedWaypoints || [],
+    settings: resolvedSettings || {},
+    callback: resolvedCallback
+  };
+}
+
+/**
  * Exports and downloads the generated profile as a vector `.svg` file.
  *
- * @param {import('./signal.js').ProfilePoint[]} points - Profile coordinates
- * @param {import('./signal.js').RouteStats} stats - Route telemetry
+ * @param {import('./signal.js').ProfilePoint[]|Object} pointsOrOptions - Profile coordinates or state options object
+ * @param {import('./signal.js').RouteStats} [stats] - Route telemetry
  * @param {import('./signal.js').DetectedClimb[]} [climbs=[]] - Detected climbs
  * @param {import('./signal.js').SpatialBlock[]} [blocks=[]] - Discretized blocks
  * @param {Array<Object>} [waypoints=[]] - Active waypoints
- * @param {Object} settings - Physical dimensions and styling settings
+ * @param {Object} [settings={}] - Physical dimensions and styling settings
  */
-export function exportSVG(points, stats, climbs, blocks, waypoints, settings) {
-  if (!Array.isArray(waypoints) && typeof waypoints === 'object') {
-    settings = waypoints;
-    waypoints = [];
-  }
-  const themeKey = THEMES[settings.theme] ? settings.theme : 'white';
-  const svgMarkup = renderProfileSVG(points, stats, climbs, blocks, waypoints, { ...settings, theme: themeKey }, false);
+export function exportSVG(pointsOrOptions, stats, climbs, blocks, waypoints, settings) {
+  const p = resolveExportParams(pointsOrOptions, stats, climbs, blocks, waypoints, settings);
+  const themeKey = THEMES[p.settings.theme] ? p.settings.theme : 'white';
+  const svgMarkup = renderProfileSVG({ ...p, settings: { ...p.settings, theme: themeKey }, isPrint: false });
+
   const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const filename = (settings.title || 'stem_profile').toLowerCase().replace(/[^a-z0-9]/g, '_') + `_${settings.widthMm}x${settings.heightMm}mm.svg`;
+  const filename = (p.settings.title || 'stem_profile').toLowerCase().replace(/[^a-z0-9]/g, '_') +
+    `_${p.settings.widthMm || 110}x${p.settings.heightMm || 35}mm.svg`;
+
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);
@@ -44,26 +87,23 @@ export function exportSVG(points, stats, climbs, blocks, waypoints, settings) {
 /**
  * Copies the raw SVG markup directly to the system clipboard.
  *
- * @param {import('./signal.js').ProfilePoint[]} points - Profile coordinates
- * @param {import('./signal.js').RouteStats} stats - Route telemetry
+ * @param {import('./signal.js').ProfilePoint[]|Object} pointsOrOptions - Profile coordinates or state options object
+ * @param {import('./signal.js').RouteStats} [stats] - Route telemetry
  * @param {import('./signal.js').DetectedClimb[]} [climbs=[]] - Detected climbs
  * @param {import('./signal.js').SpatialBlock[]} [blocks=[]] - Discretized blocks
  * @param {Array<Object>} [waypoints=[]] - Active waypoints
- * @param {Object} settings - Physical dimensions and styling settings
+ * @param {Object} [settings={}] - Physical dimensions and styling settings
  * @param {function(Error|null): void} [callback] - Invoked upon completion or failure
  */
-export function copySVG(points, stats, climbs, blocks, waypoints, settings, callback) {
-  if (!Array.isArray(waypoints) && typeof waypoints === 'object') {
-    callback = settings;
-    settings = waypoints;
-    waypoints = [];
-  }
-  const themeKey = THEMES[settings.theme] ? settings.theme : 'white';
-  const svgMarkup = renderProfileSVG(points, stats, climbs, blocks, waypoints, { ...settings, theme: themeKey }, false);
+export function copySVG(pointsOrOptions, stats, climbs, blocks, waypoints, settings, callback) {
+  const p = resolveExportParams(pointsOrOptions, stats, climbs, blocks, waypoints, settings, callback);
+  const themeKey = THEMES[p.settings.theme] ? p.settings.theme : 'white';
+  const svgMarkup = renderProfileSVG({ ...p, settings: { ...p.settings, theme: themeKey }, isPrint: false });
+
   navigator.clipboard.writeText(svgMarkup).then(() => {
-    if (callback) callback(null);
+    if (p.callback) p.callback(null);
   }).catch(err => {
-    if (callback) callback(err);
+    if (p.callback) p.callback(err);
   });
 }
 
@@ -71,31 +111,27 @@ export function copySVG(points, stats, climbs, blocks, waypoints, settings, call
  * Renders the profile SVG onto an offscreen canvas at 300 DPI and downloads as a PNG.
  * Calculation: $px = \frac{\text{mm}}{25.4} \times 300\text{ DPI}$.
  *
- * @param {import('./signal.js').ProfilePoint[]} points - Profile coordinates
- * @param {import('./signal.js').RouteStats} stats - Route telemetry
+ * @param {import('./signal.js').ProfilePoint[]|Object} pointsOrOptions - Profile coordinates or state options object
+ * @param {import('./signal.js').RouteStats} [stats] - Route telemetry
  * @param {import('./signal.js').DetectedClimb[]} [climbs=[]] - Detected climbs
  * @param {import('./signal.js').SpatialBlock[]} [blocks=[]] - Discretized blocks
  * @param {Array<Object>} [waypoints=[]] - Active waypoints
- * @param {Object} settings - Physical dimensions and styling settings
+ * @param {Object} [settings={}] - Physical dimensions and styling settings
  * @param {function(Error|null): void} [callback] - Invoked upon completion or failure
  */
-export function exportPNG(points, stats, climbs, blocks, waypoints, settings, callback) {
-  if (!Array.isArray(waypoints) && typeof waypoints === 'object') {
-    callback = settings;
-    settings = waypoints;
-    waypoints = [];
-  }
-  const wMm = settings.widthMm;
-  const hMm = settings.heightMm;
+export function exportPNG(pointsOrOptions, stats, climbs, blocks, waypoints, settings, callback) {
+  const p = resolveExportParams(pointsOrOptions, stats, climbs, blocks, waypoints, settings, callback);
+  const wMm = p.settings.widthMm || 110;
+  const hMm = p.settings.heightMm || 35;
   const dpi = 300;
   const mmToIn = 1 / 25.4;
   const pxW = Math.round(wMm * mmToIn * dpi);
   const pxH = Math.round(hMm * mmToIn * dpi);
 
-  const themeKey = THEMES[settings.theme] ? settings.theme : 'white';
+  const themeKey = THEMES[p.settings.theme] ? p.settings.theme : 'white';
   const theme = THEMES[themeKey] || THEMES['white'];
 
-  const svgMarkup = renderProfileSVG(points, stats, climbs, blocks, waypoints, { ...settings, theme: themeKey }, false);
+  const svgMarkup = renderProfileSVG({ ...p, settings: { ...p.settings, theme: themeKey }, isPrint: false });
   const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
 
@@ -111,7 +147,8 @@ export function exportPNG(points, stats, climbs, blocks, waypoints, settings, ca
 
     const pngUrl = canvas.toDataURL('image/png');
     const a = document.createElement('a');
-    const filename = (settings.title || 'stem_profile').toLowerCase().replace(/[^a-z0-9]/g, '_') + `_${wMm}x${hMm}mm_300dpi.png`;
+    const filename = (p.settings.title || 'stem_profile').toLowerCase().replace(/[^a-z0-9]/g, '_') +
+      `_${wMm}x${hMm}mm_300dpi.png`;
     a.href = pngUrl;
     a.download = filename;
     document.body.appendChild(a);
@@ -119,10 +156,10 @@ export function exportPNG(points, stats, climbs, blocks, waypoints, settings, ca
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    if (callback) callback(null);
+    if (p.callback) p.callback(null);
   };
   img.onerror = function(err) {
-    if (callback) callback(err);
+    if (p.callback) p.callback(err);
   };
   img.src = url;
 }
@@ -130,24 +167,21 @@ export function exportPNG(points, stats, climbs, blocks, waypoints, settings, ca
 /**
  * Builds the print sheet DOM matrix with multiple sticker copies and scissor guidelines.
  *
- * @param {import('./signal.js').ProfilePoint[]} points - Profile coordinates
- * @param {import('./signal.js').RouteStats} stats - Route telemetry
+ * @param {import('./signal.js').ProfilePoint[]|Object} pointsOrOptions - Profile coordinates or state options object
+ * @param {import('./signal.js').RouteStats} [stats] - Route telemetry
  * @param {import('./signal.js').DetectedClimb[]} [climbs=[]] - Detected climbs
  * @param {import('./signal.js').SpatialBlock[]} [blocks=[]] - Discretized blocks
  * @param {Array<Object>} [waypoints=[]] - Active waypoints
- * @param {Object} settings - Physical dimensions and print copies settings
+ * @param {Object} [settings={}] - Physical dimensions and print copies settings
  */
-export function updatePrintMatrix(points, stats, climbs, blocks, waypoints, settings) {
-  if (!Array.isArray(waypoints) && typeof waypoints === 'object') {
-    settings = waypoints;
-    waypoints = [];
-  }
+export function updatePrintMatrix(pointsOrOptions, stats, climbs, blocks, waypoints, settings) {
+  const p = resolveExportParams(pointsOrOptions, stats, climbs, blocks, waypoints, settings);
   const host = document.getElementById('print-matrix');
   if (!host) return;
   host.innerHTML = '';
 
-  const count = parseInt(settings.printCopies, 10) || 2;
-  const printSvg = renderProfileSVG(points, stats, climbs, blocks, waypoints, { ...settings, theme: 'white' }, true);
+  const count = parseInt(p.settings.printCopies, 10) || 2;
+  const printSvg = renderProfileSVG({ ...p, settings: { ...p.settings, theme: 'white' }, isPrint: true });
 
   for (let i = 0; i < count; i++) {
     const cell = document.createElement('div');
@@ -156,4 +190,3 @@ export function updatePrintMatrix(points, stats, climbs, blocks, waypoints, sett
     host.appendChild(cell);
   }
 }
-

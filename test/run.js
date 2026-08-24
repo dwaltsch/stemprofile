@@ -8,7 +8,11 @@
  *   node test/run.js
  */
 
+import './units.test.js';
+import './layout.test.js';
+import './store.test.js';
 import './signal.test.js';
 import './share.test.js';
 import './parser.test.js';
 import './renderer.test.js';
+

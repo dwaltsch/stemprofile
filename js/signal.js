@@ -11,6 +11,8 @@
  * @module signal
  */
 
+import { normalizeCoordinates } from './units.js';
+
 /** Radius of the Earth in meters for spherical geodesy */
 export const EARTH_RADIUS_METERS = 6371000;
 
@@ -283,15 +285,7 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
   }
 
   // Normalize coords whether provided as [{lat, lon, ele}], [[lat, lon, ele]], or [{dist, ele}]
-  const normCoords = coords.map(c => {
-    if (Array.isArray(c)) {
-      return { lat: c[0] || 0, lon: c[1] || 0, ele: c[2] !== undefined ? c[2] : 0 };
-    }
-    if (c.dist !== undefined) {
-      return { dist: c.dist, lat: c.lat || (c.dist / 111319.5), lon: c.lon || 0, ele: c.ele !== undefined ? c.ele : (c.smoothEle !== undefined ? c.smoothEle : 0) };
-    }
-    return { lat: c.lat || 0, lon: c.lon || 0, ele: c.ele !== undefined ? c.ele : 0 };
-  });
+  const normCoords = normalizeCoordinates(coords);
 
   const N = normCoords.length;
 
@@ -464,12 +458,7 @@ export function matchWaypointsToTrack(rawWaypoints, coords, points) {
     return [];
   }
 
-  const normCoords = coords.map(c => {
-    if (Array.isArray(c)) {
-      return { lat: c[0] || 0, lon: c[1] || 0 };
-    }
-    return { lat: c.lat || 0, lon: c.lon || 0 };
-  });
+  const normCoords = normalizeCoordinates(coords);
 
   const results = [];
   const totalDist = points[points.length - 1].dist;

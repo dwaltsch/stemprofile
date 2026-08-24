@@ -1,0 +1,319 @@
+/**
+ * Layout, Anti-Collision & Geometry Engine Module
+ *
+ * Implements:
+ * 1. Multi-tier anti-collision solver for climb summit badges and waypoints
+ * 2. Unified leader line connector anchor calculations
+ * 3. Distance-aware roadbook block size recommendation heuristics
+ *
+ * @module layout
+ */
+
+/**
+ * @typedef {Object} ClimbBadgePlacement
+ * @property {number} x - Top-left X coordinate in millimeters
+ * @property {number} y - Top-left Y coordinate in millimeters
+ * @property {number} w - Badge bounding box width in millimeters
+ * @property {number} h - Badge bounding box height in millimeters
+ * @property {number} catW - Width of the category pill slice in millimeters
+ * @property {string} catCode - Compact category label string
+ * @property {string} statsLength - Formatted climb length
+ * @property {string} statsGrade - Formatted climb gradient
+ * @property {string} label - Combined badge label text
+ * @property {number} fontSize - Font size in millimeters
+ * @property {number} summitX - Peak summit pin X coordinate in millimeters
+ * @property {number} summitY - Peak summit pin Y coordinate in millimeters
+ * @property {import('./signal.js').DetectedClimb} climb - Source climb metadata
+ */
+
+/**
+ * Calculates optimal leader-line connection point on a badge boundary to a target apex point.
+ *
+ * @param {{ x: number, y: number, w: number, h: number }} badgeBox - Badge boundary box
+ * @param {{ x: number, y: number }} apex - Target summit/waypoint apex point
+ * @returns {{ connX: number, connY: number, distToApex: number, isVisible: boolean }}
+ */
+export function calculateLeaderLineAnchor(badgeBox, apex) {
+  const { x, y, w, h } = badgeBox;
+  const summitX = apex.x;
+  const summitY = apex.y;
+
+  const badgeCenterX = x + (w / 2);
+  const badgeBottomY = y + h;
+  const badgeTopY = y;
+
+  let connX = badgeCenterX;
+  let connY = badgeBottomY;
+
+  if (badgeBottomY <= summitY - 0.6) {
+    connX = badgeCenterX;
+    connY = badgeBottomY;
+  } else if (badgeTopY >= summitY + 0.6) {
+    connX = badgeCenterX;
+    connY = badgeTopY;
+  } else if (badgeCenterX <= summitX) {
+    connX = x + w;
+    connY = y + (h / 2);
+  } else {
+    connX = x;
+    connY = y + (h / 2);
+  }
+
+  const distToApex = Math.hypot(connX - summitX, connY - summitY);
+  return {
+    connX: parseFloat(connX.toFixed(2)),
+    connY: parseFloat(connY.toFixed(2)),
+    distToApex,
+    isVisible: distToApex > 1.8
+  };
+}
+
+/**
+ * Multi-tier anti-collision layout solver for climb summit badges.
+ *
+ * Staggers overlapping badges across vertical shelf tiers and horizontal candidate offsets
+ * with proximity scoring.
+ *
+ * @param {import('./signal.js').DetectedClimb[]} climbs - Array of detected route climbs
+ * @param {function(number): number} toX - Function mapping distance in meters to X mm
+ * @param {function(number): number} toY - Function mapping elevation in meters to Y mm
+ * @param {number} padLeft - Left plotting boundary padding in mm
+ * @param {number} padRight - Right plotting boundary padding in mm
+ * @param {number} minY - Topmost allowed Y coordinate for badges in mm
+ * @param {number} maxY - Bottommost allowed Y coordinate for badges in mm
+ * @param {number} W - Total sticker width in mm
+ * @param {Array<Object>} [waypoints=[]] - Active waypoints for joint collision avoidance
+ * @param {Record<string, {x: number, y: number}>} [customPositions={}] - User-overridden drag coordinates
+ * @returns {ClimbBadgePlacement[]} Array of non-overlapping badge placement objects
+ */
+export function computeClimbBadgeLayout(
+  climbs,
+  toX,
+  toY,
+  padLeft,
+  padRight,
+  minY,
+  maxY,
+  W,
+  waypoints = [],
+  customPositions = {}
+) {
+  if (!climbs || climbs.length === 0) return [];
+
+  const sortedClimbs = [...climbs].sort((a, b) => a.summitKm - b.summitKm);
+  const placedBadges = [];
+  const isDense = sortedClimbs.length >= 4;
+
+  sortedClimbs.forEach((climb, climbIdx) => {
+    const summitX = toX(climb.summitKm * 1000);
+    const summitY = toY(climb.summitEle);
+
+    const catStr = (climb.category || '').toUpperCase();
+    const catCode = isDense ? catStr.replace(/CAT\s*/i, 'C') : catStr;
+    const statsLength = `${climb.lengthKm.toFixed(1)}k`;
+    const statsGrade = `${climb.avgGrade}%`;
+
+    const fontSize = isDense ? 1.5 : 1.65;
+    const badgeH = isDense ? 3.1 : 3.4;
+
+    const catCharW = isDense ? 0.95 : 1.05;
+    const catW = Math.max(isDense ? 4.2 : 5.0, catCode.length * catCharW + 1.8);
+    const statsText = `${statsLength} ${statsGrade}`;
+    const statsW = statsText.length * (isDense ? 0.92 : 1.0) + 2.0;
+    const badgeW = Math.min(28, catW + statsW);
+
+    const label = `${catCode} | ${statsLength} · ${statsGrade}`;
+
+    // If custom drag position was saved by the user, prioritize it directly
+    if (customPositions && customPositions['climb-' + climb.id]) {
+      const customPos = customPositions['climb-' + climb.id];
+      placedBadges.push({
+        x: customPos.x,
+        y: customPos.y,
+        w: badgeW,
+        h: badgeH,
+        catW,
+        catCode,
+        statsLength,
+        statsGrade,
+        label,
+        fontSize,
+        summitX,
+        summitY,
+        climb
+      });
+      return;
+    }
+
+    const naturalX = summitX - (badgeW / 2);
+    const clampedNaturalX = Math.max(padLeft, Math.min(W - padRight - badgeW, naturalX));
+
+    // Check if near previous climb (Delta X < 10.5mm / ~40px)
+    let isConsecutiveNear = false;
+    if (climbIdx > 0) {
+      const prevSummitX = toX(sortedClimbs[climbIdx - 1].summitKm * 1000);
+      if (Math.abs(summitX - prevSummitX) < 10.5) {
+        isConsecutiveNear = true;
+      }
+    }
+
+    // Alternating Two-Tier Offsets: y1 = summit - 3.2mm (~12px), y2 = summit - 7.4mm (~28px)
+    const tier1Y = Math.max(minY, summitY - badgeH - 3.2);
+    const tier2Y = Math.max(minY, summitY - badgeH - 7.4);
+
+    // Primary candidates
+    const candidateTiersY = isConsecutiveNear && (climbIdx % 2 === 1)
+      ? [
+          tier2Y,                                       // Tier 2: Elevated offset for alternating proximity
+          tier1Y,                                       // Tier 1: Base offset
+          minY + 0.3,                                   // Tier 3: Top shelf
+          minY + badgeH + 0.7,                          // Tier 4: Top shelf tier 2
+          Math.max(minY, summitY - badgeH - 11.5),      // Tier 5: High
+          Math.min(maxY - badgeH, summitY + 2.0)        // Tier 6: Shoulder
+        ]
+      : [
+          tier1Y,                                       // Tier 1: Base offset
+          tier2Y,                                       // Tier 2: Elevated offset
+          minY + 0.3,                                   // Tier 3: Top shelf
+          minY + badgeH + 0.7,                          // Tier 4: Top shelf tier 2
+          Math.max(minY, summitY - badgeH - 11.5),      // Tier 5: High
+          Math.min(maxY - badgeH, summitY + 2.0)        // Tier 6: Shoulder
+        ];
+
+    // Horizontal nudge offsets
+    const candidateDxs = [0, -3.5, 3.5, -7.0, 7.0, -11.0, 11.0, -16.0, 16.0, -22.0, 22.0];
+
+    let bestCandidate = null;
+    let minCost = Infinity;
+
+    for (let t = 0; t < candidateTiersY.length; t++) {
+      const candY = candidateTiersY[t];
+      if (candY < minY || candY + badgeH > maxY) continue;
+
+      for (let d = 0; d < candidateDxs.length; d++) {
+        const dx = candidateDxs[d];
+        const candX = Math.max(padLeft, Math.min(W - padRight - badgeW, clampedNaturalX + dx));
+
+        // Check collision against already placed badges
+        let collides = false;
+        const marginX = 0.8;
+        const marginY = 0.5;
+
+        for (const pb of placedBadges) {
+          const overlapX = (candX < pb.x + pb.w + marginX) && (candX + badgeW + marginX > pb.x);
+          const overlapY = (candY < pb.y + pb.h + marginY) && (candY + badgeH + marginY > pb.y);
+          if (overlapX && overlapY) {
+            collides = true;
+            break;
+          }
+        }
+
+        const distFromSummit = Math.hypot((candX + badgeW / 2) - summitX, (candY + badgeH) - summitY);
+        const cost = (collides ? 10000 : 0) + distFromSummit + (t * 2.2) + (Math.abs(dx) * 1.5);
+
+        if (cost < minCost) {
+          minCost = cost;
+          bestCandidate = {
+            x: candX,
+            y: candY,
+            w: badgeW,
+            h: badgeH,
+            catW,
+            catCode,
+            statsLength,
+            statsGrade,
+            label,
+            fontSize,
+            summitX,
+            summitY,
+            climb
+          };
+          if (!collides && d === 0 && t === 0) {
+            break;
+          }
+        }
+      }
+      if (bestCandidate && minCost < 10000 && t === 0) {
+        break;
+      }
+    }
+
+    if (!bestCandidate) {
+      bestCandidate = {
+        x: clampedNaturalX,
+        y: tier1Y,
+        w: badgeW,
+        h: badgeH,
+        catW,
+        catCode,
+        statsLength,
+        statsGrade,
+        label,
+        fontSize,
+        summitX,
+        summitY,
+        climb
+      };
+    }
+
+    placedBadges.push(bestCandidate);
+  });
+
+  return placedBadges;
+}
+
+/**
+ * Calculates recommended block size preset options and default for a given track distance.
+ *
+ * @param {number} totalDistMeters - Total track distance in meters
+ * @returns {{ defaultBlockM: number, options: Array<{ label: string, value: number|string }> }}
+ */
+export function getRecommendedBlockPresets(totalDistMeters) {
+  const km = (totalDistMeters || 0) / 1000;
+  if (km < 40) {
+    return {
+      defaultBlockM: 500,
+      options: [
+        { label: '250 m', value: 250 },
+        { label: '500 m', value: 500 },
+        { label: '1.0 km', value: 1000 },
+        { label: 'Smooth', value: 0 },
+        { label: 'Custom', value: 'custom' }
+      ]
+    };
+  } else if (km < 100) {
+    return {
+      defaultBlockM: 1000,
+      options: [
+        { label: '500 m', value: 500 },
+        { label: '1.0 km', value: 1000 },
+        { label: '2.5 km', value: 2500 },
+        { label: 'Smooth', value: 0 },
+        { label: 'Custom', value: 'custom' }
+      ]
+    };
+  } else if (km < 180) {
+    return {
+      defaultBlockM: 2000,
+      options: [
+        { label: '1.0 km', value: 1000 },
+        { label: '2.0 km', value: 2000 },
+        { label: '5.0 km', value: 5000 },
+        { label: 'Smooth', value: 0 },
+        { label: 'Custom', value: 'custom' }
+      ]
+    };
+  } else {
+    // Ultra-distance stages (180 km – 350+ km)
+    return {
+      defaultBlockM: 5000,
+      options: [
+        { label: '2.0 km', value: 2000 },
+        { label: '5.0 km', value: 5000 },
+        { label: '10.0 km', value: 10000 },
+        { label: 'Smooth', value: 0 },
+        { label: 'Custom', value: 'custom' }
+      ]
+    };
+  }
+}
