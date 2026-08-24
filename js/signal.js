@@ -282,10 +282,13 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
     return { points: [], stats: null, climbs: [], blocks: [] };
   }
 
-  // Normalize coords whether provided as [{lat, lon, ele}] or [[lat, lon, ele]]
+  // Normalize coords whether provided as [{lat, lon, ele}], [[lat, lon, ele]], or [{dist, ele}]
   const normCoords = coords.map(c => {
     if (Array.isArray(c)) {
       return { lat: c[0] || 0, lon: c[1] || 0, ele: c[2] !== undefined ? c[2] : 0 };
+    }
+    if (c.dist !== undefined) {
+      return { dist: c.dist, lat: c.lat || (c.dist / 111319.5), lon: c.lon || 0, ele: c.ele !== undefined ? c.ele : (c.smoothEle !== undefined ? c.smoothEle : 0) };
     }
     return { lat: c.lat || 0, lon: c.lon || 0, ele: c.ele !== undefined ? c.ele : 0 };
   });
@@ -296,8 +299,12 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
   const cumDistances = [0];
   let runningDist = 0;
   for (let i = 1; i < N; i++) {
-    const d = calcHaversine(normCoords[i - 1].lat, normCoords[i - 1].lon, normCoords[i].lat, normCoords[i].lon);
-    runningDist += d;
+    if (normCoords[i].dist !== undefined) {
+      runningDist = normCoords[i].dist;
+    } else {
+      const d = calcHaversine(normCoords[i - 1].lat, normCoords[i - 1].lon, normCoords[i].lat, normCoords[i].lon);
+      runningDist += d;
+    }
     cumDistances.push(runningDist);
   }
 

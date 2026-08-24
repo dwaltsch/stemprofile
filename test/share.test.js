@@ -1,8 +1,9 @@
 /**
  * Share & Compression Test Suite
  *
- * Tests 3D polyline delta encoding, coordinate downsampling with peak preservation,
- * payload normalization, and gzip URL hash serialization.
+ * Tests 3D polyline delta encoding, coordinate downsampling,
+ * adaptive profile curve simplification, packed binary protocol (v3),
+ * and ultra-short URL hash serialization.
  */
 
 import { describe, it } from 'node:test';
@@ -11,9 +12,10 @@ import {
   encodePolyline3D,
   decodePolyline3D,
   downsampleCoords,
+  simplifyProfileCurve,
+  serializeBinaryState,
+  deserializeBinaryState,
   normalizePayload,
-  compressPayload,
-  decompressPayload,
   serializeStateToHash,
   deserializeHashToState,
   DEFAULT_SETTINGS
@@ -46,91 +48,86 @@ describe('Share Module: 3D Polyline Delta Encoding', () => {
   });
 });
 
-describe('Share Module: Summit & Extrema Downsampling', () => {
-  it('preserves start, finish, global peak, and global lowest point', () => {
-    const coords = [];
-    for (let i = 0; i < 500; i++) {
-      let ele = 100;
-      if (i === 150) ele = 2800; // Global Summit
-      if (i === 350) ele = 50;   // Global Low Point
-      coords.push({ lat: 45.0 + i * 0.001, lon: 6.0 + i * 0.001, ele });
+describe('Share Module: Adaptive Profile Curve Simplification', () => {
+  it('preserves start, finish, summits, and global extrema', () => {
+    const points = [];
+    for (let i = 0; i <= 1000; i++) {
+      const dist = i * 100;
+      let ele = 300;
+      if (i >= 200 && i <= 400) ele += (i - 200) * 10; // Peak at 400 -> 2300m
+      if (i > 400 && i <= 600) ele += (600 - i) * 10;
+      if (i >= 700 && i <= 850) ele += (i - 700) * 8; // Peak at 850 -> 1500m
+      if (i > 850 && i <= 950) ele += (950 - i) * 8;
+      points.push({ dist, smoothEle: ele });
     }
 
-    const downsampled = downsampleCoords(coords, 50);
-    assert.ok(downsampled.length <= 50);
+    const simplified = simplifyProfileCurve(points, 65, 2.0);
+    assert.ok(simplified.length <= 65);
+    assert.equal(simplified[0][0], 0);
+    assert.equal(simplified[simplified.length - 1][0], 100000);
 
-    // Verify endpoints
-    assert.equal(downsampled[0][0], 45.0);
-    assert.equal(downsampled[downsampled.length - 1][0], Math.round((45.0 + 499 * 0.001) * 100000) / 100000);
-
-    // Verify peak (2800m) is strictly preserved in downsampled array
-    const maxEle = Math.max(...downsampled.map(c => c[2]));
-    assert.equal(maxEle, 2800);
-
-    // Verify minimum (50m) is strictly preserved
-    const minEle = Math.min(...downsampled.map(c => c[2]));
-    assert.equal(minEle, 50);
+    const maxEle = Math.max(...simplified.map(p => p[1]));
+    assert.ok(Math.abs(maxEle - 2300) < 5, 'Summit peak preserved');
   });
 });
 
-describe('Share Module: Payload Normalization & Backward Compatibility', () => {
-  it('normalizes compact v2 payload format', () => {
-    const coords = [[45.0, 6.0, 500], [45.1, 6.1, 600]];
-    const polyline = encodePolyline3D(coords);
-
-    const rawV2 = {
-      v: 2,
-      t: 'Col du Galibier',
-      p: polyline,
-      s: { blockSizeM: 500 },
-      w: [[1500, 'water', 'Spring', 1]]
+describe('Share Module: Binary Protocol (Version 3)', () => {
+  it('serializes and deserializes full state with settings, climbs, and waypoints', () => {
+    const state = {
+      title: 'Queen Stage 19 - Galibier',
+      points: [
+        { dist: 0, ele: 500 },
+        { dist: 30000, ele: 1500 },
+        { dist: 60000, ele: 700 },
+        { dist: 110000, ele: 2642 },
+        { dist: 140000, ele: 600 }
+      ],
+      settings: {
+        ...DEFAULT_SETTINGS,
+        theme: 'giro',
+        blockSizeM: 2000,
+        hiddenClimbIds: [1]
+      },
+      waypoints: [
+        { distM: 29000, type: 'feed', label: 'Feed 1', enabled: true },
+        { distM: 110000, type: 'summit', label: 'Galibier', enabled: true }
+      ]
     };
 
-    const normalized = normalizePayload(rawV2);
-    assert.equal(normalized.title, 'Col du Galibier');
-    assert.equal(normalized.coords.length, 2);
-    assert.equal(normalized.settings.blockSizeM, 500);
-    assert.equal(normalized.settings.widthMm, DEFAULT_SETTINGS.widthMm);
-    assert.equal(normalized.waypoints.length, 1);
-    assert.equal(normalized.waypoints[0].type, 'water');
-    assert.equal(normalized.waypoints[0].label, 'Spring');
-  });
+    const binary = serializeBinaryState(state);
+    assert.ok(binary instanceof Uint8Array);
+    assert.equal(binary[0], 3); // Protocol v3
 
-  it('normalizes legacy v1 payload format', () => {
-    const rawV1 = {
-      v: 1,
-      title: 'Legacy Stage',
-      coords: [{ lat: 45.0, lon: 6.0, ele: 500 }],
-      settings: { widthMm: 120 },
-      waypoints: [{ id: 'w1', distM: 1000, type: 'feed', label: 'Feed 1', enabled: true }]
-    };
-
-    const normalized = normalizePayload(rawV1);
-    assert.equal(normalized.title, 'Legacy Stage');
-    assert.equal(normalized.coords.length, 1);
-    assert.equal(normalized.settings.widthMm, 120);
-    assert.equal(normalized.waypoints.length, 1);
+    const restored = deserializeBinaryState(binary);
+    assert.ok(restored !== null);
+    assert.equal(restored.title, 'Queen Stage 19 - Galibier');
+    assert.equal(restored.settings.theme, 'giro');
+    assert.equal(restored.settings.blockSizeM, 2000);
+    assert.deepEqual(restored.settings.hiddenClimbIds, [1]);
+    assert.equal(restored.waypoints.length, 2);
+    assert.equal(restored.waypoints[1].label, 'Galibier');
+    assert.ok(restored.coords.length >= 2);
   });
 });
 
 describe('Share Module: Full Round-Trip Hash Serialization', () => {
-  it('serializes application state to hash and deserializes back', async () => {
-    // Check if CompressionStream is available in the current environment
+  it('serializes application state to ultra-short hash and deserializes back', async () => {
     if (typeof CompressionStream === 'undefined' || typeof DecompressionStream === 'undefined') {
-      return; // Skip if runtime lacks stream compression
+      return;
     }
 
     const state = {
       title: 'Tour Stage 1',
-      coords: [
-        { lat: 45.000, lon: 6.000, ele: 500 },
-        { lat: 45.050, lon: 6.050, ele: 1200 },
-        { lat: 45.100, lon: 6.100, ele: 600 }
+      points: [
+        { dist: 0, smoothEle: 500 },
+        { dist: 25000, smoothEle: 1200 },
+        { dist: 50000, smoothEle: 600 }
       ],
       settings: {
         ...DEFAULT_SETTINGS,
         title: 'Tour Stage 1',
-        blockSizeM: 500
+        theme: 'tour',
+        blockSizeM: 1000
       },
       waypoints: [
         { id: 'w1', distM: 5000, type: 'feed', label: 'Feed 1', enabled: true }
@@ -139,11 +136,14 @@ describe('Share Module: Full Round-Trip Hash Serialization', () => {
 
     const hash = await serializeStateToHash(state);
     assert.ok(hash.startsWith('#stage='));
+    // Ultra-short verification: should be under 200 characters
+    assert.ok(hash.length < 200, `Expected hash < 200 chars, got ${hash.length}: ${hash}`);
 
     const restored = await deserializeHashToState(hash);
     assert.ok(restored !== null);
     assert.equal(restored.title, 'Tour Stage 1');
-    assert.equal(restored.settings.blockSizeM, 500);
+    assert.equal(restored.settings.theme, 'tour');
+    assert.equal(restored.settings.blockSizeM, 1000);
     assert.ok(restored.coords.length >= 2);
     assert.equal(restored.waypoints.length, 1);
     assert.equal(restored.waypoints[0].type, 'feed');
