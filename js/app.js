@@ -23,6 +23,7 @@ import { renderClimbsTable } from './ui/climbs-panel.js';
 import { initDragEngine } from './ui/drag-engine.js';
 import { bindTooltipHover } from './ui/tooltip.js';
 import { showToast } from './ui/toast.js';
+import { initPrintModal, openPrintModal, updatePrintModalPreview, getActivePrintConfig } from './ui/print-modal.js';
 
 // Backward compatibility exports
 export { getRecommendedBlockPresets } from './layout.js';
@@ -111,7 +112,7 @@ export function updateUI() {
   // 4. Update Panels & Overlays
   renderClimbsTable(store);
   renderWaypointsList(store);
-  updatePrintMatrix(state);
+  updatePrintMatrix(state, null, null, null, null, null, getActivePrintConfig());
   bindTooltipHover(store);
 }
 
@@ -275,15 +276,26 @@ function initActions() {
   const btnPrint = document.getElementById('btn-print');
   if (btnPrint) {
     btnPrint.addEventListener('click', () => {
-      updatePrintMatrix(store.getState());
-      window.print();
+      openPrintModal(store);
     });
   }
 
   window.addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'p') {
-      updatePrintMatrix(store.getState());
+      const modal = document.getElementById('modal-print-studio');
+      const isModalOpen = modal && modal.style.display === 'flex';
+      if (isModalOpen) {
+        updatePrintMatrix(store.getState(), null, null, null, null, null, getActivePrintConfig());
+        window.print();
+      } else {
+        e.preventDefault();
+        openPrintModal(store);
+      }
     }
+  });
+
+  window.addEventListener('beforeprint', () => {
+    updatePrintMatrix(store.getState(), null, null, null, null, null, getActivePrintConfig());
   });
 }
 
@@ -296,11 +308,16 @@ export function initApp() {
   initControls(store);
   initWaypointsPanel(store);
   initDragEngine(store);
+  initPrintModal(store);
   initActions();
 
   // Reactive store subscription
   store.subscribe((state, event) => {
     updateUI();
+    const modal = document.getElementById('modal-print-studio');
+    if (modal && modal.style.display === 'flex') {
+      updatePrintModalPreview(store);
+    }
     if (event === 'track:loaded' || event === 'payload:loaded') {
       syncFormControls(state);
       updateBlockSizePills(store);

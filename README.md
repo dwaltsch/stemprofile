@@ -50,7 +50,8 @@ Inspired by Grand Tour roadbooks (Tour de France, Giro d'Italia, Vuelta a Españ
 - **Corner Radius**: Square (`0mm`), Rounded (`2mm`), or Pill (`4mm`).
 
 ### 5. Multi-Format Export Pipelines
-- **Print Sheet Ready (`@media print`)**: Exact millimeter scaling with dashed scissor cut guides and multi-sticker sheet layout (1, 2, or 4 copies).
+- **Print Studio & Sheet Setup (`@media print`)**: Interactive WYSIWYG print modal with exact millimeter scaling, precision corner crop marks (L-ticks for straightedge/razor cutting), 50mm scale calibration check ruler, multi-sticker sheet layout (1, 2, 4, 6, 8 copies), paper size selection (A4 / US Letter), and print theme controls.
+- **Print Sheet Vector SVG & 300 DPI PNG Download**: Export entire multi-sticker sheets formatted for print shops and label cutters.
 - **Share Link (URL Hash for GitHub Pages)**: Compresses route coordinates, telemetry, waypoints, and custom badge positions via `CompressionStream('gzip')` into a shareable URL hash (`#stage=...`) without needing a backend server or database.
 - **Download SVG**: Pure vector `.svg` export for plotters and vinyl cutters.
 - **Download PNG (300 DPI)**: High-resolution raster export ($px = \frac{\text{mm}}{25.4} \times 300\text{ DPI}$) for label printers.
@@ -117,6 +118,7 @@ toptube/
 │   └── ui/             # Focused UI component controllers
 │       ├── dropzone.js       # GPX drag & drop target & file parsing
 │       ├── controls.js       # Dimension inputs, presets, theme & units
+│       ├── print-modal.js    # Print Studio modal & WYSIWYG sheet preview
 │       ├── climbs-panel.js   # Climbs table & bi-directional highlighting
 │       ├── waypoints-panel.js # Tactical cues form & list
 │       ├── drag-engine.js    # 60fps SVG pointer drag & leader lines

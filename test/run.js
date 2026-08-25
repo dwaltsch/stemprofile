@@ -15,4 +15,5 @@ import './signal.test.js';
 import './share.test.js';
 import './parser.test.js';
 import './renderer.test.js';
+import './export.test.js';
 

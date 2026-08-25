@@ -168,6 +168,8 @@
                 <option value="1">1 Sticker</option>
                 <option value="2" selected>2 Stickers</option>
                 <option value="4">4 Stickers</option>
+                <option value="6">6 Stickers</option>
+                <option value="8">8 Stickers</option>
               </select>
             </div>
           </div>
@@ -447,6 +449,153 @@
 
     </aside>
 
+  </div>
+
+  <!-- Print Studio & Sheet Setup Modal -->
+  <div class="modal-backdrop" id="modal-print-studio" style="display: none;">
+    <div class="modal-dialog print-studio-dialog" role="dialog" aria-labelledby="print-dialog-title" aria-modal="true">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          <h2 id="print-dialog-title">Print Studio &amp; Sheet Setup</h2>
+        </div>
+        <button type="button" class="modal-close-btn" id="btn-close-print-modal" title="Close dialog (Esc)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-body print-studio-body">
+        <!-- Left: Live Sheet Preview -->
+        <div class="print-preview-pane">
+          <div class="print-preview-header">
+            <span class="preview-pane-title">Sheet Layout Preview</span>
+            <span class="preview-sheet-meta" id="print-preview-meta">A4 · 2 Copies · 110 × 35 mm</span>
+          </div>
+          <div class="print-paper-stage" id="print-paper-stage">
+            <div class="print-paper-sheet" id="print-paper-sheet">
+              <!-- Rendered preview content -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Print Sheet Settings Controls -->
+        <div class="print-settings-pane">
+          
+          <!-- Section 1: Copies & Theme -->
+          <div class="print-section">
+            <label class="field-label">Sticker Copies</label>
+            <div class="segmented-pill-group" id="print-copies-pill-group">
+              <button type="button" class="pill-opt" data-copies="1">1</button>
+              <button type="button" class="pill-opt active" data-copies="2">2</button>
+              <button type="button" class="pill-opt" data-copies="4">4</button>
+              <button type="button" class="pill-opt" data-copies="6">6</button>
+              <button type="button" class="pill-opt" data-copies="8">8</button>
+            </div>
+          </div>
+
+          <div class="print-section">
+            <label class="field-label">Print Theme Palette</label>
+            <div class="segmented-pill-group" id="print-theme-pill-group">
+              <button type="button" class="pill-opt active" data-theme-mode="theme">🎨 Active Theme</button>
+              <button type="button" class="pill-opt" data-theme-mode="white">📄 Ink-Saver White</button>
+            </div>
+          </div>
+
+          <!-- Section 2: Paper & Layout -->
+          <div class="print-section">
+            <div class="field-grid">
+              <div class="field">
+                <label class="field-label" for="select-print-paper">Paper Format</label>
+                <select id="select-print-paper">
+                  <option value="a4" selected>A4 (210 × 297 mm)</option>
+                  <option value="letter">US Letter (8.5 × 11 in)</option>
+                  <option value="compact">Compact Auto Sheet</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="field-label" for="select-print-orient">Orientation</label>
+                <select id="select-print-orient">
+                  <option value="auto" selected>Auto Fit</option>
+                  <option value="portrait">Portrait</option>
+                  <option value="landscape">Landscape</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 3: Precision Guides & Marks -->
+          <div class="print-section">
+            <label class="field-label">Precision Guides &amp; Marks</label>
+            <div class="checkbox-grid">
+              <label class="checkbox-item">
+                <input type="checkbox" id="chk-print-crop" checked>
+                <span>Corner Crop Marks (L-ticks for knife/ruler)</span>
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" id="chk-print-cutlines" checked>
+                <span>Scissor Cut Guidelines (Dashed outline)</span>
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" id="chk-print-ruler" checked>
+                <span>50mm Calibration Scale Check Ruler</span>
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" id="chk-print-header" checked>
+                <span>Sheet Header &amp; Stage Telemetry</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Scale Calibration Notice Tip -->
+          <div class="print-tip-box">
+            <div class="print-tip-icon">💡</div>
+            <div class="print-tip-text">
+              <strong>100% Exact Scale Guarantee:</strong> In your browser's print dialog, ensure <strong>Scale is set to 100% / Actual Size</strong> (disable "Fit to Page") and check <strong>Background Graphics</strong>.
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="modal-footer print-studio-footer">
+        <div class="footer-left">
+          <button type="button" class="btn" id="btn-export-sheet-svg" title="Download vector SVG of the print sheet">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Sheet SVG
+          </button>
+          <button type="button" class="btn" id="btn-export-sheet-png" title="Download 300 DPI PNG of the print sheet">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+            Sheet PNG (300 DPI)
+          </button>
+        </div>
+        <div class="footer-right">
+          <button type="button" class="btn" id="btn-cancel-print">Cancel</button>
+          <button type="button" class="btn btn-primary" id="btn-trigger-print">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 6 2 18 2 18 9"></polyline>
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+              <rect x="6" y="14" width="12" height="8"></rect>
+            </svg>
+            Print Sheet (⌘P)
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Print Sheet Output Matrix -->
