@@ -279,6 +279,67 @@ header.app-header {
 [data-theme="dark"] .icon-moon { display: none; }
 
 /* ==========================================================================
+   Mobile Tab Switcher Navigation
+   ========================================================================== */
+.mobile-tab-nav {
+  display: none;
+  background: var(--bg-header);
+  border-bottom: 1px solid var(--border-color);
+  padding: 0.35rem 0.65rem;
+  gap: 0.35rem;
+  z-index: 90;
+  flex-shrink: 0;
+}
+
+.mobile-tab-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.5rem;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  user-select: none;
+  min-height: 38px;
+}
+
+.mobile-tab-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-pill-hover);
+}
+
+.mobile-tab-btn.active {
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border-color: rgba(37, 99, 235, 0.25);
+}
+
+.mobile-tab-count {
+  font-size: 0.65rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  background: var(--bg-pill);
+  border: 1px solid var(--border-color);
+  color: var(--text-dim);
+  padding: 1px 5px;
+  border-radius: 10px;
+}
+
+.mobile-tab-btn.active .mobile-tab-count {
+  background: rgba(37, 99, 235, 0.15);
+  border-color: rgba(37, 99, 235, 0.3);
+  color: var(--accent);
+}
+
+/* ==========================================================================
    Main Studio Layout
    ========================================================================== */
 .app-layout {
@@ -296,15 +357,46 @@ header.app-header {
 }
 
 @media (max-width: 900px) {
+  .mobile-tab-nav {
+    display: flex;
+  }
+
   .app-layout {
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+    flex: 1;
   }
+
+  /* Show only the active mobile tab panel */
+  .app-layout[data-mobile-tab="preview"] aside.sidebar-left,
+  .app-layout[data-mobile-tab="preview"] aside.sidebar-right {
+    display: none !important;
+  }
+
+  .app-layout[data-mobile-tab="design"] main.stage-area,
+  .app-layout[data-mobile-tab="design"] aside.sidebar-right {
+    display: none !important;
+  }
+
+  .app-layout[data-mobile-tab="climbs"] aside.sidebar-left,
+  .app-layout[data-mobile-tab="climbs"] main.stage-area {
+    display: none !important;
+  }
+
   aside.sidebar-left, aside.sidebar-right {
     border-left: none !important;
     border-right: none !important;
-    border-bottom: 1px solid var(--border-color);
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 1rem 0.85rem;
+    box-sizing: border-box;
+  }
+
+  main.stage-area {
+    width: 100% !important;
+    padding: 1rem 0.75rem;
+    box-sizing: border-box;
   }
 }
 
@@ -1493,4 +1585,147 @@ body.modal-open {
 .toast-error svg { color: #ef4444; }
 .toast-warning svg { color: #f59e0b; }
 .toast-info svg { color: #3b82f6; }
+
+/* ==========================================================================
+   Mobile Workstation Responsiveness (< 768px & < 480px)
+   ========================================================================== */
+@media (max-width: 768px) {
+  header.app-header {
+    padding: 0 0.65rem;
+    gap: 0.4rem;
+    height: 48px;
+  }
+
+  .brand-text .brand-tag {
+    display: none;
+  }
+
+  .route-pill {
+    display: none;
+  }
+
+  .actions {
+    gap: 0.25rem;
+  }
+
+  .btn {
+    padding: 0.38rem 0.55rem;
+    font-size: 0.74rem;
+    min-height: 36px;
+  }
+
+  .btn .btn-text {
+    display: none;
+  }
+
+  .action-divider {
+    margin: 0 0.1rem;
+    height: 16px;
+  }
+
+  /* Prevent iOS Safari auto-zoom when focusing inputs */
+  input[type="text"],
+  input[type="number"],
+  select {
+    font-size: 16px !important;
+  }
+
+  /* Mobile Stage Preview adjustments */
+  .preview-stage {
+    padding: 2.8rem 0.5rem 1.25rem;
+    min-height: 240px;
+  }
+
+  .stage-header-toolbar {
+    left: 0.5rem;
+    right: 0.5rem;
+    top: 8px;
+  }
+
+  .stage-zoom-controls .zoom-btn[data-zoom="actual"],
+  .stage-zoom-controls #btn-reset-labels {
+    display: none;
+  }
+
+  /* Scrollable Climbs Table */
+  .climbs-panel {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .climbs-table {
+    min-width: 440px;
+  }
+
+  /* Touch Target Enhancements */
+  .pill-opt {
+    min-height: 32px;
+    padding: 0.35rem 0.55rem;
+  }
+
+  .checkbox-row {
+    padding: 0.25rem 0;
+  }
+
+  .checkbox-row input {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* Responsive Print Studio Modal */
+  .modal-dialog.print-studio-dialog {
+    max-height: 96vh;
+    border-radius: 8px;
+  }
+
+  .modal-footer.print-studio-footer {
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .modal-footer .footer-left,
+  .modal-footer .footer-right {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .modal-footer .footer-left .btn,
+  .modal-footer .footer-right .btn {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  header.app-header {
+    padding: 0 0.5rem;
+  }
+
+  .brand-title {
+    font-size: 0.85rem;
+  }
+
+  .brand-logo {
+    width: 24px;
+    height: 24px;
+  }
+
+  .mobile-tab-btn span {
+    font-size: 0.74rem;
+  }
+
+  .stats-strip {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.45rem;
+  }
+
+  .stat-item {
+    padding: 0.45rem 0.6rem;
+  }
+
+  .stat-value {
+    font-size: 1.05rem;
+  }
+}
 

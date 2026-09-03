@@ -56,13 +56,21 @@ export function updateUI() {
     } else {
       svgHost.innerHTML = `
         <div class="empty-msg">
-          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
             <polyline points="17 8 12 3 7 8"></polyline>
             <line x1="12" y1="3" x2="12" y2="15"></line>
           </svg>
           <h3>No GPX Track Loaded</h3>
-          <p>Drop GPX track file here or click to browse</p>
+          <p>Tap to select a GPX file (or drop on desktop)</p>
+          <span class="btn btn-secondary empty-browse-btn" style="margin-top:0.35rem; pointer-events:none;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            Choose GPX File
+          </span>
         </div>
       `;
     }
@@ -79,6 +87,10 @@ export function updateUI() {
   const { dFactor, eFactor } = getUnitFactors(cfg.units);
   const { dist: distUnit, ele: eleUnit } = getUnitLabels(cfg.units);
   const routeStatusText = document.getElementById('route-status-text');
+  const climbsCount = state.climbs ? state.climbs.length : 0;
+
+  const mobileClimbsCount = document.getElementById('mobile-climbs-count');
+  if (mobileClimbsCount) mobileClimbsCount.textContent = `${climbsCount}`;
 
   if (hasData) {
     const distFormatted = `${(stats.totalDist * dFactor).toFixed(1)} ${distUnit}`;
@@ -93,7 +105,7 @@ export function updateUI() {
     if (statDist) statDist.textContent = distFormatted;
     if (statGain) statGain.textContent = gainFormatted;
     if (statMaxGrade) statMaxGrade.textContent = maxGradeFormatted;
-    if (statClimbs) statClimbs.textContent = `${state.climbs ? state.climbs.length : 0}`;
+    if (statClimbs) statClimbs.textContent = `${climbsCount}`;
 
     if (routeStatusText) {
       const title = cfg.title || 'Active Track';
@@ -187,6 +199,12 @@ function initActions() {
         if (labelInput) labelInput.focus();
       }
     });
+  }
+
+  // Header Load GPX button trigger
+  const btnLoadGpx = document.getElementById('btn-load-gpx');
+  if (btnLoadGpx && fin) {
+    btnLoadGpx.addEventListener('click', () => fin.click());
   }
 
   // Stage Zoom Controls (Large / Max / 1:1 Actual)
@@ -300,6 +318,40 @@ function initActions() {
 }
 
 /**
+ * Toggles active mobile workstation tab ('preview' | 'design' | 'climbs').
+ *
+ * @param {'preview'|'design'|'climbs'} tab - Active tab identifier
+ */
+export function setMobileTab(tab) {
+  const tabBtns = document.querySelectorAll('.mobile-tab-btn');
+  const appLayout = document.getElementById('app-layout') || document.querySelector('.app-layout');
+  if (!appLayout) return;
+
+  tabBtns.forEach(btn => {
+    if (btn.dataset.tab === tab) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+
+  appLayout.setAttribute('data-mobile-tab', tab);
+}
+
+/**
+ * Initializes listeners for the mobile segmented tab navigation strip.
+ */
+function initMobileTabs() {
+  const tabBtns = document.querySelectorAll('.mobile-tab-btn');
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+      if (tab) setMobileTab(tab);
+    });
+  });
+}
+
+/**
  * Initializes application modules and registers store subscriptions.
  */
 export function initApp() {
@@ -310,6 +362,7 @@ export function initApp() {
   initDragEngine(store);
   initPrintModal(store);
   initActions();
+  initMobileTabs();
 
   // Reactive store subscription
   store.subscribe((state, event) => {
@@ -321,6 +374,10 @@ export function initApp() {
     if (event === 'track:loaded' || event === 'payload:loaded') {
       syncFormControls(state);
       updateBlockSizePills(store);
+      // Auto-focus preview on mobile when track is loaded
+      if (typeof window !== 'undefined' && window.innerWidth <= 900) {
+        setMobileTab('preview');
+      }
     }
   });
 
