@@ -89,11 +89,11 @@ $$\text{Score} = \text{Distance (km)} \times (\text{AvgGrade}_{\%})^2 = \left(\f
 
 | Category | Difficulty Score Bracket | Elevation Gain Qualifier |
 | :--- | :--- | :--- |
-| **HC (Hors Catégorie)** | $\text{Score} \ge 1600$ | or $\text{Gain} \ge 1000\text{m}$ |
-| **Cat 1** | $1000 \le \text{Score} < 1600$ | or $\text{Gain} \ge 600\text{m}$ |
-| **Cat 2** | $600 \le \text{Score} < 1000$ | or $\text{Gain} \ge 350\text{m}$ |
-| **Cat 3** | $300 \le \text{Score} < 600$ | or $\text{Gain} \ge 180\text{m}$ |
-| **Cat 4** | $150 \le \text{Score} < 300$ | or $\text{Gain} \ge 80\text{m}$ ($\text{Length} \ge 500\text{m}, \text{Grade} \ge 3\%$) |
+| **HC (Hors Catégorie)** | $\text{Score} \ge 600$ | or $\text{Gain} \ge 800\text{m}$ |
+| **Cat 1** | $300 \le \text{Score} < 600$ | or $\text{Gain} \ge 500\text{m}$ |
+| **Cat 2** | $150 \le \text{Score} < 300$ | or $\text{Gain} \ge 250\text{m}$ |
+| **Cat 3** | $75 \le \text{Score} < 150$ | or $\text{Gain} \ge 120\text{m}$ |
+| **Cat 4** | $20 \le \text{Score} < 75$ | or $\text{Gain} \ge 40\text{m}$ ($\text{Length} \ge 500\text{m}, \text{Grade} \ge 3\%$) |
 
 ---
 

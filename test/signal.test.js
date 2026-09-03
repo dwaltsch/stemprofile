@@ -120,7 +120,7 @@ describe('Signal Module: Spatial Discretization', () => {
 describe('Signal Module: UCI Climb Detection', () => {
   it('detects and categorizes sustained Hors Catégorie (HC) climbs', () => {
     // 15 km climb with 1200m elevation gain (8% avg grade)
-    // Score = 15 * 8^2 = 960 (with Gain >= 1000m -> HC)
+    // Score = 15 * 8^2 = 960 (Score >= 600 -> HC)
     const points = [];
     for (let i = 0; i <= 150; i++) {
       const dist = i * 100;
@@ -134,6 +134,78 @@ describe('Signal Module: UCI Climb Detection', () => {
     assert.equal(climbs[0].category, 'HC');
     assert.equal(climbs[0].gainM, 1200);
     assert.equal(climbs[0].avgGrade, 8.0);
+  });
+
+  it('detects and categorizes Category 1 climbs', () => {
+    // 8 km climb with 560m elevation gain (7% avg grade)
+    // Score = 8 * 7^2 = 392 (300 <= Score < 600 -> Cat 1)
+    const points = [];
+    for (let i = 0; i <= 80; i++) {
+      const dist = i * 100;
+      const smoothEle = (dist / 8000) * 560;
+      const grade = 7.0;
+      points.push({ dist, smoothEle, rawEle: smoothEle, grade, zone: 1 });
+    }
+
+    const climbs = detectClimbs(points);
+    assert.ok(climbs.length >= 1, 'Should detect Cat 1 climb');
+    assert.equal(climbs[0].category, 'Cat 1');
+    assert.equal(climbs[0].gainM, 560);
+    assert.equal(climbs[0].avgGrade, 7.0);
+  });
+
+  it('detects and categorizes Category 2 climbs', () => {
+    // 4 km climb with 280m elevation gain (7% avg grade)
+    // Score = 4 * 7^2 = 196 (150 <= Score < 300 -> Cat 2)
+    const points = [];
+    for (let i = 0; i <= 40; i++) {
+      const dist = i * 100;
+      const smoothEle = (dist / 4000) * 280;
+      const grade = 7.0;
+      points.push({ dist, smoothEle, rawEle: smoothEle, grade, zone: 1 });
+    }
+
+    const climbs = detectClimbs(points);
+    assert.ok(climbs.length >= 1, 'Should detect Cat 2 climb');
+    assert.equal(climbs[0].category, 'Cat 2');
+    assert.equal(climbs[0].gainM, 280);
+    assert.equal(climbs[0].avgGrade, 7.0);
+  });
+
+  it('detects and categorizes Category 3 climbs', () => {
+    // 2 km climb with 140m elevation gain (7% avg grade)
+    // Score = 2 * 7^2 = 98 (75 <= Score < 150 -> Cat 3)
+    const points = [];
+    for (let i = 0; i <= 20; i++) {
+      const dist = i * 100;
+      const smoothEle = (dist / 2000) * 140;
+      const grade = 7.0;
+      points.push({ dist, smoothEle, rawEle: smoothEle, grade, zone: 1 });
+    }
+
+    const climbs = detectClimbs(points);
+    assert.ok(climbs.length >= 1, 'Should detect Cat 3 climb');
+    assert.equal(climbs[0].category, 'Cat 3');
+    assert.equal(climbs[0].gainM, 140);
+    assert.equal(climbs[0].avgGrade, 7.0);
+  });
+
+  it('detects and categorizes Category 4 climbs', () => {
+    // 1.2 km climb with 66m elevation gain (5.5% avg grade)
+    // Score = 1.2 * 5.5^2 = 36.3 (20 <= Score < 75 -> Cat 4)
+    const points = [];
+    for (let i = 0; i <= 24; i++) {
+      const dist = i * 50;
+      const smoothEle = (dist / 1200) * 66;
+      const grade = 5.5;
+      points.push({ dist, smoothEle, rawEle: smoothEle, grade, zone: 1 });
+    }
+
+    const climbs = detectClimbs(points);
+    assert.ok(climbs.length >= 1, 'Should detect Cat 4 climb');
+    assert.equal(climbs[0].category, 'Cat 4');
+    assert.equal(climbs[0].gainM, 66);
+    assert.equal(climbs[0].avgGrade, 5.5);
   });
 
   it('rejects minor bumps below minimum length or gradient threshold', () => {

@@ -187,12 +187,12 @@ export function buildSpatialBlocks(points, totalDist, blockSizeM = 1000) {
  * standard Grand Tour stage roadbooks and the standard cycling difficulty index:
  *   Score = (Length_km) * (AvgGrade)^2 = (Length_m / 1000) * (AvgGrade)^2
  *
- * Calibrated threshold brackets:
- * - Cat 4: 150 <= Score < 300 (or Gain >= 80m)
- * - Cat 3: 300 <= Score < 600
- * - Cat 2: 600 <= Score < 1000
- * - Cat 1: 1000 <= Score < 1600
- * - HC (Hors Catégorie): Score >= 1600 (or Gain >= 1000m)
+ * Standard cycling difficulty threshold brackets:
+ * - Cat 4: 20 <= Score < 75 (or Gain >= 40m)
+ * - Cat 3: 75 <= Score < 150 (or Gain >= 120m)
+ * - Cat 2: 150 <= Score < 300 (or Gain >= 250m)
+ * - Cat 1: 300 <= Score < 600 (or Gain >= 500m)
+ * - HC (Hors Catégorie): Score >= 600 (or Gain >= 800m)
  *
  * @param {ProfilePoint[]} points - Filtered profile points array
  * @param {number} [minGainM=35] - Minimum required elevation gain in meters
@@ -249,7 +249,7 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 500, minGradePc
         // Standard Cycling Difficulty Index: (Distance_km) * (AvgGrade)^2
         const difficultyScore = (climbLen / 1000) * Math.pow(avgGrade, 2);
 
-        if ((difficultyScore >= 150 || climbGain >= 80) && climbLen >= minLengthM && avgGrade >= minGradePct) {
+        if ((difficultyScore >= 20 || climbGain >= 40) && climbLen >= minLengthM && avgGrade >= minGradePct && climbGain >= minGainM) {
           let maxG = 0;
           for (let k = startIdx; k <= climbPeakIdx; k++) {
             if (points[k].grade > maxG) maxG = points[k].grade;
@@ -257,13 +257,13 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 500, minGradePc
 
           // Calibrated category brackets
           let category = 'Cat 4';
-          if (difficultyScore >= 1600 || climbGain >= 1000) {
+          if (difficultyScore >= 600 || climbGain >= 800) {
             category = 'HC';
-          } else if (difficultyScore >= 1000 || climbGain >= 600) {
+          } else if (difficultyScore >= 300 || climbGain >= 500) {
             category = 'Cat 1';
-          } else if (difficultyScore >= 600 || climbGain >= 350) {
+          } else if (difficultyScore >= 150 || climbGain >= 250) {
             category = 'Cat 2';
-          } else if (difficultyScore >= 300 || climbGain >= 180) {
+          } else if (difficultyScore >= 75 || climbGain >= 120) {
             category = 'Cat 3';
           } else {
             category = 'Cat 4';
