@@ -13,6 +13,7 @@ import {
   buildSpatialBlocks,
   detectClimbs,
   processTrackSignal,
+  despikeElevations,
   matchWaypointsToTrack,
   EARTH_RADIUS_METERS
 } from '../js/signal.js';
@@ -284,6 +285,116 @@ describe('Signal Module: Track Processing Pipeline', () => {
     for (const p of points) {
       assert.ok(!isNaN(p.grade));
       assert.equal(p.grade, 0);
+    }
+  });
+
+  it('calculates accurate max gradient on short 1-2% tracks and avoids false 28% spikes from micro-steps', () => {
+    // 200m track climbing 3m total (1.5% average gradient)
+    // with an isolated 1m / 15m elevation glitch at point 20
+    const shortTrack = [];
+    for (let i = 0; i <= 40; i++) {
+      shortTrack.push({
+        lat: 45.0 + i * 0.000045, // ~5m spacing
+        lon: 6.0,
+        ele: 100 + (i * 5) * 0.015 // 1.5% constant slope
+      });
+    }
+    // Defective point: 1m/15m spike
+    shortTrack[20].ele += 15;
+
+    const { stats, points } = processTrackSignal(shortTrack, 7, 1000);
+    assert.ok(stats.totalDist > 180 && stats.totalDist < 220);
+    // Crucial check: Max grade must remain near 1.5% and NOT spike to 28%
+    assert.ok(stats.maxGrade < 3.0, `Expected maxGrade ~1.5%, but got ${stats.maxGrade}%`);
+    assert.ok(stats.maxGrade >= 1.0, `Expected maxGrade >= 1.0%, got ${stats.maxGrade}%`);
+
+    // Individual point grades should also be bounded and realistic
+    for (const p of points) {
+      assert.ok(p.grade < 5.0, `Point grade exceeded realistic boundary: ${p.grade}%`);
+    }
+  });
+
+  it('rejects downhill drops from being counted as positive max climb gradient', () => {
+    // 500m pure downhill descent: -8% gradient
+    const downhill = [];
+    for (let i = 0; i <= 25; i++) {
+      const dist = i * 20;
+      downhill.push({ dist, ele: 200 - dist * 0.08 });
+    }
+
+    const { stats } = processTrackSignal(downhill, 5, 500);
+    assert.equal(stats.elevGain, 0);
+    assert.ok(stats.elevLoss > 35);
+    // Max climb gradient on a pure downhill must be 0, not positive 8% or 28%
+    assert.equal(stats.maxGrade, 0);
+  });
+
+  it('handles short tracks under 50m without NaN or division-by-zero artifacts', () => {
+    // Very short 30m segment with 0.5m elevation rise (~1.7% grade)
+    const shortCoords = [
+      { lat: 45.0000, lon: 6.0000, ele: 100.0 },
+      { lat: 45.0001, lon: 6.0000, ele: 100.2 },
+      { lat: 45.0002, lon: 6.0000, ele: 100.3 },
+      { lat: 45.0003, lon: 6.0000, ele: 100.5 }
+    ];
+
+    const { stats } = processTrackSignal(shortCoords, 3, 100);
+    assert.ok(stats.totalDist > 25 && stats.totalDist < 40);
+    assert.ok(!isNaN(stats.maxGrade));
+    assert.ok(stats.maxGrade < 5.0, `Expected maxGrade < 5%, got ${stats.maxGrade}%`);
+  });
+});
+
+describe('Signal Module: Elevation Despiking & Outlier Rejection', () => {
+  it('removes isolated 1-point impulse elevation artifacts without altering neighbors', () => {
+    const coords = [
+      { ele: 100.0 },
+      { ele: 100.1 },
+      { ele: 100.2 },
+      { ele: 128.0 }, // Defective 1-point spike (+27.8m)
+      { ele: 100.3 },
+      { ele: 100.4 }
+    ];
+    const cumD = [0, 10, 20, 25, 30, 40];
+
+    const despiked = despikeElevations(coords, cumD);
+    assert.equal(despiked[0], 100.0);
+    assert.equal(despiked[1], 100.1);
+    assert.equal(despiked[2], 100.2);
+    assert.ok(Math.abs(despiked[3] - 100.25) < 0.1, `Expected despiked ~100.25, got ${despiked[3]}`);
+    assert.equal(despiked[4], 100.3);
+    assert.equal(despiked[5], 100.4);
+  });
+
+  it('removes 2-point sensor jump spikes', () => {
+    const coords = [
+      { ele: 200.0 },
+      { ele: 200.1 },
+      { ele: 240.0 }, // 2-point barometric jump (+40m)
+      { ele: 240.0 },
+      { ele: 200.2 },
+      { ele: 200.3 }
+    ];
+    const cumD = [0, 10, 15, 17, 25, 35];
+
+    const despiked = despikeElevations(coords, cumD);
+    assert.ok(despiked[2] < 205.0, `Expected despiked point 2 < 205, got ${despiked[2]}`);
+    assert.ok(despiked[3] < 205.0, `Expected despiked point 3 < 205, got ${despiked[3]}`);
+  });
+
+  it('preserves true steep mountain slopes (e.g. 20% Koppenberg) and summits', () => {
+    // 20% sustained wall over 200m
+    const koppenberg = [];
+    const cumD = [];
+    for (let i = 0; i <= 20; i++) {
+      const dist = i * 10;
+      cumD.push(dist);
+      koppenberg.push({ ele: 100 + dist * 0.20 });
+    }
+
+    const despiked = despikeElevations(koppenberg, cumD);
+    for (let i = 0; i < koppenberg.length; i++) {
+      assert.equal(despiked[i], koppenberg[i].ele, `Slope point ${i} should be unchanged`);
     }
   });
 });

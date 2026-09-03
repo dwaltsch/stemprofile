@@ -278,7 +278,7 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 500, minGradePc
             gainM: Math.round(climbGain),
             summitEle: Math.round(points[climbPeakIdx].smoothEle),
             avgGrade: parseFloat(avgGrade.toFixed(1)),
-            maxGrade: parseFloat(Math.min(28.0, maxG).toFixed(1))
+            maxGrade: parseFloat(Math.min(35.0, maxG).toFixed(1))
           });
         }
 
@@ -291,6 +291,66 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 500, minGradePc
   }
 
   return climbs;
+}
+
+/**
+ * Removes isolated single-point and two-point impulse elevation artifacts (sensor glitches,
+ * barometric step jumps, zero-drops) before moving average smoothing.
+ *
+ * Preserves true mountain summits and steep sustained climbs (e.g. 20-30% walls).
+ *
+ * @param {Array<{ele: number}>} coords - Normalized coordinates
+ * @param {number[]} cumDistances - Cumulative distances in meters
+ * @returns {number[]} Cleaned elevation array
+ */
+export function despikeElevations(coords, cumDistances) {
+  const N = coords.length;
+  if (N < 3) return coords.map(c => (c && c.ele !== undefined ? Number(c.ele) : 0));
+
+  const cleanEles = coords.map(c => (c && c.ele !== undefined ? Number(c.ele) : 0));
+
+  // Pass 1: 1-point impulse spike removal
+  for (let i = 1; i < N - 1; i++) {
+    const prevE = cleanEles[i - 1];
+    const currE = cleanEles[i];
+    const nextE = cleanEles[i + 1];
+
+    const dTotal = cumDistances[i + 1] - cumDistances[i - 1];
+    const baseline = (prevE + nextE) / 2;
+    const deviation = Math.abs(currE - baseline);
+    // Physical maximum road slope is ~35%
+    const maxPlausible = Math.max(1.5, dTotal * 0.35);
+    const neighborDiff = Math.abs(nextE - prevE);
+
+    // If point deviates beyond physically possible gradient and neighbors agree
+    if (deviation > maxPlausible && deviation > neighborDiff * 1.5) {
+      cleanEles[i] = baseline;
+    }
+  }
+
+  // Pass 2: 2-point impulse step removal
+  for (let i = 1; i < N - 2; i++) {
+    const prevE = cleanEles[i - 1];
+    const curr1 = cleanEles[i];
+    const curr2 = cleanEles[i + 1];
+    const nextE = cleanEles[i + 2];
+
+    const dTotal = cumDistances[i + 2] - cumDistances[i - 1];
+    const baseline1 = prevE + (nextE - prevE) * (1 / 3);
+    const baseline2 = prevE + (nextE - prevE) * (2 / 3);
+    const maxPlausible = Math.max(2.0, dTotal * 0.35);
+
+    const dev1 = Math.abs(curr1 - baseline1);
+    const dev2 = Math.abs(curr2 - baseline2);
+    const neighborDiff = Math.abs(nextE - prevE);
+
+    if (dev1 > maxPlausible && dev2 > maxPlausible && Math.min(dev1, dev2) > neighborDiff * 1.5) {
+      cleanEles[i] = baseline1;
+      cleanEles[i + 1] = baseline2;
+    }
+  }
+
+  return cleanEles;
 }
 
 /**
@@ -326,6 +386,9 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
     cumDistances.push(runningDist);
   }
 
+  // 1b. Adaptive Elevation Despiking (Rejects isolated impulse glitches)
+  const cleanedEles = despikeElevations(normCoords, cumDistances);
+
   // 2. Moving Average Elevation Smoothing (eliminates barometric/GPS jitter)
   const W = Math.max(1, smoothingWindow);
   const halfW = Math.floor(W / 2);
@@ -337,7 +400,7 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
     const start = Math.max(0, i - halfW);
     const end = Math.min(N - 1, i + halfW);
     for (let j = start; j <= end; j++) {
-      sum += normCoords[j].ele;
+      sum += cleanedEles[j];
       count++;
     }
     smoothedEles[i] = sum / count;
@@ -346,9 +409,6 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
   // 3. Robust Baseline Slope Calculation
   const rawGrades = new Array(N).fill(0);
   for (let i = 1; i < N; i++) {
-    const deltaD = cumDistances[i] - cumDistances[i - 1];
-    const deltaE = smoothedEles[i] - smoothedEles[i - 1];
-
     // Compute slope over a stable ~20-30m baseline window
     let bIdx = i - 1;
     while (bIdx > 0 && (cumDistances[i] - cumDistances[bIdx]) < 15) {
@@ -359,21 +419,38 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
       fIdx++;
     }
 
-    const baseD = cumDistances[fIdx] - cumDistances[bIdx];
-    const baseE = smoothedEles[fIdx] - smoothedEles[bIdx];
+    let baseD = cumDistances[fIdx] - cumDistances[bIdx];
+    let baseE = smoothedEles[fIdx] - smoothedEles[bIdx];
+
+    // If baseD is too small because points are clustered or track is short:
+    // expand window further to find a stable baseline of at least 15-20m if track permits
+    if (baseD < 15 && runningDist >= 15) {
+      while (bIdx > 0 && baseD < 20) {
+        bIdx--;
+        baseD = cumDistances[fIdx] - cumDistances[bIdx];
+      }
+      while (fIdx < N - 1 && baseD < 20) {
+        fIdx++;
+        baseD = cumDistances[fIdx] - cumDistances[bIdx];
+      }
+      baseE = smoothedEles[fIdx] - smoothedEles[bIdx];
+    }
 
     let g = 0;
-    if (baseD > 8) {
+    if (baseD >= 5) {
       g = (baseE / baseD) * 100;
-    } else if (deltaD > 0.5) {
-      g = (deltaE / deltaD) * 100;
+    } else if (runningDist > 0) {
+      // For ultra-short tracks under 5m, use whole track grade
+      const wholeD = cumDistances[N - 1] - cumDistances[0];
+      const wholeE = smoothedEles[N - 1] - smoothedEles[0];
+      g = wholeD > 2 ? (wholeE / wholeD) * 100 : 0;
     }
 
     if (!isFinite(g) || isNaN(g)) g = 0;
 
-    // Clamp instantaneous slope
-    if (g > 30) g = 30;
-    if (g < -30) g = -30;
+    // Clamp instantaneous slope to physical bounds
+    if (g > 35) g = 35;
+    if (g < -35) g = -35;
     rawGrades[i] = g;
   }
 
@@ -428,21 +505,38 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
     points.push({ dist, rawEle, smoothEle, grade: parseFloat(safeGrade.toFixed(1)), zone });
   }
 
-  // Sustained Max Gradient: Evaluated over >= 50m to avoid single-point spikes
+  // Sustained Max Gradient: Evaluated over sustained distance to avoid micro-spikes.
+  // Grand Tour and pro roadbooks evaluate max climb pitch over 50-100m.
+  // For short tracks (< 100m), adapt the minimum span proportionally to track length.
+  const targetSpan = Math.min(50, Math.max(15, runningDist * 0.25));
+  const minSpan = Math.min(30, Math.max(10, runningDist * 0.15));
+
   let maxSustainedGrade = 0;
   for (let i = 0; i < N; i++) {
     let j = i;
-    while (j < N - 1 && (cumDistances[j] - cumDistances[i]) < 50) {
+    while (j < N - 1 && (cumDistances[j] - cumDistances[i]) < targetSpan) {
       j++;
     }
     const spanD = cumDistances[j] - cumDistances[i];
-    if (spanD >= 35) {
-      const spanG = Math.abs((smoothedEles[j] - smoothedEles[i]) / spanD) * 100;
-      if (isFinite(spanG) && spanG > maxSustainedGrade) maxSustainedGrade = spanG;
+    if (spanD >= minSpan) {
+      // Max gradient is the steepest ASCENT slope (positive climbing pitch)
+      const deltaE = smoothedEles[j] - smoothedEles[i];
+      if (deltaE > 0) {
+        const spanG = (deltaE / spanD) * 100;
+        if (isFinite(spanG) && spanG > maxSustainedGrade) {
+          maxSustainedGrade = spanG;
+        }
+      }
     }
   }
 
-  const maxGrade = Math.min(28.0, isFinite(maxSustainedGrade) ? parseFloat(maxSustainedGrade.toFixed(1)) : 0);
+  // Fallback for short tracks where spanD might be smaller than minSpan (e.g. runningDist < 10m)
+  if (maxSustainedGrade === 0 && totalGain > 0 && runningDist > 0) {
+    const avgRouteGrade = (totalGain / runningDist) * 100;
+    maxSustainedGrade = isFinite(avgRouteGrade) ? avgRouteGrade : 0;
+  }
+
+  const maxGrade = Math.min(35.0, isFinite(maxSustainedGrade) ? parseFloat(maxSustainedGrade.toFixed(1)) : 0);
 
   // 6. Spatial Blocks & Climbs
   const blocks = buildSpatialBlocks(points, runningDist, blockSizeM);
