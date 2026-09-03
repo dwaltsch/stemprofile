@@ -1,31 +1,39 @@
 /**
  * File Ingestion & Drag-and-Drop Target UI Module
  *
- * Manages GPX file ingestion, drag-over visual feedback, and error reporting.
+ * Manages route file ingestion (GPX, TCX, etc.), drag-over visual feedback, and error reporting.
  *
  * @module ui/dropzone
  */
 
-import { parseGPX } from '../parser.js';
+import { parseRouteFile, getSupportedExtensions, isBinaryExtension } from '../parser.js';
 import { showToast } from './toast.js';
 
 /**
- * Parses and ingests a GPX file into the store.
+ * Parses and ingests a route file into the store.
+ * Supports text formats (GPX, TCX) and binary formats (e.g. FIT).
  *
- * @param {File} file - User-selected GPX file
+ * @param {File} file - User-selected route file
  * @param {import('../store.js').StemStore} store - Application store
  */
-export function handleGPXFile(file, store) {
-  if (!file || !file.name.toLowerCase().endsWith('.gpx')) {
-    showToast('Please upload a valid .gpx file.', 'warning');
+export function handleRouteFile(file, store) {
+  if (!file) return;
+
+  const supported = getSupportedExtensions();
+  const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
+
+  if (!supported.includes(ext)) {
+    showToast(`Please upload a supported route file (${supported.join(', ')}).`, 'warning');
     return;
   }
 
+  const isBinary = isBinaryExtension(file.name);
   const reader = new FileReader();
+
   reader.onload = function(evt) {
     try {
-      const { title, coords, rawWaypoints } = parseGPX(evt.target.result);
-      const stageTitle = title || file.name.replace(/\.gpx$/i, '');
+      const { title, coords, rawWaypoints } = parseRouteFile(evt.target.result, file.name);
+      const stageTitle = title || file.name.replace(/\.[^.]+$/i, '');
       store.setTrack({
         title: stageTitle,
         coords,
@@ -33,14 +41,25 @@ export function handleGPXFile(file, store) {
       });
       showToast(`Loaded ${file.name} (${coords.length} points)`, 'success');
     } catch (err) {
-      showToast('Error parsing GPX: ' + err.message, 'error');
+      showToast('Error parsing file: ' + err.message, 'error');
     }
   };
+
   reader.onerror = function() {
     showToast('Failed to read file from disk.', 'error');
   };
-  reader.readAsText(file);
+
+  if (isBinary) {
+    reader.readAsArrayBuffer(file);
+  } else {
+    reader.readAsText(file);
+  }
 }
+
+/**
+ * Backward-compatible alias for handleRouteFile.
+ */
+export const handleGPXFile = handleRouteFile;
 
 /**
  * Initializes dropzone listeners on the workbench stage and window.
@@ -92,7 +111,7 @@ export function initDropzone(store) {
       previewStage.classList.remove('dragover');
       const files = e.dataTransfer ? e.dataTransfer.files : null;
       if (files && files.length > 0) {
-        handleGPXFile(files[0], store);
+        handleRouteFile(files[0], store);
       }
     });
   }
@@ -100,7 +119,7 @@ export function initDropzone(store) {
   if (fin) {
     fin.addEventListener('change', e => {
       if (e.target.files && e.target.files.length > 0) {
-        handleGPXFile(e.target.files[0], store);
+        handleRouteFile(e.target.files[0], store);
       }
     });
   }

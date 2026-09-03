@@ -9,8 +9,8 @@
 </head>
 <body>
 
-  <!-- Hidden GPX File Input -->
-  <input type="file" id="file-input" accept=".gpx" style="display:none;" />
+  <!-- Hidden Route File Input -->
+  <input type="file" id="file-input" accept=".gpx,.tcx" style="display:none;" />
 
   <!-- Top Navigation Header -->
   <header class="app-header">
@@ -40,13 +40,13 @@
 
     <!-- Action Suite -->
     <div class="actions">
-      <button class="btn btn-secondary" id="btn-load-gpx" title="Load GPX track file">
+      <button class="btn btn-secondary" id="btn-load-gpx" title="Load route file (GPX, TCX)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
           <polyline points="17 8 12 3 7 8"></polyline>
           <line x1="12" y1="3" x2="12" y2="15"></line>
         </svg>
-        <span class="btn-text">Load GPX</span>
+        <span class="btn-text">Load Route</span>
       </button>
 
       <button class="btn btn-icon" id="btn-theme-toggle" title="Toggle Light/Dark Theme">
