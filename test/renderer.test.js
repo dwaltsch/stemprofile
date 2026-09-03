@@ -193,4 +193,62 @@ describe('Renderer Module: SVG Profile Generation', () => {
       assert.ok(svg.includes(`background:${THEMES[theme].bg}`), `Theme ${theme} failed`);
     }
   });
+
+  it('renders route title in the SVG header', () => {
+    const coords = [
+      { lat: 45.0, lon: 6.0, ele: 500 },
+      { lat: 45.1, lon: 6.1, ele: 1000 }
+    ];
+    const { points, stats, climbs, blocks } = processTrackSignal(coords, 3, 1000);
+    const svgWithTimestamp = renderProfileSVG(points, stats, climbs, blocks, [], {
+      ...DEFAULT_SETTINGS,
+      title: '2026-09-03T07:31:52.000Z',
+      showHeader: true
+    });
+
+    // When the title is set (even if timestamp), it should be rendered
+    assert.ok(svgWithTimestamp.includes('2026-09-03T07:31:52.000Z'));
+    // Telemetry stats must still be rendered
+    assert.ok(svgWithTimestamp.includes('Max'));
+  });
+
+  it('prevents tick mark and unit text overlap when last tick is at the end of the route (e.g. 60km on 60.3km stage)', () => {
+    // Synthetic 60.3km route
+    const coords = [
+      { dist: 0, ele: 460 },
+      { dist: 30000, ele: 405 },
+      { dist: 60300, ele: 420 }
+    ];
+    const { points, stats, climbs, blocks } = processTrackSignal(coords, 3, 1000);
+    const svg = renderProfileSVG(points, stats, climbs, blocks, [], {
+      ...DEFAULT_SETTINGS,
+      units: 'metric',
+      showDistanceTicks: true
+    });
+
+    // Contains the 60 tick
+    assert.ok(svg.includes('>60<'));
+    // Does NOT contain separate overlapping "km" label on the distance axis
+    // (the only "km" in the SVG should be in the stats header)
+    const kmMatches = svg.match(/>km</g) || [];
+    assert.equal(kmMatches.length, 0, 'Should not render separate overlapping >km< on distance axis');
+  });
+
+  it('displays unit text at end when there is ample room past the last tick (e.g. 75km)', () => {
+    // Synthetic 75km route (last tick is 70km, 5km clearance to end)
+    const coords = [
+      { dist: 0, ele: 500 },
+      { dist: 75000, ele: 600 }
+    ];
+    const { points, stats, climbs, blocks } = processTrackSignal(coords, 3, 1000);
+    const svg = renderProfileSVG(points, stats, climbs, blocks, [], {
+      ...DEFAULT_SETTINGS,
+      units: 'metric',
+      showDistanceTicks: true
+    });
+
+    // Contains both the 70 tick and the km unit
+    assert.ok(svg.includes('>70<'));
+    assert.ok(svg.includes('>km<'));
+  });
 });

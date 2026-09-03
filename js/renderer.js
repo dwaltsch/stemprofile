@@ -476,19 +476,38 @@ export function renderProfileSVG(
     let stepKm = totalDistU > 100 ? 25 : (totalDistU > 50 ? 10 : (totalDistU > 20 ? 5 : 2));
     const stepMeters = stepKm / dFactor;
     const numTicks = Math.floor(stats.totalDist / stepMeters);
+    const endX = padLeft + plotW;
+    const lastTickX = numTicks > 0 ? toX(numTicks * stepMeters) : 0;
+    const distToEnd = endX - lastTickX;
+    const showEndUnit = distToEnd >= 6.0;
 
     for (let t = 1; t <= numTicks; t++) {
       const tickDist = t * stepMeters;
-      const x = toX(tickDist).toFixed(2);
+      const x = toX(tickDist);
+      const isLastTick = (t === numTicks);
+
+      let tickXStr = x.toFixed(2);
+      let textAnchor = 'middle';
+
+      // If the last tick is extremely close to the right edge (within 2.5mm), anchor it to end
+      if (isLastTick && distToEnd < 2.5) {
+        tickXStr = endX.toFixed(2);
+        textAnchor = 'end';
+      }
+
       gridMarkup += `
-        <line x1="${x}" y1="${padTop.toFixed(2)}" x2="${x}" y2="${yBase.toFixed(2)}" stroke="${theme.grid}" stroke-width="0.25" stroke-dasharray="0.5,0.5"/>
-        <text x="${x}" y="${(yBase + 2.5).toFixed(2)}" fill="${theme.textMuted}" font-size="1.95" font-weight="800" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${t * stepKm}</text>
+        <line x1="${x.toFixed(2)}" y1="${padTop.toFixed(2)}" x2="${x.toFixed(2)}" y2="${yBase.toFixed(2)}" stroke="${theme.grid}" stroke-width="0.25" stroke-dasharray="0.5,0.5"/>
+        <text x="${tickXStr}" y="${(yBase + 2.5).toFixed(2)}" fill="${theme.textMuted}" font-size="1.95" font-weight="800" font-family="system-ui, -apple-system, sans-serif" text-anchor="${textAnchor}">${t * stepKm}</text>
       `;
     }
     gridMarkup += `
       <text x="${padLeft.toFixed(2)}" y="${(yBase + 2.5).toFixed(2)}" fill="${theme.textMuted}" font-size="1.95" font-weight="800" font-family="system-ui, -apple-system, sans-serif" text-anchor="start">0</text>
-      <text x="${(padLeft + plotW).toFixed(2)}" y="${(yBase + 2.5).toFixed(2)}" fill="${theme.textMuted}" font-size="1.8" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="end">${distUnit}</text>
     `;
+    if (showEndUnit) {
+      gridMarkup += `
+        <text x="${endX.toFixed(2)}" y="${(yBase + 2.5).toFixed(2)}" fill="${theme.textMuted}" font-size="1.8" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="end">${distUnit}</text>
+      `;
+    }
   }
 
   // 4. Min / Max Altitude Labels

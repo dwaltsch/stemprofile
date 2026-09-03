@@ -13,6 +13,7 @@ import {
   parseTCX,
   parseFIT,
   isFitBuffer,
+  isIsoTimestamp,
   parseRouteFile,
   registerParser,
   getSupportedExtensions,
@@ -256,6 +257,50 @@ describe('Parser Module: TCX Ingestion', () => {
     assert.equal(result.coords.length, 2);
     assert.equal(result.coords[0].lat, 46.0);
     assert.equal(result.coords[1].lat, 46.1);
+  });
+
+  it('parses TCX activity Id as title when notes or course name are absent', () => {
+    const tcxXml = `<?xml version="1.0" encoding="UTF-8"?>
+    <TrainingCenterDatabase>
+      <Activities>
+        <Activity Sport="Biking">
+          <Id>2026-09-03T07:31:52.000Z</Id>
+          <Lap>
+            <Track>
+              <Trackpoint>
+                <Position>
+                  <LatitudeDegrees>46.0</LatitudeDegrees>
+                  <LongitudeDegrees>7.0</LongitudeDegrees>
+                </Position>
+                <AltitudeMeters>500</AltitudeMeters>
+              </Trackpoint>
+              <Trackpoint>
+                <Position>
+                  <LatitudeDegrees>46.1</LatitudeDegrees>
+                  <LongitudeDegrees>7.1</LongitudeDegrees>
+                </Position>
+                <AltitudeMeters>550</AltitudeMeters>
+              </Trackpoint>
+            </Track>
+          </Lap>
+        </Activity>
+      </Activities>
+    </TrainingCenterDatabase>`;
+
+    const result = parseTCX(tcxXml);
+    assert.equal(result.title, '2026-09-03T07:31:52.000Z');
+  });
+
+  it('correctly identifies ISO 8601 timestamps and date codes via isIsoTimestamp', () => {
+    assert.equal(isIsoTimestamp('2026-09-03T07:31:52.000Z'), true);
+    assert.equal(isIsoTimestamp('2026-09-03T07:31:52Z'), true);
+    assert.equal(isIsoTimestamp('2026-09-03 07:31:52'), true);
+    assert.equal(isIsoTimestamp('2026-09-03_07-31-52'), true);
+    assert.equal(isIsoTimestamp('Passo dello Stelvio'), false);
+    assert.equal(isIsoTimestamp('Stage 4 - Galibier'), false);
+    assert.equal(isIsoTimestamp('StemProfile'), false);
+    assert.equal(isIsoTimestamp(''), false);
+    assert.equal(isIsoTimestamp(null), false);
   });
 
   it('forward-fills missing elevation data in TCX', () => {

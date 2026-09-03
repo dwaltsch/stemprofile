@@ -365,7 +365,9 @@ export function computeBlockPctLayout({
     return { shouldRender: false, markup: '', nextRenderedTextX: lastRenderedTextX };
   }
 
-  const gradeVal = Math.round(block.absGrade);
+  const rawGrade = block.grade !== undefined ? block.grade : (block.absGrade || 0);
+  const roundedGrade = Math.round(rawGrade);
+  const gradeVal = Object.is(roundedGrade, -0) || roundedGrade === 0 ? 0 : roundedGrade;
   const gradeText = `${gradeVal}%`;
 
   // Dynamic adaptive contrast based on zone and theme brightness

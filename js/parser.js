@@ -43,6 +43,19 @@
  * @throws {Error} When XML syntax is invalid or no trackpoints are found
  */
 /**
+ * Detects whether a string matches an ISO 8601 timestamp or activity date-time code
+ * (e.g. "2026-09-03T07:31:52.000Z", "2026-09-03 07:31:52", "2026-09-03_07-31-52").
+ *
+ * @param {string} str - Candidate string
+ * @returns {boolean} True if string matches ISO timestamp format
+ */
+export function isIsoTimestamp(str) {
+  if (!str || typeof str !== 'string') return false;
+  const trimmed = str.trim();
+  return /^\d{4}-\d{2}-\d{2}[T\s_]\d{2}[:\.-]\d{2}([:\.-]\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?$/i.test(trimmed);
+}
+
+/**
  * Parses raw decimal numbers from coordinate attributes or text content,
  * normalizing comma decimals (e.g. '450,5' -> 450.5).
  *

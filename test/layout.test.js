@@ -235,5 +235,48 @@ describe('Layout Module: Dynamic In-Block Percentage Engine', () => {
     assert.equal(res.shouldRender, false);
     assert.equal(res.markup, '');
   });
+
+  it('renders signed negative percentage on downhill blocks', () => {
+    const downhillBlock = { grade: -3.8, absGrade: 3.8, zone: 0 };
+    const res = computeBlockPctLayout({
+      block: downhillBlock,
+      idx: 0,
+      baseStride: 1,
+      blockWidthMm: 4.5,
+      colHeight: 12.0,
+      topMidY: 15.0,
+      yBase: 27.0,
+      midX: 20.0,
+      lastRenderedTextX: -999,
+      widthMm: 110,
+      heightMm: 35,
+      themeKey: 'white'
+    });
+
+    assert.ok(res.shouldRender);
+    assert.ok(res.markup.includes('-4%'), `Expected -4%, got: ${res.markup}`);
+  });
+
+  it('renders 0% without negative zero sign on false-flat downhills', () => {
+    const gentleDownhill = { grade: -0.2, absGrade: 0.2, zone: 0 };
+    const res = computeBlockPctLayout({
+      block: gentleDownhill,
+      idx: 0,
+      baseStride: 1,
+      blockWidthMm: 4.5,
+      colHeight: 12.0,
+      topMidY: 15.0,
+      yBase: 27.0,
+      midX: 20.0,
+      lastRenderedTextX: -999,
+      widthMm: 110,
+      heightMm: 35,
+      themeKey: 'white'
+    });
+
+    assert.ok(res.shouldRender);
+    assert.ok(res.markup.includes('>0%<'), `Expected 0%, got: ${res.markup}`);
+    assert.ok(!res.markup.includes('>-0%<'), `Should not contain -0%`);
+  });
 });
 
