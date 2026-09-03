@@ -117,11 +117,12 @@ export function computeClimbBadgeLayout(
     const fontSize = isDense ? 1.5 : 1.65;
     const badgeH = isDense ? 3.1 : 3.4;
 
-    const catCharW = isDense ? 0.95 : 1.05;
-    const catW = Math.max(isDense ? 4.2 : 5.0, catCode.length * catCharW + 1.8);
+    const catCharW = isDense ? 1.05 : 1.25;
+    const catW = Math.max(isDense ? 5.5 : 8.5, catCode.length * catCharW + 2.4);
     const statsText = `${statsLength} ${statsGrade}`;
-    const statsW = statsText.length * (isDense ? 0.92 : 1.0) + 2.0;
-    const badgeW = Math.min(28, catW + statsW);
+    const statsCharW = isDense ? 1.0 : 1.2;
+    const statsW = statsText.length * statsCharW + 3.5;
+    const badgeW = Math.min(32, catW + statsW);
 
     const label = `${catCode} | ${statsLength} · ${statsGrade}`;
 
@@ -169,20 +170,18 @@ export function computeClimbBadgeLayout(
           tier1Y,                                       // Tier 1: Base offset
           minY + 0.3,                                   // Tier 3: Top shelf
           minY + badgeH + 0.7,                          // Tier 4: Top shelf tier 2
-          Math.max(minY, summitY - badgeH - 11.5),      // Tier 5: High
-          Math.min(maxY - badgeH, summitY + 2.0)        // Tier 6: Shoulder
+          Math.max(minY, summitY - badgeH - 11.5)       // Tier 5: High
         ]
       : [
           tier1Y,                                       // Tier 1: Base offset
           tier2Y,                                       // Tier 2: Elevated offset
           minY + 0.3,                                   // Tier 3: Top shelf
           minY + badgeH + 0.7,                          // Tier 4: Top shelf tier 2
-          Math.max(minY, summitY - badgeH - 11.5),      // Tier 5: High
-          Math.min(maxY - badgeH, summitY + 2.0)        // Tier 6: Shoulder
+          Math.max(minY, summitY - badgeH - 11.5)       // Tier 5: High
         ];
 
     // Horizontal nudge offsets
-    const candidateDxs = [0, -3.5, 3.5, -7.0, 7.0, -11.0, 11.0, -16.0, 16.0, -22.0, 22.0];
+    const candidateDxs = [0, -3.5, 3.5, -7.0, 7.0, -11.0, 11.0, -15.0, 15.0, -20.0, 20.0];
 
     let bestCandidate = null;
     let minCost = Infinity;
@@ -209,8 +208,11 @@ export function computeClimbBadgeLayout(
           }
         }
 
+        // Check collision against the summit peak dot itself (avoid badge covering the summit)
+        const overlapsSummit = (candY + badgeH > summitY - 0.5) && (candY < summitY + 0.5) && (candX < summitX + 1.5) && (candX + badgeW > summitX - 1.5);
+
         const distFromSummit = Math.hypot((candX + badgeW / 2) - summitX, (candY + badgeH) - summitY);
-        const cost = (collides ? 10000 : 0) + distFromSummit + (t * 2.2) + (Math.abs(dx) * 1.5);
+        const cost = (collides ? 10000 : 0) + (overlapsSummit ? 8000 : 0) + distFromSummit + (t * 1.5) + (Math.abs(dx) * 0.8);
 
         if (cost < minCost) {
           minCost = cost;
@@ -229,12 +231,12 @@ export function computeClimbBadgeLayout(
             summitY,
             climb
           };
-          if (!collides && d === 0 && t === 0) {
+          if (!collides && !overlapsSummit && d === 0 && t === 0) {
             break;
           }
         }
       }
-      if (bestCandidate && minCost < 10000 && t === 0) {
+      if (bestCandidate && minCost < 8000 && t === 0) {
         break;
       }
     }

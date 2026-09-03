@@ -503,11 +503,6 @@ export function renderProfileSVG(
     gridMarkup += `
       <text x="${padLeft.toFixed(2)}" y="${(yBase + 2.5).toFixed(2)}" fill="${theme.textMuted}" font-size="1.95" font-weight="800" font-family="system-ui, -apple-system, sans-serif" text-anchor="start">0</text>
     `;
-    if (showEndUnit) {
-      gridMarkup += `
-        <text x="${endX.toFixed(2)}" y="${(yBase + 2.5).toFixed(2)}" fill="${theme.textMuted}" font-size="1.8" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="end">${distUnit}</text>
-      `;
-    }
   }
 
   // 4. Min / Max Altitude Labels
@@ -572,7 +567,7 @@ export function renderProfileSVG(
         `;
 
         const catColor = getClimbCategoryColor(climb.category, theme);
-        const actualCatW = catW || Math.max(4.5, w * 0.35);
+        const actualCatW = catW || Math.max(8.0, w * 0.38);
         const statsW = w - actualCatW;
         const statsMidX = actualCatW + (statsW / 2);
 

@@ -234,8 +234,8 @@ describe('Renderer Module: SVG Profile Generation', () => {
     assert.equal(kmMatches.length, 0, 'Should not render separate overlapping >km< on distance axis');
   });
 
-  it('displays unit text at end when there is ample room past the last tick (e.g. 75km)', () => {
-    // Synthetic 75km route (last tick is 70km, 5km clearance to end)
+  it('renders clean numeric distance ticks on the axis without loose unit collision', () => {
+    // Synthetic 75km route (ticks at 10, 20, 30, 40, 50, 60, 70)
     const coords = [
       { dist: 0, ele: 500 },
       { dist: 75000, ele: 600 }
@@ -247,8 +247,10 @@ describe('Renderer Module: SVG Profile Generation', () => {
       showDistanceTicks: true
     });
 
-    // Contains both the 70 tick and the km unit
+    // Contains ticks cleanly
     assert.ok(svg.includes('>70<'));
-    assert.ok(svg.includes('>km<'));
+    // Distance axis should not render loose trailing unit that collides with ticks
+    const kmMatches = svg.match(/>km</g) || [];
+    assert.equal(kmMatches.length, 0);
   });
 });
