@@ -173,10 +173,17 @@
           <div class="field">
             <label class="field-label">Presets</label>
             <div class="segmented-pill-group" id="preset-pill-group">
-              <button type="button" class="pill-opt active" data-value="110x35">110×35 Top Tube</button>
-              <button type="button" class="pill-opt" data-value="100x28">100×28 Slim</button>
-              <button type="button" class="pill-opt" data-value="75x30">75×30 Compact</button>
-              <button type="button" class="pill-opt" data-value="130x35">130×35 Long</button>
+              <!-- Elevation Presets (Default) -->
+              <button type="button" class="pill-opt pill-opt-elevation active" data-value="110x35">110×35 Top Tube</button>
+              <button type="button" class="pill-opt pill-opt-elevation" data-value="100x28">100×28 Slim</button>
+              <button type="button" class="pill-opt pill-opt-elevation" data-value="75x30">75×30 Compact</button>
+              <button type="button" class="pill-opt pill-opt-elevation" data-value="130x35">130×35 Long</button>
+
+              <!-- Fueling Presets (Active in Fueling mode) -->
+              <button type="button" class="pill-opt pill-opt-fueling active" data-value="35x115" style="display:none;">35×115 Top Tube</button>
+              <button type="button" class="pill-opt pill-opt-fueling" data-value="30x95" style="display:none;">30×95 Compact</button>
+              <button type="button" class="pill-opt pill-opt-fueling" data-value="35x140" style="display:none;">35×140 Long</button>
+
               <button type="button" class="pill-opt" data-value="custom">Custom</button>
             </div>
             <!-- Hidden select for programmatic binding -->
@@ -185,6 +192,9 @@
               <option value="100x28">Slim Stem (100 × 28 mm)</option>
               <option value="75x30">Compact Stem (75 × 30 mm)</option>
               <option value="130x35">Long Top Tube (130 × 35 mm)</option>
+              <option value="35x115">Top Tube Fueling (35 × 115 mm)</option>
+              <option value="30x95">Compact Fueling (30 × 95 mm)</option>
+              <option value="35x140">Long Fueling (35 × 140 mm)</option>
               <option value="custom">Custom...</option>
             </select>
           </div>
@@ -230,7 +240,40 @@
         </div>
       </div>
 
-      <!-- Section 2: Granularity & Styling -->
+      <!-- Section 2: Decal Style & Appearance (Theme, Units, Title - Active in Both Modes) -->
+      <div class="tool-section">
+        <div class="section-label">Sticker Style</div>
+        <div class="control-group">
+          <div class="field-grid">
+            <div class="field">
+              <label class="field-label" for="select-theme">Sticker Theme</label>
+              <select id="select-theme">
+                <option value="white" selected>Print White (Standard)</option>
+                <option value="prism">🌈 Velo Spectrum (Color Pop)</option>
+                <option value="giro">🌸 Giro Rosa (Gazzetta Pink)</option>
+                <option value="tour">🟡 Tour de France (L'Étape Gold)</option>
+                <option value="gravel">🌲 Gravel Brevet (Expedition Sand)</option>
+                <option value="dark">Dark Cockpit (Matte Slate)</option>
+                <option value="neon">⚡ Cyberpunk Neon (OLED Black)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label" for="select-units">Units</label>
+              <select id="select-units">
+                <option value="metric" selected>Metric (km / m)</option>
+                <option value="imperial">Imperial (mi / ft)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="input-title">Custom Header Title</label>
+            <input type="text" id="input-title" placeholder="e.g. Passo dello Stelvio">
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Granularity & Signal (Elevation Profile Only) -->
       <div class="tool-section tool-section-elevation">
         <div class="section-label">Granularity & Signal</div>
         <div class="control-group">
@@ -270,36 +313,10 @@
             <input type="range" id="slider-smoothing" min="1" max="21" step="2" value="7">
           </div>
 
-          <div class="field-grid">
-            <div class="field">
-              <label class="field-label" for="select-theme">Sticker Theme</label>
-              <select id="select-theme">
-                <option value="white" selected>Print White (Standard)</option>
-                <option value="giro">🌸 Giro Rosa (Gazzetta Pink)</option>
-                <option value="tour">🟡 Tour de France (L'Étape Gold)</option>
-                <option value="gravel">🌲 Gravel Brevet (Expedition Sand)</option>
-                <option value="dark">Dark Cockpit (Matte Slate)</option>
-                <option value="neon">⚡ Cyberpunk Neon (OLED Black)</option>
-              </select>
-            </div>
-            <div class="field">
-              <label class="field-label" for="select-units">Units</label>
-              <select id="select-units">
-                <option value="metric" selected>Metric (km / m)</option>
-                <option value="imperial">Imperial (mi / ft)</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="field">
-            <label class="field-label" for="input-title">Custom Header Title</label>
-            <input type="text" id="input-title" placeholder="e.g. Passo dello Stelvio">
-          </div>
-
         </div>
       </div>
 
-      <!-- Section 3: Overlays & Display -->
+      <!-- Section 4: Elevation Overlays & Display -->
       <div class="tool-section tool-section-elevation">
         <div class="section-label">Overlays & Cues</div>
         <div class="checkbox-grid">
@@ -333,6 +350,21 @@
           </label>
           <label class="checkbox-row">
             <input type="checkbox" id="chk-cut" checked>
+            <span>Cut guidelines</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Section 5: Fueling Decal Options (Fueling Mode Only) -->
+      <div class="tool-section tool-section-fueling" style="display:none;">
+        <div class="section-label">Decal Overlays</div>
+        <div class="checkbox-grid">
+          <label class="checkbox-row">
+            <input type="checkbox" id="chk-fuel-header" checked>
+            <span>Title header</span>
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" id="chk-fuel-cut" checked>
             <span>Cut guidelines</span>
           </label>
         </div>
@@ -378,22 +410,41 @@
       </div>
 
       <!-- Quick Metrics Telemetry Strip -->
-      <div class="stats-strip">
-        <div class="stat-item">
+      <div class="stats-strip" id="stats-strip">
+        <!-- Elevation mode stats -->
+        <div class="stat-item stat-item-elevation">
           <span class="stat-label">Total Distance</span>
           <span class="stat-value" id="stat-dist">--</span>
         </div>
-        <div class="stat-item">
+        <div class="stat-item stat-item-elevation">
           <span class="stat-label">Elevation Gain</span>
           <span class="stat-value stat-highlight-green" id="stat-gain">--</span>
         </div>
-        <div class="stat-item">
+        <div class="stat-item stat-item-elevation">
           <span class="stat-label">Max Gradient</span>
           <span class="stat-value stat-highlight-red" id="stat-max-grade">--</span>
         </div>
-        <div class="stat-item">
+        <div class="stat-item stat-item-elevation">
           <span class="stat-label">Detected Climbs</span>
           <span class="stat-value stat-highlight-blue" id="stat-climbs">--</span>
+        </div>
+
+        <!-- Fueling mode stats -->
+        <div class="stat-item stat-item-fueling" style="display:none;">
+          <span class="stat-label">Total Distance</span>
+          <span class="stat-value" id="stat-fuel-dist">--</span>
+        </div>
+        <div class="stat-item stat-item-fueling" style="display:none;">
+          <span class="stat-label">Est. Time</span>
+          <span class="stat-value stat-highlight-blue" id="stat-fuel-time">--</span>
+        </div>
+        <div class="stat-item stat-item-fueling" style="display:none;">
+          <span class="stat-label">Total Carbs</span>
+          <span class="stat-value stat-highlight-green" id="stat-fuel-carbs">--</span>
+        </div>
+        <div class="stat-item stat-item-fueling" style="display:none;">
+          <span class="stat-label">Avg Intake</span>
+          <span class="stat-value stat-highlight-red" id="stat-fuel-rate">--</span>
         </div>
       </div>
 
@@ -504,10 +555,22 @@
       </div>
 
       <!-- Container 2: Fueling Strategy (Visible in Fueling mode) -->
-      <div id="panel-fuel-content" style="display:none;">
-        <div class="tool-section">
-          <!-- Top Row: Summary Pill & KM/Time Mode Switch -->
-          <div class="fuel-header-strip">
+      <div id="panel-fuel-content" class="panel-fuel-unified" style="display:none;">
+        <div class="tool-section fuel-unified-card" style="display:flex; flex-direction:column; height:100%; min-height:0;">
+          <!-- Top Row: Section Label + Mode Pill -->
+          <div class="section-header-flex" style="margin-bottom:0.45rem;">
+            <div style="display:flex; align-items:center; gap:0.45rem;">
+              <span class="section-label" style="margin-bottom:0;">Top Tube Fueling Plan</span>
+              <span id="fuel-count-badge" class="count-badge">0</span>
+            </div>
+            <div class="segmented-pill-group mini-pill-group" id="fuel-mode-pill-group">
+              <button type="button" class="pill-opt active" data-mode="km">KM</button>
+              <button type="button" class="pill-opt" data-mode="time">Time</button>
+            </div>
+          </div>
+
+          <!-- Pacing & Auto Plan Bar -->
+          <div class="fuel-inline-settings">
             <div class="fuel-summary-pill" id="fuel-summary-pill" title="Nutrition Summary">
               <span class="fuel-sum-icon">⚡</span>
               <span id="fuel-stat-total-carbs" class="fuel-sum-bold">0g</span>
@@ -516,14 +579,6 @@
               <span class="fuel-sum-muted">·</span>
               <span id="fuel-stat-fluid">0ml</span>
             </div>
-            <div class="segmented-pill-group mini-pill-group" id="fuel-mode-pill-group">
-              <button type="button" class="pill-opt active" data-mode="km">KM</button>
-              <button type="button" class="pill-opt" data-mode="time">Time</button>
-            </div>
-          </div>
-
-          <!-- Compact Inline Settings Row: Target, Speed, Auto-Plan -->
-          <div class="fuel-inline-settings">
             <div class="inline-setting-item">
               <label for="input-fuel-target-carbs">Target</label>
               <div class="input-with-unit">
@@ -545,31 +600,23 @@
               <span>Auto</span>
             </button>
           </div>
-        </div>
 
-        <!-- Quick Add Fuel Cue Micro-Pills -->
-        <div class="tool-section" style="margin-top:0.6rem;">
-          <div class="fuel-quick-bar">
+          <!-- Quick Add Micro-Pills -->
+          <div class="fuel-quick-bar" style="margin-top:0.45rem;">
             <span class="quick-bar-label">+ Add</span>
             <div class="fuel-quick-scroll">
-              <button type="button" class="fuel-mini-pill" data-fuel-preset="gel">⚡ Gel</button>
-              <button type="button" class="fuel-mini-pill" data-fuel-preset="gel_high_carb">⚡⚡ High-Carb</button>
-              <button type="button" class="fuel-mini-pill" data-fuel-preset="bottle_mix">🍾 Mix</button>
-              <button type="button" class="fuel-mini-pill" data-fuel-preset="bar">🍫 Bar</button>
-              <button type="button" class="fuel-mini-pill" data-fuel-preset="caff_gel">☕ Caff</button>
-              <button type="button" class="fuel-mini-pill" data-fuel-preset="feed_zone">🍽️ Aid</button>
-              <button type="button" class="fuel-mini-pill" data-fuel-preset="water">💧 Water</button>
+              <button type="button" class="fuel-mini-pill" data-fuel-preset="gel"><span class="pill-code code-gel">GEL</span> 25g</button>
+              <button type="button" class="fuel-mini-pill" data-fuel-preset="gel_high_carb"><span class="pill-code code-hc">HC</span> 40g</button>
+              <button type="button" class="fuel-mini-pill" data-fuel-preset="bottle_mix"><span class="pill-code code-mix">MIX</span> 40g</button>
+              <button type="button" class="fuel-mini-pill" data-fuel-preset="bar"><span class="pill-code code-bar">BAR</span> 35g</button>
+              <button type="button" class="fuel-mini-pill" data-fuel-preset="caff_gel"><span class="pill-code code-caff">CAF</span> 30g</button>
+              <button type="button" class="fuel-mini-pill" data-fuel-preset="feed_zone"><span class="pill-code code-aid">AID</span> Feed</button>
+              <button type="button" class="fuel-mini-pill" data-fuel-preset="water"><span class="pill-code code-h2o">H2O</span> 500ml</button>
             </div>
           </div>
-        </div>
 
-        <!-- The List (Hero!) -->
-        <div class="tool-section fuel-list-section" style="margin-top:0.6rem; flex:1; display:flex; flex-direction:column; min-height:0;">
-          <div class="section-header-flex">
-            <span class="section-label" style="margin-bottom:0;">Top Tube Schedule</span>
-            <span id="fuel-count-badge" class="count-badge">0</span>
-          </div>
-          <div class="fuel-list-wrapper">
+          <!-- Fuel List taking maximum height -->
+          <div class="fuel-list-wrapper" style="margin-top:0.55rem; flex:1; display:flex; flex-direction:column; min-height:0;">
             <div class="wpt-empty-hint" id="fuel-empty-hint">No fueling items yet. Load a route or click + Add above.</div>
             <div class="fuel-list" id="fuel-list"></div>
           </div>

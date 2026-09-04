@@ -128,10 +128,46 @@ export function renderFuelingPanel(store) {
         <div class="fuel-hazard-chip ${badgeClass}" title="${hazardTitle}">
           <span>${badgeText}</span>
           <button type="button" class="btn-snap-flat" data-action="snap-flat" data-id="${item.id}" title="Snap to nearest safe flat corridor">
-            🪄 Snap
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            <span>Snap</span>
           </button>
         </div>
       `;
+    }
+
+    let indexBadgeMarkup = '';
+    if (displayMode === 'time') {
+      indexBadgeMarkup = `<span class="fuel-index-badge">${indexStr}</span>`;
+    } else {
+      indexBadgeMarkup = `
+        <div class="fuel-dist-badge" title="Click to edit kilometer">
+          <input type="number" class="fuel-dist-input" data-action="edit-dist" data-id="${item.id}" value="${distU}" step="0.5" min="0" max="1000">
+          <span class="fuel-dist-unit">${distUnit}</span>
+        </div>
+      `;
+    }
+
+    const typeKey = (item.type || 'gel').toLowerCase();
+    let badgeCode = (item.shortCode || (item.type || 'GEL').slice(0, 3)).toUpperCase();
+    let badgeClass = 'code-gel';
+    if (typeKey.includes('caff')) {
+      badgeClass = 'code-caff';
+      badgeCode = 'CAF';
+    } else if (typeKey.includes('high_carb') || typeKey === 'hc') {
+      badgeClass = 'code-hc';
+      badgeCode = 'HC';
+    } else if (typeKey.includes('mix') || typeKey.includes('bottle')) {
+      badgeClass = 'code-mix';
+      badgeCode = 'MIX';
+    } else if (typeKey.includes('bar')) {
+      badgeClass = 'code-bar';
+      badgeCode = 'BAR';
+    } else if (typeKey.includes('aid') || typeKey.includes('feed')) {
+      badgeClass = 'code-aid';
+      badgeCode = 'AID';
+    } else if (typeKey.includes('water') || typeKey.includes('h2o')) {
+      badgeClass = 'code-h2o';
+      badgeCode = 'H2O';
     }
 
     html += `
@@ -149,8 +185,8 @@ export function renderFuelingPanel(store) {
 
         <div class="fuel-card-body">
           <div class="fuel-card-header">
-            <span class="fuel-index-badge">${indexStr}</span>
-            <span class="fuel-icon-glyph">${item.icon || '⚡'}</span>
+            ${indexBadgeMarkup}
+            <span class="fuel-type-pill ${badgeClass}">${escapeHtml(badgeCode)}</span>
             <input type="text" class="fuel-name-input" data-action="edit-name" data-id="${item.id}" value="${escapeHtml(item.name || '')}" placeholder="Item name" maxlength="32">
             <div class="fuel-carbs-pill">
               <input type="number" class="fuel-carbs-input" data-action="edit-carbs" data-id="${item.id}" value="${item.carbsG || 0}" min="0" max="120" step="5">
@@ -332,7 +368,13 @@ export function initFuelingPanel(store) {
       const id = input.dataset.id;
       if (!action || !id) return;
 
-      if (action === 'edit-carbs') {
+      if (action === 'edit-dist') {
+        const state = store.getState();
+        const { dFactor } = getUnitFactors(state.settings.units);
+        const val = Math.max(0, parseFloat(input.value) || 0);
+        const distM = Math.round(val / dFactor);
+        store.updateFuelItem(id, { distM });
+      } else if (action === 'edit-carbs') {
         const val = Math.max(0, parseInt(input.value, 10) || 0);
         store.updateFuelItem(id, { carbsG: val });
       } else if (action === 'edit-name') {

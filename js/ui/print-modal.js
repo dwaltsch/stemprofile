@@ -55,7 +55,7 @@ export function updatePrintModalPreview(store) {
   if (previewMeta) {
     const paperName = (activePrintConfig.paper || 'a4').toUpperCase();
     const themeName = activePrintConfig.printTheme === 'white' ? 'Ink-Saver White' : (state.settings.theme || 'Active Theme');
-    previewMeta.textContent = `${paperName} · ${result.count} ${result.count === 1 ? 'Copy' : 'Copies'} · ${state.settings.widthMm}×${state.settings.heightMm}mm · ${themeName}`;
+    previewMeta.textContent = `${paperName} · ${result.count} ${result.count === 1 ? 'Copy' : 'Copies'} · ${result.stickerW}×${result.stickerH}mm · ${themeName}`;
   }
 
   // Also sync the real hidden #print-matrix in background

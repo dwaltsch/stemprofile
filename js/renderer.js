@@ -154,6 +154,24 @@ export const THEMES = {
     z2: '#a3e635',            // Acid Lime (5-8%)
     z3: '#fb923c',            // Electric Blaze Amber (8-12%)
     z4: '#f43f5e'             // Ultraviolet Hot Pink (>12%)
+  },
+  'prism': {
+    name: '🌈 Velo Spectrum (Color Pop)',
+    bg: '#ffffff',
+    text: '#0f172a',          // Crisp deep black/slate for maximum outdoor readability
+    textMuted: '#475569',     // Slate 600
+    grid: 'rgba(99, 102, 241, 0.20)', // Electric indigo grid
+    topStroke: '#6366f1',     // Laser Indigo skyline
+    divider: '#ffffff',
+    blockStroke: 'rgba(15, 23, 42, 0.40)',
+    badgeBg: '#fdf4ff',       // Soft magenta tint
+    badgeStroke: '#d946ef',   // Neon Fuchsia / Magenta
+    badgeText: '#701a75',     // Deep Plum
+    cutLine: 'rgba(217, 70, 239, 0.45)',
+    z1: '#06b6d4',            // Electric Cyan (<5%)
+    z2: '#10b981',            // Vivid Emerald (5-8%)
+    z3: '#f59e0b',            // Neon Amber Gold (8-12%)
+    z4: '#ec4899'             // Radiant Hot Pink (>12%)
   }
 };
 

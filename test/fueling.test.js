@@ -269,13 +269,18 @@ describe('Fueling Renderer Module: SVG Output', () => {
 
     const svg = renderFuelingSVG(mockState);
     assert.ok(svg.includes('id="fueling-svg-elem"'));
-    assert.ok(svg.includes('width="110mm"'));
-    assert.ok(svg.includes('height="35mm"'));
-    assert.ok(svg.includes('viewBox="0 0 110 35"'));
+    assert.ok(svg.includes('width="35mm"'));
+    assert.ok(svg.includes('height="115mm"'));
+    assert.ok(svg.includes('viewBox="0 0 35 115"'));
     assert.ok(svg.includes('15.0k'));
     assert.ok(svg.includes('Carb Drink 500ml'));
     assert.ok(svg.includes('40g'));
     assert.ok(svg.includes('▲11%')); // Hazard tag
+
+    // Custom dimensions override
+    const customSvg = renderFuelingSVG(mockState, { widthMm: 30, heightMm: 95 });
+    assert.ok(customSvg.includes('width="30mm"'));
+    assert.ok(customSvg.includes('height="95mm"'));
   });
 
   it('renders time mode with HH:MM format tags', async () => {
@@ -297,5 +302,67 @@ describe('Fueling Renderer Module: SVG Output', () => {
     assert.ok(svg.includes('0:30'));
     assert.ok(svg.includes('Maurten Gel'));
   });
+
+  it('renders pro typographic badge pills (MIX, GEL, CAF, HC) and excludes raw emojis from SVG', async () => {
+    const { renderFuelingSVG, CUE_BADGES, getCueBadgeStyle } = await import('../js/fueling-renderer.js');
+    assert.ok(CUE_BADGES.gel);
+    assert.equal(CUE_BADGES.gel.code, 'GEL');
+    assert.equal(CUE_BADGES.bottle_mix.code, 'MIX');
+    assert.equal(CUE_BADGES.caff_gel.code, 'CAF');
+    assert.equal(CUE_BADGES.feed_zone.code, 'AID');
+
+    const darkStyle = getCueBadgeStyle({ type: 'caff_gel' }, true);
+    assert.equal(darkStyle.code, 'CAF');
+
+    const mockState = {
+      settings: { fuelingWidthMm: 35, fuelingHeightMm: 115, theme: 'white' },
+      stats: { totalDist: 60000 },
+      fueling: {
+        mode: 'km',
+        targetCarbsPerHour: 75,
+        avgSpeedKmh: 25,
+        items: [
+          { id: 'f1', distM: 15000, name: 'Drink Mix', carbsG: 40, icon: '🍾', type: 'bottle_mix' },
+          { id: 'f2', distM: 30000, name: 'Energy Gel', carbsG: 25, icon: '⚡', type: 'gel' },
+          { id: 'f3', distM: 45000, name: 'Caff Shot', carbsG: 30, icon: '☕', type: 'caff_gel' }
+        ]
+      }
+    };
+
+    const svg = renderFuelingSVG(mockState);
+    // Verifies pro badges are rendered
+    assert.ok(svg.includes('>MIX<'));
+    assert.ok(svg.includes('>GEL<'));
+    assert.ok(svg.includes('>CAF<'));
+    // Verifies cartoon emojis are NOT rendered as sticker text
+    assert.ok(!svg.includes('>🍾<'));
+    assert.ok(!svg.includes('>⚡<'));
+    assert.ok(!svg.includes('>☕<'));
+  });
+
+  it('enforces 4-slot collision-free layout and textLength clamping on long item names', async () => {
+    const { renderFuelingSVG } = await import('../js/fueling-renderer.js');
+    const mockState = {
+      settings: { fuelingWidthMm: 35, fuelingHeightMm: 115, theme: 'white', title: 'A Very Long Grand Tour Queen Stage Title That Exceeds Width' },
+      stats: { totalDist: 80000 },
+      fueling: {
+        mode: 'km',
+        targetCarbsPerHour: 80,
+        avgSpeedKmh: 28,
+        items: [
+          { id: 'f1', distM: 20000, name: 'Super Ultra Long Drink Mix Name That Could Overlap Without Clamping', carbsG: 50, type: 'bottle_mix' }
+        ]
+      }
+    };
+
+    const svg = renderFuelingSVG(mockState);
+    // Verifies textLength constraint is applied to avoid visual collision
+    assert.ok(svg.includes('textLength='));
+    assert.ok(svg.includes('lengthAdjust="spacingAndGlyphs"'));
+    assert.ok(svg.includes('50g'));
+    // Verifies header title is safely handled
+    assert.ok(svg.includes('class="fueling-header"'));
+  });
 });
+
 

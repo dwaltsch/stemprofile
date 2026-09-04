@@ -34,6 +34,47 @@ function escapeXml(str) {
     .replace(/'/g, '&apos;');
 }
 
+export const CUE_BADGES = {
+  gel: { code: 'GEL', bg: '#fef3c7', color: '#b45309', border: '#f59e0b' },
+  gel_high_carb: { code: 'HC', bg: '#ffedd5', color: '#c2410c', border: '#f97316' },
+  caff_gel: { code: 'CAF', bg: '#fce7f3', color: '#be185d', border: '#ec4899' },
+  bottle: { code: 'MIX', bg: '#e0f2fe', color: '#0369a1', border: '#38bdf8' },
+  bottle_mix: { code: 'MIX', bg: '#e0f2fe', color: '#0369a1', border: '#38bdf8' },
+  bottle_super: { code: 'SUPER', bg: '#dbeafe', color: '#1d4ed8', border: '#3b82f6' },
+  bar: { code: 'BAR', bg: '#fef9c3', color: '#a16207', border: '#eab308' },
+  food: { code: 'EAT', bg: '#dcfce7', color: '#15803d', border: '#22c55e' },
+  feed_zone: { code: 'AID', bg: '#ede9fe', color: '#6d28d9', border: '#8b5cf6' },
+  water: { code: 'H2O', bg: '#e0f2fe', color: '#0284c7', border: '#0ea5e9' },
+  salt: { code: 'SALT', bg: '#f1f5f9', color: '#475569', border: '#94a3b8' }
+};
+
+/**
+ * Resolves the visual badge styling for a fueling item.
+ *
+ * @param {Object} item
+ * @param {boolean} [isDark=false]
+ * @returns {{ code: string, bg: string, color: string, border: string }}
+ */
+export function getCueBadgeStyle(item, isDark = false) {
+  const typeKey = (item.type || '').toLowerCase();
+  const def = CUE_BADGES[typeKey] || {
+    code: (item.shortCode || item.type || 'CUE').slice(0, 3).toUpperCase(),
+    bg: '#f1f5f9',
+    color: '#334155',
+    border: '#cbd5e1'
+  };
+
+  if (!isDark) {
+    return def;
+  }
+  return {
+    code: def.code,
+    bg: 'rgba(255, 255, 255, 0.08)',
+    color: def.border,
+    border: def.border
+  };
+}
+
 /**
  * Renders the dedicated printable Fueling & Nutrition Sticker SVG.
  *
@@ -57,6 +98,7 @@ export function renderFuelingSVG(state, options = {}) {
   const isPrint = options.isPrint || false;
   const themeName = isPrint ? 'white' : (settings.theme || 'white');
   const theme = THEMES[themeName] || THEMES['white'];
+  const isDark = themeName === 'dark' || themeName === 'neon';
 
   const { dFactor } = getUnitFactors(settings.units);
   const { dist: distUnit } = getUnitLabels(settings.units);
@@ -67,54 +109,80 @@ export function renderFuelingSVG(state, options = {}) {
 
   const intakeStats = calculateHourlyIntake(items, stats.totalDist, avgSpeed);
 
-  // 1. Margins & Available Space
-  const padLeft = 2.0;
-  const padRight = 2.0;
-  const padTop = 1.6;
-  const padBottom = 2.0;
+  // 1. Margins & Bounded Content Area
+  const padLeft = 1.6;
+  const padRight = 1.6;
+  const padTop = 1.5;
+  const padBottom = 1.8;
   const contentW = W - padLeft - padRight;
 
-  // 2. Header & Column Titles Markup
+  // 2. Strict 4-Slot Column Geometry (Guarantees zero text collision)
+  // Slot 1: Distance / Time (e.g. 10.0k, 1:15)
+  const wDist = Math.max(6.8, Math.min(8.5, contentW * 0.23));
+  // Slot 2: Pro Category Pill (e.g. [GEL], [MIX], [HC])
+  const wBadge = Math.max(5.8, Math.min(7.2, contentW * 0.20));
+  // Slot 4: Carbs CHO (e.g. 40g, right-aligned)
+  const wCarbs = Math.max(5.4, Math.min(6.8, contentW * 0.18));
+
+  const xDist = 0.2;
+  const xBadge = xDist + wDist + 0.6;
+  const xDetail = xBadge + wBadge + 0.8;
+  const xCarbs = contentW - 0.4;
+  // Slot 3: Detail / Hazard / Name slot (strictly bounded between xDetail and xCarbs - wCarbs)
+  const wDetail = Math.max(7.5, (xCarbs - wCarbs) - xDetail - 0.6);
+
+  // 3. Header & Column Titles Markup
   let headerMarkup = '';
-  let contentY = padTop + 1.0;
+  let contentY = padTop + 0.8;
   const showHeader = settings.showHeader !== false;
 
   if (showHeader) {
-    const title = escapeXml(settings.title || 'FUELING ROADBOOK');
+    const rawTitle = (settings.title || 'FUELING ROADBOOK').trim();
+    const maxTitleChars = Math.max(14, Math.floor(contentW * 0.75));
+    const title = escapeXml(rawTitle.length > maxTitleChars ? rawTitle.slice(0, maxTitleChars - 1) + '…' : rawTitle);
+    
+    // Scale font size dynamically to prevent title overflow
+    const titleFontSize = title.length > 18 ? 1.9 : 2.3;
     const totalDistU = (stats.totalDist * dFactor).toFixed(0);
-    const summaryText = `${intakeStats.totalCarbsG}g CHO · ~${targetCarbs}g/h · ${totalDistU}${distUnit}`;
+    const summaryText = contentW >= 36
+      ? `${intakeStats.totalCarbsG}g CHO · ~${targetCarbs}g/h · ${totalDistU}${distUnit}`
+      : `${intakeStats.totalCarbsG}g CHO · ~${targetCarbs}g/h`;
 
     headerMarkup = `
       <g class="fueling-header">
-        <text x="${(W / 2).toFixed(2)}" y="${(padTop + 2.8).toFixed(2)}" fill="${theme.text}" font-size="2.4" font-weight="900" font-family="system-ui, -apple-system, sans-serif" letter-spacing="0.2" text-anchor="middle">${title}</text>
-        <text x="${(W / 2).toFixed(2)}" y="${(padTop + 5.2).toFixed(2)}" fill="${theme.textMuted}" font-size="1.7" font-weight="700" font-family="system-ui, -apple-system, monospace" text-anchor="middle">${summaryText}</text>
-        <line x1="${padLeft.toFixed(2)}" y1="${(padTop + 6.8).toFixed(2)}" x2="${(W - padRight).toFixed(2)}" y2="${(padTop + 6.8).toFixed(2)}" stroke="${theme.grid}" stroke-width="0.3"/>
-        <text x="${(padLeft + 0.5).toFixed(2)}" y="${(padTop + 9.5).toFixed(2)}" fill="${theme.textMuted}" font-size="1.4" font-weight="800" font-family="monospace">${displayMode === 'time' ? 'TIME' : 'KM'}</text>
-        <text x="${(padLeft + 10.5).toFixed(2)}" y="${(padTop + 9.5).toFixed(2)}" fill="${theme.textMuted}" font-size="1.4" font-weight="800" font-family="system-ui">CUE</text>
-        <text x="${(W - padRight - 0.5).toFixed(2)}" y="${(padTop + 9.5).toFixed(2)}" fill="${theme.textMuted}" font-size="1.4" font-weight="800" font-family="monospace" text-anchor="end">CHO</text>
-        <line x1="${padLeft.toFixed(2)}" y1="${(padTop + 10.8).toFixed(2)}" x2="${(W - padRight).toFixed(2)}" y2="${(padTop + 10.8).toFixed(2)}" stroke="${theme.grid}" stroke-width="0.3"/>
+        <text x="${(W / 2).toFixed(2)}" y="${(padTop + 2.6).toFixed(2)}" fill="${theme.text}" font-size="${titleFontSize.toFixed(2)}" font-weight="900" font-family="system-ui, -apple-system, sans-serif" letter-spacing="0.2" text-anchor="middle">${title}</text>
+        <text x="${(W / 2).toFixed(2)}" y="${(padTop + 5.0).toFixed(2)}" fill="${theme.textMuted}" font-size="1.6" font-weight="700" font-family="system-ui, -apple-system, monospace" text-anchor="middle">${summaryText}</text>
+        <line x1="${padLeft.toFixed(2)}" y1="${(padTop + 6.6).toFixed(2)}" x2="${(W - padRight).toFixed(2)}" y2="${(padTop + 6.6).toFixed(2)}" stroke="${theme.grid}" stroke-width="0.3"/>
+        <text x="${(padLeft + xDist + (wDist / 2)).toFixed(2)}" y="${(padTop + 9.3).toFixed(2)}" fill="${theme.textMuted}" font-size="1.35" font-weight="800" font-family="monospace" text-anchor="middle">${displayMode === 'time' ? 'TIME' : 'KM'}</text>
+        <text x="${(padLeft + xBadge + (wBadge / 2)).toFixed(2)}" y="${(padTop + 9.3).toFixed(2)}" fill="${theme.textMuted}" font-size="1.35" font-weight="800" font-family="system-ui" text-anchor="middle">TYPE</text>
+        <text x="${(padLeft + xDetail).toFixed(2)}" y="${(padTop + 9.3).toFixed(2)}" fill="${theme.textMuted}" font-size="1.35" font-weight="800" font-family="system-ui">CUE</text>
+        <text x="${(padLeft + xCarbs).toFixed(2)}" y="${(padTop + 9.3).toFixed(2)}" fill="${theme.textMuted}" font-size="1.35" font-weight="800" font-family="monospace" text-anchor="end">CHO</text>
+        <line x1="${padLeft.toFixed(2)}" y1="${(padTop + 10.6).toFixed(2)}" x2="${(W - padRight).toFixed(2)}" y2="${(padTop + 10.6).toFixed(2)}" stroke="${theme.grid}" stroke-width="0.3"/>
       </g>
     `;
-    contentY = padTop + 11.8;
+    contentY = padTop + 11.6;
   }
 
-  // 3. Vertical List Rows Markup
-  const footerH = 5.2;
+  // 4. Vertical List Rows Markup
+  const footerH = 4.8;
   const contentH = Math.max(10, H - contentY - padBottom - footerH);
   let rowsMarkup = '';
   const itemCount = items.length;
 
   if (itemCount === 0) {
     rowsMarkup = `
-      <text x="${(W / 2).toFixed(2)}" y="${(contentY + (contentH / 2)).toFixed(2)}" fill="${theme.textMuted}" font-size="2.4" font-weight="700" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">
+      <text x="${(W / 2).toFixed(2)}" y="${(contentY + (contentH / 2)).toFixed(2)}" fill="${theme.textMuted}" font-size="2.2" font-weight="700" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">
         No fueling cues added yet
       </text>
     `;
   } else {
     // Single-column vertical list with adaptive row height
-    const rowH = Math.min(8.0, Math.max(4.4, contentH / itemCount));
-    const tagW = Math.min(10.0, Math.max(8.0, W * 0.26));
-    const fontSize = Math.min(2.2, Math.max(1.6, rowH * 0.42));
+    const availableRowH = contentH / itemCount;
+    const rowH = Math.min(7.5, Math.max(3.6, availableRowH));
+    const fontSize = Math.min(2.0, Math.max(1.35, rowH * 0.40));
+    const badgeH = Math.max(2.8, rowH - 0.9);
+    const badgeY = (rowH - badgeH) / 2;
+    const textY = (rowH / 2) + (fontSize * 0.35);
 
     items.forEach((item, idx) => {
       const cellY = contentY + (idx * rowH);
@@ -132,58 +200,80 @@ export function renderFuelingSVG(state, options = {}) {
         indexTag = `${dVal}${settings.units === 'imperial' ? 'm' : 'k'}`;
       }
 
-      // Formatting Item Text
-      const icon = item.icon || '⚡';
-      const maxCharLen = W <= 40 ? 12 : 24;
-      const name = escapeXml((item.name || 'Fuel').slice(0, maxCharLen));
+      const badgeStyle = getCueBadgeStyle(item, isDark);
+      const name = escapeXml(item.name || 'Fuel');
       const carbs = item.carbsG ? `${item.carbsG}g` : '—';
 
-      // Hazard badge if steep incline or descent
-      let hazardBadge = '';
+      // Slot 3: Detail or Hazard Alert Markup (strictly bounded)
+      let detailMarkup = '';
       if (item.isHazard) {
         const isClimb = item.hazardType === 'climb';
         const sign = isClimb ? '▲' : '▼';
-        hazardBadge = `<tspan fill="${isClimb ? theme.z4 : theme.z3}" font-weight="900"> ${sign}${Math.abs(item.grade || 0).toFixed(0)}%</tspan>`;
+        const gradeVal = `${sign}${Math.abs(item.grade || 0).toFixed(0)}%`;
+        const hazardColor = isClimb ? (theme.z4 || '#dc2626') : (theme.z3 || '#ea580c');
+        const hazardBg = isDark ? 'rgba(220, 38, 38, 0.20)' : (isClimb ? '#fee2e2' : '#ffedd5');
+
+        if (wDetail >= 18.0) {
+          const pillW = Math.min(8.0, wDetail * 0.42);
+          const nameX = xDetail + pillW + 0.8;
+          const nameW = wDetail - pillW - 1.0;
+          detailMarkup = `
+            <rect x="${xDetail.toFixed(2)}" y="${badgeY.toFixed(2)}" width="${pillW.toFixed(2)}" height="${badgeH.toFixed(2)}" rx="0.5" fill="${hazardBg}" stroke="${hazardColor}" stroke-width="0.25" />
+            <text x="${(xDetail + (pillW / 2)).toFixed(2)}" y="${textY.toFixed(2)}" fill="${hazardColor}" font-size="${(fontSize * 0.88).toFixed(2)}" font-weight="900" font-family="monospace, system-ui, sans-serif" text-anchor="middle">${gradeVal}</text>
+            <text x="${nameX.toFixed(2)}" y="${textY.toFixed(2)}" fill="${theme.text}" font-size="${fontSize.toFixed(2)}" font-weight="700" font-family="system-ui, -apple-system, sans-serif" textLength="${nameW.toFixed(2)}" lengthAdjust="spacingAndGlyphs">${name}</text>
+          `;
+        } else {
+          detailMarkup = `
+            <rect x="${xDetail.toFixed(2)}" y="${badgeY.toFixed(2)}" width="${wDetail.toFixed(2)}" height="${badgeH.toFixed(2)}" rx="0.5" fill="${hazardBg}" stroke="${hazardColor}" stroke-width="0.25" />
+            <text x="${(xDetail + (wDetail / 2)).toFixed(2)}" y="${textY.toFixed(2)}" fill="${hazardColor}" font-size="${(fontSize * 0.88).toFixed(2)}" font-weight="900" font-family="monospace, system-ui, sans-serif" text-anchor="middle">${gradeVal}</text>
+            <desc>${name}</desc>
+          `;
+        }
+      } else {
+        detailMarkup = `
+          <text x="${xDetail.toFixed(2)}" y="${textY.toFixed(2)}" fill="${theme.text}" font-size="${fontSize.toFixed(2)}" font-weight="700" font-family="system-ui, -apple-system, sans-serif" textLength="${(wDetail - 0.4).toFixed(2)}" lengthAdjust="spacingAndGlyphs">${name}</text>
+        `;
       }
 
-      // Subtle row pill background for high-contrast on-bike glanceability
+      // Alternating row background for glanceability
       const isEven = idx % 2 === 0;
-      const bgFill = isEven ? (themeName === 'white' ? '#f8fafc' : 'rgba(255,255,255,0.04)') : 'none';
-      const badgeBg = themeName === 'white' ? '#e2e8f0' : 'rgba(255,255,255,0.12)';
-      const textY = (rowH / 2) + (fontSize * 0.35);
+      const bgFill = isEven ? (themeName === 'white' || themeName === 'prism' ? '#f8fafc' : 'rgba(255,255,255,0.04)') : 'none';
+      const distBadgeBg = themeName === 'white' || themeName === 'prism' ? '#e2e8f0' : 'rgba(255,255,255,0.10)';
 
       rowsMarkup += `
         <g class="fuel-item-row" data-id="${item.id}" transform="translate(${padLeft.toFixed(2)}, ${cellY.toFixed(2)})">
+          <title>${name} (${carbs})</title>
           <rect width="${contentW.toFixed(2)}" height="${(rowH - 0.3).toFixed(2)}" rx="0.6" fill="${bgFill}" />
           
-          <!-- Distance / Time Pill -->
-          <rect x="0.2" y="0.3" width="${tagW.toFixed(2)}" height="${(rowH - 0.9).toFixed(2)}" rx="0.5" fill="${badgeBg}" />
-          <text x="${(0.2 + (tagW / 2)).toFixed(2)}" y="${textY.toFixed(2)}" fill="${theme.text}" font-size="${(fontSize * 0.95).toFixed(2)}" font-weight="900" font-family="monospace, system-ui, sans-serif" text-anchor="middle">${indexTag}</text>
+          <!-- Slot 1: Distance / Time Pill -->
+          <rect x="${xDist.toFixed(2)}" y="${badgeY.toFixed(2)}" width="${wDist.toFixed(2)}" height="${badgeH.toFixed(2)}" rx="0.5" fill="${distBadgeBg}" />
+          <text x="${(xDist + (wDist / 2)).toFixed(2)}" y="${textY.toFixed(2)}" fill="${theme.text}" font-size="${(fontSize * 0.92).toFixed(2)}" font-weight="900" font-family="monospace, system-ui, sans-serif" text-anchor="middle">${indexTag}</text>
           
-          <!-- Emoji Icon -->
-          <text x="${(tagW + 1.8).toFixed(2)}" y="${textY.toFixed(2)}" font-size="${(fontSize * 1.05).toFixed(2)}" text-anchor="middle">${icon}</text>
+          <!-- Slot 2: Pro Category Pill -->
+          <rect x="${xBadge.toFixed(2)}" y="${badgeY.toFixed(2)}" width="${wBadge.toFixed(2)}" height="${badgeH.toFixed(2)}" rx="0.5" fill="${badgeStyle.bg}" stroke="${badgeStyle.border}" stroke-width="0.25" />
+          <text x="${(xBadge + (wBadge / 2)).toFixed(2)}" y="${textY.toFixed(2)}" fill="${badgeStyle.color}" font-size="${(fontSize * 0.88).toFixed(2)}" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${badgeStyle.code}</text>
           
-          <!-- Item Name & Hazard -->
-          <text x="${(tagW + 3.6).toFixed(2)}" y="${textY.toFixed(2)}" fill="${theme.text}" font-size="${fontSize.toFixed(2)}" font-weight="700" font-family="system-ui, -apple-system, sans-serif">${name}${hazardBadge}</text>
+          <!-- Slot 3: Detail / Hazard Alert -->
+          ${detailMarkup}
           
-          <!-- Carbs Grams Tag (Right Aligned) -->
-          <text x="${(contentW - 0.8).toFixed(2)}" y="${textY.toFixed(2)}" fill="${theme.text}" font-size="${fontSize.toFixed(2)}" font-weight="900" font-family="monospace, system-ui, sans-serif" text-anchor="end">${carbs}</text>
+          <!-- Slot 4: Carbs Grams Tag (Right Aligned) -->
+          <text x="${xCarbs.toFixed(2)}" y="${textY.toFixed(2)}" fill="${theme.text}" font-size="${fontSize.toFixed(2)}" font-weight="900" font-family="monospace, system-ui, sans-serif" text-anchor="end">${carbs}</text>
         </g>
       `;
     });
   }
 
-  // 4. Footer Summary Markup
+  // 5. Footer Summary Markup
   const footerY = H - padBottom - footerH;
   const footerMarkup = `
     <g class="fueling-footer">
       <line x1="${padLeft.toFixed(2)}" y1="${footerY.toFixed(2)}" x2="${(W - padRight).toFixed(2)}" y2="${footerY.toFixed(2)}" stroke="${theme.grid}" stroke-width="0.3"/>
-      <text x="${(padLeft + 0.5).toFixed(2)}" y="${(footerY + 3.6).toFixed(2)}" fill="${theme.text}" font-size="1.8" font-weight="900" font-family="monospace">TOTAL</text>
-      <text x="${(W - padRight - 0.5).toFixed(2)}" y="${(footerY + 3.6).toFixed(2)}" fill="${theme.text}" font-size="1.8" font-weight="900" font-family="monospace" text-anchor="end">${intakeStats.totalCarbsG}g CHO</text>
+      <text x="${(padLeft + 0.5).toFixed(2)}" y="${(footerY + 3.4).toFixed(2)}" fill="${theme.text}" font-size="1.8" font-weight="900" font-family="monospace">TOTAL</text>
+      <text x="${(W - padRight - 0.5).toFixed(2)}" y="${(footerY + 3.4).toFixed(2)}" fill="${theme.text}" font-size="1.8" font-weight="900" font-family="monospace" text-anchor="end">${intakeStats.totalCarbsG}g CHO</text>
     </g>
   `;
 
-  // 5. Cut Guidelines
+  // 6. Cut Guidelines
   let cutMarkup = '';
   if (settings.showCutGuidelines !== false) {
     cutMarkup = `<rect x="0.2" y="0.2" width="${(W - 0.4).toFixed(2)}" height="${(H - 0.4).toFixed(2)}" rx="${radius}" fill="none" stroke="${theme.cutLine}" stroke-width="0.3" stroke-dasharray="1,1"/>`;

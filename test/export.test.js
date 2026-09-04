@@ -173,6 +173,38 @@ describe('Export & Print Module: Sheet Markup Generation', () => {
     assert.ok(!allDisabled.html.includes('class="print-sheet-ruler-wrap"'));
     assert.ok(!allDisabled.html.includes('class="print-sheet-meta-header"'));
   });
+
+  it('generates vertical top-tube fueling decal sheet with accurate dimensions', () => {
+    const state = {
+      points,
+      stats,
+      climbs: [],
+      blocks: [],
+      waypoints: [],
+      activeView: 'fueling',
+      settings: {
+        ...DEFAULT_SETTINGS,
+        title: 'Fueling Sheet Test',
+        fuelingWidthMm: 35,
+        fuelingHeightMm: 115
+      },
+      fueling: {
+        mode: 'km',
+        items: [
+          { id: 'f1', distM: 15000, name: 'Gel 1', carbsG: 25, icon: '⚡' },
+          { id: 'f2', distM: 30000, name: 'Bidon Mix', carbsG: 40, icon: '🍾' }
+        ]
+      }
+    };
+
+    const sheet = generatePrintSheetMarkup(state, { copies: 2 });
+    assert.equal(sheet.count, 2);
+    assert.equal(sheet.stickerW, 35);
+    assert.equal(sheet.stickerH, 115);
+    assert.ok(sheet.html.includes('id="fueling-svg-elem-sheet-0"'));
+    assert.ok(sheet.html.includes('id="fueling-svg-elem-sheet-1"'));
+    assert.ok(sheet.html.includes('35 × 115 mm'));
+  });
 });
 
 describe('Export & Print Module: Polymorphic Parameter Resolution', () => {

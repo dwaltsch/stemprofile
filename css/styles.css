@@ -1947,6 +1947,117 @@ body.modal-open {
   border-color: var(--border-hover);
 }
 
+.pill-code {
+  display: inline-block;
+  padding: 0.08rem 0.3rem;
+  border-radius: 3px;
+  font-size: 0.62rem;
+  font-weight: 900;
+  font-family: var(--font-mono, monospace);
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.fuel-type-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.12rem 0.32rem;
+  border-radius: 4px;
+  font-size: 0.64rem;
+  font-weight: 900;
+  font-family: var(--font-mono, monospace);
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.code-gel {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #f59e0b;
+}
+
+.code-hc {
+  background: #ffedd5;
+  color: #c2410c;
+  border: 1px solid #f97316;
+}
+
+.code-mix {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #38bdf8;
+}
+
+.code-bar {
+  background: #fef9c3;
+  color: #a16207;
+  border: 1px solid #eab308;
+}
+
+.code-caff {
+  background: #fce7f3;
+  color: #be185d;
+  border: 1px solid #ec4899;
+}
+
+.code-aid {
+  background: #ede9fe;
+  color: #6d28d9;
+  border: 1px solid #8b5cf6;
+}
+
+.code-h2o {
+  background: #e0f2fe;
+  color: #0284c7;
+  border: 1px solid #0ea5e9;
+}
+
+[data-theme="dark"] .code-gel {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  border-color: #f59e0b;
+}
+
+[data-theme="dark"] .code-hc {
+  background: rgba(249, 115, 22, 0.18);
+  color: #fb923c;
+  border-color: #f97316;
+}
+
+[data-theme="dark"] .code-mix {
+  background: rgba(56, 189, 248, 0.18);
+  color: #38bdf8;
+  border-color: #0284c7;
+}
+
+[data-theme="dark"] .code-bar {
+  background: rgba(234, 179, 8, 0.18);
+  color: #facc15;
+  border-color: #ca8a04;
+}
+
+[data-theme="dark"] .code-caff {
+  background: rgba(236, 72, 153, 0.18);
+  color: #f472b6;
+  border-color: #db2777;
+}
+
+[data-theme="dark"] .code-aid {
+  background: rgba(139, 92, 246, 0.18);
+  color: #a78bfa;
+  border-color: #7c3aed;
+}
+
+[data-theme="dark"] .code-h2o {
+  background: rgba(14, 165, 233, 0.18);
+  color: #38bdf8;
+  border-color: #0284c7;
+}
+
 /* Workbench Fueling Mode (Narrow Vertical Top-Tube Sticker) */
 .preview-stage.mode-fueling .sticker-wrapper {
   max-width: 260px;
@@ -2140,6 +2251,82 @@ body.modal-open {
 
 .btn-snap-flat:hover {
   background: rgba(0, 0, 0, 0.16);
+}
+
+/* Editable Distance Badge on Fuel Item Cards */
+.fuel-dist-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  background: var(--bg-pill);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 0 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-primary);
+}
+
+.fuel-dist-input {
+  width: 38px;
+  border: none;
+  background: transparent;
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  text-align: right;
+  padding: 0.12rem 0;
+  font-family: var(--font-mono);
+}
+
+.fuel-dist-input:focus {
+  outline: none;
+}
+
+.fuel-dist-unit {
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+/* Unified Fueling Strategy Card */
+.panel-fuel-unified {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.fuel-unified-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0.75rem;
+}
+
+.fuel-unified-card .fuel-list {
+  flex: 1;
+  max-height: none;
+  height: 100%;
+}
+
+/* Fueling Telemetry Stats Strip Items */
+.stat-item-fueling {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Responsive Header Action Cleanliness */
+@media (max-width: 1200px) {
+  #btn-copy-svg .btn-text,
+  #btn-share-link .btn-text {
+    display: none;
+  }
+  #btn-copy-svg,
+  #btn-share-link {
+    padding: 0.38rem 0.5rem;
+  }
 }
 
 

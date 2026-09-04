@@ -12,8 +12,8 @@ import { processTrackSignal } from '../js/signal.js';
 import { DEFAULT_SETTINGS } from '../js/share.js';
 
 describe('Renderer Module: Theme & Config Validation', () => {
-  it('defines valid color palettes for all themes (white, dark, tour, neon, giro, gravel)', () => {
-    const themeKeys = ['white', 'dark', 'tour', 'neon', 'giro', 'gravel'];
+  it('defines valid color palettes for all themes (white, dark, tour, neon, giro, gravel, prism)', () => {
+    const themeKeys = ['white', 'dark', 'tour', 'neon', 'giro', 'gravel', 'prism'];
     const requiredKeys = ['bg', 'text', 'grid', 'topStroke', 'z1', 'z2', 'z3', 'z4'];
 
     for (const t of themeKeys) {

@@ -77,30 +77,45 @@ export function updateBlockSizePills(store) {
  */
 export function syncFormControls(state) {
   const s = state.settings;
+  const isFueling = state.activeView === 'fueling';
+
+  // Toggle visibility of preset pills according to active mode
+  const elePills = document.querySelectorAll('.pill-opt-elevation');
+  const fuelPills = document.querySelectorAll('.pill-opt-fueling');
+  elePills.forEach(p => { p.style.display = isFueling ? 'none' : ''; });
+  fuelPills.forEach(p => { p.style.display = isFueling ? '' : 'none'; });
 
   // Dimensions
-  const wIn = document.getElementById('input-w-mm');
-  if (wIn) wIn.value = s.widthMm;
-  const hIn = document.getElementById('input-h-mm');
-  if (hIn) hIn.value = s.heightMm;
+  const curW = isFueling ? (s.fuelingWidthMm || 35) : s.widthMm;
+  const curH = isFueling ? (s.fuelingHeightMm || 115) : s.heightMm;
 
-  document.documentElement.style.setProperty('--sticker-w', `${s.widthMm}mm`);
-  document.documentElement.style.setProperty('--sticker-h', `${s.heightMm}mm`);
+  const wIn = document.getElementById('input-w-mm');
+  if (wIn) wIn.value = curW;
+  const hIn = document.getElementById('input-h-mm');
+  if (hIn) hIn.value = curH;
+
+  document.documentElement.style.setProperty('--sticker-w', `${curW}mm`);
+  document.documentElement.style.setProperty('--sticker-h', `${curH}mm`);
 
   const stageSizeLabel = document.getElementById('stage-size-label');
-  if (stageSizeLabel) stageSizeLabel.textContent = `${s.widthMm} × ${s.heightMm} mm`;
+  if (stageSizeLabel) {
+    stageSizeLabel.textContent = isFueling
+      ? `${curW} × ${curH} mm (Top Tube)`
+      : `${curW} × ${curH} mm`;
+  }
 
-  // Preset pills
-  const presetPills = document.querySelectorAll('#preset-pill-group .pill-opt');
-  const targetPreset = `${s.widthMm}x${s.heightMm}`;
+  // Preset pills active state matching
+  const targetPreset = `${curW}x${curH}`;
   let matchedPreset = false;
-  presetPills.forEach(p => {
+  const activeModePills = isFueling ? fuelPills : elePills;
+  activeModePills.forEach(p => {
     const isMatch = p.dataset.value === targetPreset;
     p.classList.toggle('active', isMatch);
     if (isMatch) matchedPreset = true;
   });
-  if (!matchedPreset) {
-    presetPills.forEach(p => p.classList.toggle('active', p.dataset.value === 'custom'));
+  const customPill = document.querySelector('#preset-pill-group .pill-opt[data-value="custom"]');
+  if (customPill) {
+    customPill.classList.toggle('active', !matchedPreset);
   }
 
   // Radius & copies
@@ -140,6 +155,8 @@ export function syncFormControls(state) {
   syncCheck('chk-distance', s.showDistanceTicks);
   syncCheck('chk-ele-labels', s.showElevationLabels);
   syncCheck('chk-cut', s.showCutGuidelines);
+  syncCheck('chk-fuel-header', s.showHeader);
+  syncCheck('chk-fuel-cut', s.showCutGuidelines);
 }
 
 /**
@@ -156,6 +173,7 @@ export function initControls(store) {
 
   presetPills.forEach(pill => {
     pill.addEventListener('click', () => {
+      const isFueling = store.getState().activeView === 'fueling';
       presetPills.forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
       const val = pill.dataset.value;
@@ -165,7 +183,11 @@ export function initControls(store) {
         const [w, h] = val.split('x').map(Number);
         if (wIn) wIn.value = w;
         if (hIn) hIn.value = h;
-        store.updateSettings({ widthMm: w, heightMm: h });
+        if (isFueling) {
+          store.updateSettings({ fuelingWidthMm: w, fuelingHeightMm: h });
+        } else {
+          store.updateSettings({ widthMm: w, heightMm: h });
+        }
       }
     });
   });
@@ -173,10 +195,15 @@ export function initControls(store) {
   if (wIn) {
     wIn.addEventListener('input', e => {
       const v = parseInt(e.target.value, 10);
-      if (v >= 20 && v <= 400) {
+      if (v >= 15 && v <= 400) {
+        const isFueling = store.getState().activeView === 'fueling';
         presetPills.forEach(p => p.classList.toggle('active', p.dataset.value === 'custom'));
         if (presetSelect) presetSelect.value = 'custom';
-        store.updateSettings({ widthMm: v });
+        if (isFueling) {
+          store.updateSettings({ fuelingWidthMm: v });
+        } else {
+          store.updateSettings({ widthMm: v });
+        }
       }
     });
   }
@@ -184,10 +211,15 @@ export function initControls(store) {
   if (hIn) {
     hIn.addEventListener('input', e => {
       const v = parseInt(e.target.value, 10);
-      if (v >= 10 && v <= 200) {
+      if (v >= 15 && v <= 400) {
+        const isFueling = store.getState().activeView === 'fueling';
         presetPills.forEach(p => p.classList.toggle('active', p.dataset.value === 'custom'));
         if (presetSelect) presetSelect.value = 'custom';
-        store.updateSettings({ heightMm: v });
+        if (isFueling) {
+          store.updateSettings({ fuelingHeightMm: v });
+        } else {
+          store.updateSettings({ heightMm: v });
+        }
       }
     });
   }
@@ -272,6 +304,8 @@ export function initControls(store) {
   bindCheck('chk-distance', 'showDistanceTicks');
   bindCheck('chk-ele-labels', 'showElevationLabels');
   bindCheck('chk-cut', 'showCutGuidelines');
+  bindCheck('chk-fuel-header', 'showHeader');
+  bindCheck('chk-fuel-cut', 'showCutGuidelines');
 
   // Initial sync
   updateBlockSizePills(store);

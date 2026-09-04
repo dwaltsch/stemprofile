@@ -399,6 +399,8 @@ export function exportSVG(pointsOrOptions, stats, climbs, blocks, waypoints, set
   const p = resolveExportParams(pointsOrOptions, stats, climbs, blocks, waypoints, settings);
   const themeKey = THEMES[p.settings.theme] ? p.settings.theme : 'white';
   const isFueling = p.activeView === 'fueling';
+  const curW = isFueling ? (p.settings.fuelingWidthMm || 35) : (p.settings.widthMm || 110);
+  const curH = isFueling ? (p.settings.fuelingHeightMm || 115) : (p.settings.heightMm || 35);
   const svgMarkup = isFueling
     ? renderFuelingSVG({ ...p, settings: { ...p.settings, theme: themeKey } }, { isPrint: false })
     : renderProfileSVG({ ...p, settings: { ...p.settings, theme: themeKey }, isPrint: false });
@@ -408,7 +410,7 @@ export function exportSVG(pointsOrOptions, stats, climbs, blocks, waypoints, set
   const a = document.createElement('a');
   const baseName = isFueling ? `${p.settings.title || 'route'}_fueling_plan` : (p.settings.title || 'stem_profile');
   const filename = baseName.toLowerCase().replace(/[^a-z0-9]/g, '_') +
-    `_${p.settings.widthMm || 110}x${p.settings.heightMm || 35}mm.svg`;
+    `_${curW}x${curH}mm.svg`;
 
   a.href = url;
   a.download = filename;
@@ -482,8 +484,9 @@ export function copySVG(pointsOrOptions, stats, climbs, blocks, waypoints, setti
  */
 export function exportPNG(pointsOrOptions, stats, climbs, blocks, waypoints, settings, callback) {
   const p = resolveExportParams(pointsOrOptions, stats, climbs, blocks, waypoints, settings, callback);
-  const wMm = p.settings.widthMm || 110;
-  const hMm = p.settings.heightMm || 35;
+  const isFueling = p.activeView === 'fueling';
+  const wMm = isFueling ? (p.settings.fuelingWidthMm || 35) : (p.settings.widthMm || 110);
+  const hMm = isFueling ? (p.settings.fuelingHeightMm || 115) : (p.settings.heightMm || 35);
   const dpi = 300;
   const mmToIn = 1 / 25.4;
   const pxW = Math.round(wMm * mmToIn * dpi);
@@ -492,7 +495,6 @@ export function exportPNG(pointsOrOptions, stats, climbs, blocks, waypoints, set
   const themeKey = THEMES[p.settings.theme] ? p.settings.theme : 'white';
   const theme = THEMES[themeKey] || THEMES['white'];
 
-  const isFueling = p.activeView === 'fueling';
   const svgMarkup = isFueling
     ? renderFuelingSVG({ ...p, settings: { ...p.settings, theme: themeKey } }, { isPrint: false })
     : renderProfileSVG({ ...p, settings: { ...p.settings, theme: themeKey }, isPrint: false });

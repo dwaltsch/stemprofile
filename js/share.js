@@ -39,14 +39,15 @@ export const DEFAULT_SETTINGS = {
   hiddenClimbIds: []
 };
 
-export const THEME_NAMES = ['white', 'giro', 'tour', 'gravel', 'dark', 'neon'];
+export const THEME_NAMES = ['white', 'giro', 'tour', 'gravel', 'dark', 'neon', 'prism'];
 export const THEME_INDEX = {
   'white': 0,
   'giro': 1,
   'tour': 2,
   'gravel': 3,
   'dark': 4,
-  'neon': 5
+  'neon': 5,
+  'prism': 6
 };
 
 export const WPT_TYPE_NAMES = ['feed', 'water', 'food', 'sprint', 'summit', 'caution', 'mech', 'checkpoint', 'custom'];
