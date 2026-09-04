@@ -13,6 +13,7 @@
  */
 
 import { renderProfileSVG, THEMES } from './renderer.js';
+import { renderFuelingSVG } from './fueling-renderer.js';
 import { getUnitLabels, getUnitFactors } from './units.js';
 
 /**
@@ -21,6 +22,7 @@ import { getUnitLabels, getUnitFactors } from './units.js';
 export const DEFAULT_PRINT_CONFIG = {
   copies: 2,
   printTheme: 'theme', // 'theme' (active color palette) or 'white' (ink-saver)
+  stickerType: 'active', // 'active', 'elevation', 'fueling', 'both'
   showCropMarks: true,
   showCutLines: true,
   showRuler: true,
@@ -52,6 +54,8 @@ export function resolveExportParams(pointsOrOptions, stats, climbs, blocks, wayp
       blocks: pointsOrOptions.blocks || [],
       waypoints: pointsOrOptions.waypoints || [],
       settings: pointsOrOptions.settings || {},
+      fueling: pointsOrOptions.fueling || null,
+      activeView: pointsOrOptions.activeView || 'elevation',
       callback: typeof stats === 'function' ? stats : (pointsOrOptions.callback || null)
     };
   }
@@ -235,11 +239,31 @@ export function generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks,
   const title = p.settings.title || 'StemProfile Elevation Sticker';
 
   // Render individual sticker SVG
-  const singleSvg = renderProfileSVG({
-    ...p,
-    settings: { ...p.settings, theme: effectiveTheme },
-    isPrint: isPrintWhite
-  });
+  const renderCellSvg = (cellIndex) => {
+    const stickerType = cfg.stickerType || 'active';
+    let isFuel = false;
+    if (stickerType === 'fueling') {
+      isFuel = true;
+    } else if (stickerType === 'elevation') {
+      isFuel = false;
+    } else if (stickerType === 'both') {
+      isFuel = (cellIndex % 2 === 1);
+    } else {
+      isFuel = (p.activeView === 'fueling');
+    }
+
+    if (isFuel) {
+      return renderFuelingSVG({
+        ...p,
+        settings: { ...p.settings, theme: effectiveTheme }
+      }, { isPrint: isPrintWhite });
+    }
+    return renderProfileSVG({
+      ...p,
+      settings: { ...p.settings, theme: effectiveTheme },
+      isPrint: isPrintWhite
+    });
+  };
 
   // Crop marks SVG for one cell
   const cropMarksSvg = cfg.showCropMarks ? generateCropMarksSVG(W, H, cropOffset, 3.5) : '';
@@ -250,11 +274,14 @@ export function generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks,
   const cellH = H + (cropOffset * 2);
 
   for (let i = 0; i < count; i++) {
+    const singleSvg = renderCellSvg(i);
+
     // Unique scoped gradient ID per cell to prevent collision
     const scopedSvg = singleSvg
       .replace(/id="climb-active-grad"/g, `id="climb-active-grad-sheet-${i}"`)
       .replace(/url\(#climb-active-grad\)/g, `url(#climb-active-grad-sheet-${i})`)
-      .replace(/id="profile-svg-elem"/g, `id="profile-svg-elem-sheet-${i}"`);
+      .replace(/id="profile-svg-elem"/g, `id="profile-svg-elem-sheet-${i}"`)
+      .replace(/id="fueling-svg-elem"/g, `id="fueling-svg-elem-sheet-${i}"`);
 
     const cutOutline = cfg.showCutLines
       ? `<div class="print-cell-cut-guide" style="position:absolute; left:${cropOffset}mm; top:${cropOffset}mm; width:${W}mm; height:${H}mm; border-radius:${radius}mm; border:0.35pt dashed #94a3b8; pointer-events:none;"></div>`
@@ -369,12 +396,16 @@ export function updatePrintMatrix(pointsOrOptions, stats, climbs, blocks, waypoi
 export function exportSVG(pointsOrOptions, stats, climbs, blocks, waypoints, settings) {
   const p = resolveExportParams(pointsOrOptions, stats, climbs, blocks, waypoints, settings);
   const themeKey = THEMES[p.settings.theme] ? p.settings.theme : 'white';
-  const svgMarkup = renderProfileSVG({ ...p, settings: { ...p.settings, theme: themeKey }, isPrint: false });
+  const isFueling = p.activeView === 'fueling';
+  const svgMarkup = isFueling
+    ? renderFuelingSVG({ ...p, settings: { ...p.settings, theme: themeKey } }, { isPrint: false })
+    : renderProfileSVG({ ...p, settings: { ...p.settings, theme: themeKey }, isPrint: false });
 
   const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const filename = (p.settings.title || 'stem_profile').toLowerCase().replace(/[^a-z0-9]/g, '_') +
+  const baseName = isFueling ? `${p.settings.title || 'route'}_fueling_plan` : (p.settings.title || 'stem_profile');
+  const filename = baseName.toLowerCase().replace(/[^a-z0-9]/g, '_') +
     `_${p.settings.widthMm || 110}x${p.settings.heightMm || 35}mm.svg`;
 
   a.href = url;
@@ -399,7 +430,10 @@ export function exportSVG(pointsOrOptions, stats, climbs, blocks, waypoints, set
 export function copySVG(pointsOrOptions, stats, climbs, blocks, waypoints, settings, callback) {
   const p = resolveExportParams(pointsOrOptions, stats, climbs, blocks, waypoints, settings, callback);
   const themeKey = THEMES[p.settings.theme] ? p.settings.theme : 'white';
-  const svgMarkup = renderProfileSVG({ ...p, settings: { ...p.settings, theme: themeKey }, isPrint: false });
+  const isFueling = p.activeView === 'fueling';
+  const svgMarkup = isFueling
+    ? renderFuelingSVG({ ...p, settings: { ...p.settings, theme: themeKey } }, { isPrint: false })
+    : renderProfileSVG({ ...p, settings: { ...p.settings, theme: themeKey }, isPrint: false });
 
   const fallbackCopy = () => {
     let ta = null;
@@ -456,7 +490,11 @@ export function exportPNG(pointsOrOptions, stats, climbs, blocks, waypoints, set
   const themeKey = THEMES[p.settings.theme] ? p.settings.theme : 'white';
   const theme = THEMES[themeKey] || THEMES['white'];
 
-  const svgMarkup = renderProfileSVG({ ...p, settings: { ...p.settings, theme: themeKey }, isPrint: false });
+  const isFueling = p.activeView === 'fueling';
+  const svgMarkup = isFueling
+    ? renderFuelingSVG({ ...p, settings: { ...p.settings, theme: themeKey } }, { isPrint: false })
+    : renderProfileSVG({ ...p, settings: { ...p.settings, theme: themeKey }, isPrint: false });
+
   const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
 
@@ -473,7 +511,8 @@ export function exportPNG(pointsOrOptions, stats, climbs, blocks, waypoints, set
 
       const pngUrl = canvas.toDataURL('image/png');
       const a = document.createElement('a');
-      const filename = (p.settings.title || 'stem_profile').toLowerCase().replace(/[^a-z0-9]/g, '_') +
+      const baseName = isFueling ? `${p.settings.title || 'route'}_fueling_plan` : (p.settings.title || 'stem_profile');
+      const filename = baseName.toLowerCase().replace(/[^a-z0-9]/g, '_') +
         `_${wMm}x${hMm}mm_300dpi.png`;
       a.href = pngUrl;
       a.download = filename;

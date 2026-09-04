@@ -9,6 +9,7 @@
 
 import { store } from './store.js';
 import { renderProfileSVG } from './renderer.js';
+import { renderFuelingSVG } from './fueling-renderer.js';
 import { exportSVG, exportPNG, copySVG, updatePrintMatrix } from './export.js';
 import { copyShareableLink, decompressPayload } from './share.js';
 import { getUnitFactors, getUnitLabels, formatElevation } from './units.js';
@@ -20,12 +21,14 @@ import { initDropzone } from './ui/dropzone.js';
 import { initControls, syncFormControls, updateBlockSizePills } from './ui/controls.js';
 import { initWaypointsPanel, renderWaypointsList } from './ui/waypoints-panel.js';
 import { renderClimbsTable } from './ui/climbs-panel.js';
+import { initFuelingPanel, renderFuelingPanel } from './ui/fueling-panel.js';
 import { initDragEngine } from './ui/drag-engine.js';
 import { bindTooltipHover } from './ui/tooltip.js';
 import { showToast } from './ui/toast.js';
 import { initPrintModal, openPrintModal, updatePrintModalPreview, getActivePrintConfig } from './ui/print-modal.js';
 
 // Backward compatibility exports
+export { store };
 export { getRecommendedBlockPresets } from './layout.js';
 export { updateBlockSizePills } from './ui/controls.js';
 
@@ -47,12 +50,17 @@ export function updateUI() {
   const stats = state.stats;
   const pts = state.points;
   const hasData = pts.length >= 2 && stats !== null;
+  const isFuelingView = state.activeView === 'fueling';
 
-  // 1. Render Vector Profile SVG Preview
+  // 1. Render Vector Profile SVG Preview or Fueling SVG Preview
   const svgHost = document.getElementById('svg-host');
   if (svgHost) {
     if (hasData) {
-      svgHost.innerHTML = renderProfileSVG(state);
+      if (isFuelingView) {
+        svgHost.innerHTML = renderFuelingSVG(state);
+      } else {
+        svgHost.innerHTML = renderProfileSVG(state);
+      }
     } else {
       svgHost.innerHTML = `
         <div class="empty-msg">
@@ -63,34 +71,54 @@ export function updateUI() {
           </svg>
           <h3>No Route Loaded</h3>
           <p>Tap to select a GPX, TCX, or FIT file (or drop on desktop)</p>
-          <span class="btn btn-secondary empty-browse-btn" style="margin-top:0.35rem; pointer-events:none;">
+          <label for="file-input" class="btn btn-secondary empty-browse-btn" style="margin-top:0.35rem; cursor:pointer;" role="button" tabindex="0">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="17 8 12 3 7 8"></polyline>
               <line x1="12" y1="3" x2="12" y2="15"></line>
             </svg>
             Choose Route File
-          </span>
+          </label>
         </div>
       `;
     }
   }
 
-  // 2. Buttons State
+  // 2. View Switcher & Right Panel View Sync
+  const btnViewElevation = document.getElementById('btn-view-elevation');
+  const btnViewFueling = document.getElementById('btn-view-fueling');
+  if (btnViewElevation) btnViewElevation.classList.toggle('active', !isFuelingView);
+  if (btnViewFueling) btnViewFueling.classList.toggle('active', isFuelingView);
+
+  const tabBtnCues = document.getElementById('tab-btn-cues');
+  const tabBtnFuel = document.getElementById('tab-btn-fuel');
+  if (tabBtnCues) tabBtnCues.classList.toggle('active', !isFuelingView);
+  if (tabBtnFuel) tabBtnFuel.classList.toggle('active', isFuelingView);
+
+  const panelCues = document.getElementById('panel-cues-content');
+  const panelFuel = document.getElementById('panel-fuel-content');
+  if (panelCues) panelCues.style.display = isFuelingView ? 'none' : 'block';
+  if (panelFuel) panelFuel.style.display = isFuelingView ? 'block' : 'none';
+
+  // 3. Buttons State
   const buttons = ['btn-share-link', 'btn-copy-svg', 'btn-export-svg', 'btn-export-png', 'btn-print'];
   buttons.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.disabled = !hasData;
   });
 
-  // 3. Stats Strip & Header Route Status Pill
+  // 4. Stats Strip & Header Route Status Pill
   const { dFactor, eFactor } = getUnitFactors(cfg.units);
   const { dist: distUnit, ele: eleUnit } = getUnitLabels(cfg.units);
   const routeStatusText = document.getElementById('route-status-text');
   const climbsCount = state.climbs ? state.climbs.length : 0;
+  const fuelCount = (state.fueling && state.fueling.items) ? state.fueling.items.length : 0;
 
   const mobileClimbsCount = document.getElementById('mobile-climbs-count');
   if (mobileClimbsCount) mobileClimbsCount.textContent = `${climbsCount}`;
+
+  const mobileFuelCount = document.getElementById('mobile-fuel-count');
+  if (mobileFuelCount) mobileFuelCount.textContent = `${fuelCount}`;
 
   if (hasData) {
     const distFormatted = `${(stats.totalDist * dFactor).toFixed(1)} ${distUnit}`;
@@ -121,11 +149,14 @@ export function updateUI() {
     }
   }
 
-  // 4. Update Panels & Overlays
+  // 5. Update Panels & Overlays
   renderClimbsTable(store);
   renderWaypointsList(store);
+  renderFuelingPanel(store);
   updatePrintMatrix(state, null, null, null, null, null, getActivePrintConfig());
-  bindTooltipHover(store);
+  if (!isFuelingView) {
+    bindTooltipHover(store);
+  }
 }
 
 /**
@@ -201,10 +232,27 @@ function initActions() {
     });
   }
 
-  // Header Load GPX button trigger
+  // Clicking empty preview-stage opens file picker (ignores clicks on buttons, labels, and toolbars)
+  const previewStage = document.getElementById('preview-stage');
+  if (previewStage) {
+    previewStage.addEventListener('click', e => {
+      if (e.target.closest('button') || e.target.closest('label') || e.target.closest('.stage-header-toolbar') || e.target.closest('.segmented-pill-group')) return;
+      const state = store.getState();
+      if (state.points.length < 2 || !state.stats) {
+        if (fin) fin.click();
+      }
+    });
+  }
+
+  // Header Load GPX label keyboard accessibility
   const btnLoadGpx = document.getElementById('btn-load-gpx');
   if (btnLoadGpx && fin) {
-    btnLoadGpx.addEventListener('click', () => fin.click());
+    btnLoadGpx.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        fin.click();
+      }
+    });
   }
 
   // Stage Zoom Controls (Large / Max / 1:1 Actual)
@@ -312,15 +360,38 @@ function initActions() {
     }
   });
 
+  // View Switcher Buttons (Elevation vs Fueling)
+  const viewSwitchBtns = document.querySelectorAll('.view-switch-btn');
+  viewSwitchBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const view = btn.dataset.view;
+      store.setActiveView(view);
+    });
+  });
+
+  // Sidebar Tab Switcher Buttons
+  const tabBtnCues = document.getElementById('tab-btn-cues');
+  if (tabBtnCues) {
+    tabBtnCues.addEventListener('click', () => {
+      store.setActiveView('elevation');
+    });
+  }
+  const tabBtnFuel = document.getElementById('tab-btn-fuel');
+  if (tabBtnFuel) {
+    tabBtnFuel.addEventListener('click', () => {
+      store.setActiveView('fueling');
+    });
+  }
+
   window.addEventListener('beforeprint', () => {
     updatePrintMatrix(store.getState(), null, null, null, null, null, getActivePrintConfig());
   });
 }
 
 /**
- * Toggles active mobile workstation tab ('preview' | 'design' | 'climbs').
+ * Toggles active mobile workstation tab ('preview' | 'design' | 'climbs' | 'fueling').
  *
- * @param {'preview'|'design'|'climbs'} tab - Active tab identifier
+ * @param {'preview'|'design'|'climbs'|'fueling'} tab - Active tab identifier
  */
 export function setMobileTab(tab) {
   const tabBtns = document.querySelectorAll('.mobile-tab-btn');
@@ -334,6 +405,12 @@ export function setMobileTab(tab) {
       btn.classList.remove('active');
     }
   });
+
+  if (tab === 'fueling') {
+    store.setActiveView('fueling');
+  } else if (tab === 'climbs') {
+    store.setActiveView('elevation');
+  }
 
   appLayout.setAttribute('data-mobile-tab', tab);
 }
@@ -359,6 +436,7 @@ export function initApp() {
   initDropzone(store);
   initControls(store);
   initWaypointsPanel(store);
+  initFuelingPanel(store);
   initDragEngine(store);
   initPrintModal(store);
   initActions();
@@ -405,5 +483,9 @@ export function initApp() {
 
 // Auto-initialize when running in browser DOM environment
 if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-  window.addEventListener('DOMContentLoaded', initApp);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initApp);
+  } else {
+    initApp();
+  }
 }

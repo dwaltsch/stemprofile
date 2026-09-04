@@ -104,6 +104,13 @@ export function closePrintModal() {
  * @param {Object} state - Store state snapshot
  */
 function syncPrintModalForm(state) {
+  // Sticker Type pills
+  const typePills = document.querySelectorAll('#print-type-pill-group .pill-opt');
+  typePills.forEach(p => {
+    const type = p.dataset.stickerType;
+    p.classList.toggle('active', type === (activePrintConfig.stickerType || 'active'));
+  });
+
   // Copies pills
   const copiesPills = document.querySelectorAll('#print-copies-pill-group .pill-opt');
   copiesPills.forEach(p => {
@@ -165,6 +172,17 @@ export function initPrintModal(store) {
     if (e.key === 'Escape' && modal && modal.style.display === 'flex') {
       closePrintModal();
     }
+  });
+
+  // Sticker Type pills
+  const typePills = document.querySelectorAll('#print-type-pill-group .pill-opt');
+  typePills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      typePills.forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      activePrintConfig.stickerType = pill.dataset.stickerType || 'active';
+      updatePrintModalPreview(store);
+    });
   });
 
   // Copies pills

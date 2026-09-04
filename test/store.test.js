@@ -156,4 +156,44 @@ describe('Store Module: State & Lifecycle', () => {
 
     unsub2();
   });
+
+  it('manages fueling strategy lifecycle, view switching, and item mutations', () => {
+    const store = createStore();
+    assert.equal(store.getActiveView(), 'elevation');
+
+    // Switch view
+    store.setActiveView('fueling');
+    assert.equal(store.getActiveView(), 'fueling');
+
+    // Add fuel item
+    const item = store.addFuelItem({
+      distM: 20000,
+      name: 'High-Carb Hydrogel',
+      type: 'gel',
+      icon: '⚡',
+      carbsG: 40
+    });
+
+    assert.ok(item.id);
+    assert.equal(item.distM, 20000);
+    assert.equal(item.carbsG, 40);
+
+    const fState = store.getFuelingState();
+    assert.equal(fState.items.length, 1);
+
+    // Update fuel item
+    store.updateFuelItem(item.id, { carbsG: 45, name: 'Maurten Gel 160' });
+    assert.equal(store.getFuelingState().items[0].carbsG, 45);
+    assert.equal(store.getFuelingState().items[0].name, 'Maurten Gel 160');
+
+    // Update settings (e.g. switch mode to time)
+    store.updateFuelSettings({ mode: 'time', avgSpeedKmh: 30 });
+    assert.equal(store.getFuelingState().mode, 'time');
+    assert.equal(store.getFuelingState().avgSpeedKmh, 30);
+
+    // Remove fuel item
+    store.removeFuelItem(item.id);
+    assert.equal(store.getFuelingState().items.length, 0);
+  });
 });
+

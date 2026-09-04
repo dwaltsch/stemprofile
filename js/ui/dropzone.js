@@ -120,6 +120,7 @@ export function initDropzone(store) {
     fin.addEventListener('change', e => {
       if (e.target.files && e.target.files.length > 0) {
         handleRouteFile(e.target.files[0], store);
+        fin.value = '';
       }
     });
   }

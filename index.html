@@ -9,8 +9,8 @@
 </head>
 <body>
 
-  <!-- Hidden Route File Input -->
-  <input type="file" id="file-input" accept=".gpx,.tcx,.fit" style="display:none;" />
+  <!-- Route File Input (Visually hidden off-screen for Safari & universal browser compatibility) -->
+  <input type="file" id="file-input" accept=".gpx,.tcx,.fit" class="sr-only" aria-label="Upload route file" />
 
   <!-- Top Navigation Header -->
   <header class="app-header">
@@ -29,6 +29,16 @@
       </div>
     </div>
 
+    <!-- Mode Switcher: Topo Elevation Profile vs Fueling Strategy Decal -->
+    <div class="view-switch-group" id="view-switch-group">
+      <button type="button" class="view-switch-btn active" data-view="elevation" id="btn-view-elevation" title="Elevation Profile Topo Sticker">
+        <span>🏔️ Topo Profile</span>
+      </button>
+      <button type="button" class="view-switch-btn" data-view="fueling" id="btn-view-fueling" title="Fueling Strategy Decal">
+        <span>⚡ Fueling Decal</span>
+      </button>
+    </div>
+
     <!-- Active Route Status Pill -->
     <div class="route-pill" id="route-pill">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -40,14 +50,14 @@
 
     <!-- Action Suite -->
     <div class="actions">
-      <button class="btn btn-secondary" id="btn-load-gpx" title="Load route file (GPX, TCX, FIT)">
+      <label for="file-input" class="btn btn-secondary" id="btn-load-gpx" role="button" tabindex="0" title="Load route file (GPX, TCX, FIT)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
           <polyline points="17 8 12 3 7 8"></polyline>
           <line x1="12" y1="3" x2="12" y2="15"></line>
         </svg>
         <span class="btn-text">Load Route</span>
-      </button>
+      </label>
 
       <button class="btn btn-icon" id="btn-theme-toggle" title="Toggle Light/Dark Theme">
         <!-- Sun icon (shown in dark mode) -->
@@ -139,6 +149,13 @@
       </svg>
       <span>Climbs &amp; Cues</span>
       <span class="mobile-tab-count" id="mobile-climbs-count">0</span>
+    </button>
+    <button type="button" class="mobile-tab-btn" data-tab="fueling">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+      </svg>
+      <span>Fueling</span>
+      <span class="mobile-tab-count" id="mobile-fuel-count">0</span>
     </button>
   </nav>
 
@@ -385,100 +402,202 @@
     <!-- RIGHT COLUMN: Waypoints, Climbs & Telemetry Inspector -->
     <aside class="sidebar-right" id="sidebar-right">
       
-      <!-- Section 1: Waypoints & Nutrition Cues (Moved to Right Panel above Climbs) -->
-      <div class="tool-section">
-        <div class="section-header-flex">
-          <span class="section-label" style="margin-bottom:0;">Waypoints & Feed Cues</span>
-          <span id="wpt-count-badge" class="count-badge">0</span>
+      <!-- Sidebar Panel Mode Tabs (Climbs & Cues vs Fueling Strategy) -->
+      <div class="segmented-pill-group" id="sidebar-tab-strip" style="margin-bottom:0.85rem;">
+        <button type="button" class="pill-opt active" id="tab-btn-cues" data-view="elevation">⛰️ Climbs &amp; Cues</button>
+        <button type="button" class="pill-opt" id="tab-btn-fuel" data-view="fueling">⚡ Fueling Plan</button>
+      </div>
+
+      <!-- Container 1: Climbs & Cues (Visible in Elevation mode) -->
+      <div id="panel-cues-content">
+        <!-- Section 1: Waypoints & Nutrition Cues (Moved to Right Panel above Climbs) -->
+        <div class="tool-section">
+          <div class="section-header-flex">
+            <span class="section-label" style="margin-bottom:0;">Waypoints & Feed Cues</span>
+            <span id="wpt-count-badge" class="count-badge">0</span>
+          </div>
+          
+          <div class="control-group" style="margin-top: 0.55rem;">
+            <div class="field-grid">
+              <div class="field">
+                <label class="field-label" for="select-wpt-type">Type</label>
+                <select id="select-wpt-type">
+                  <option value="feed" selected>🍽️ Feed Zone</option>
+                  <option value="water">💧 Water / H2O</option>
+                  <option value="food">🥪 Food / Fuel</option>
+                  <option value="sprint">🟢 Sprint (S)</option>
+                  <option value="summit">⛰️ Summit</option>
+                  <option value="caution">⚠️ Caution</option>
+                  <option value="mech">🔧 Tech / Mech</option>
+                  <option value="checkpoint">🏁 Checkpoint</option>
+                  <option value="custom">📍 Custom Pin</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="field-label" for="input-wpt-dist">Dist (<span id="label-wpt-unit">km</span>)</label>
+                <input type="number" id="input-wpt-dist" min="0" max="1000" step="0.1" placeholder="e.g. 45.0">
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="input-wpt-label">Label (optional)</label>
+              <input type="text" id="input-wpt-label" placeholder="e.g. Bottle Drop, Gel Feed" maxlength="16">
+            </div>
+
+            <button class="btn btn-secondary" id="btn-add-wpt" style="width:100%; justify-content:center;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              Add Waypoint Pin
+            </button>
+
+            <div class="wpt-list-wrapper" id="wpt-list-wrapper">
+              <div class="wpt-empty-hint" id="wpt-empty-hint">No waypoints added yet. Click on the profile preview or add cues above.</div>
+              <div class="wpt-list" id="wpt-list"></div>
+            </div>
+          </div>
         </div>
-        
-        <div class="control-group" style="margin-top: 0.55rem;">
-          <div class="field-grid">
-            <div class="field">
-              <label class="field-label" for="select-wpt-type">Type</label>
-              <select id="select-wpt-type">
-                <option value="feed" selected>🍽️ Feed Zone</option>
-                <option value="water">💧 Water / H2O</option>
-                <option value="food">🥪 Food / Fuel</option>
-                <option value="sprint">🟢 Sprint (S)</option>
-                <option value="summit">⛰️ Summit</option>
-                <option value="caution">⚠️ Caution</option>
-                <option value="mech">🔧 Tech / Mech</option>
-                <option value="checkpoint">🏁 Checkpoint</option>
-                <option value="custom">📍 Custom Pin</option>
-              </select>
-            </div>
-            <div class="field">
-              <label class="field-label" for="input-wpt-dist">Dist (<span id="label-wpt-unit">km</span>)</label>
-              <input type="number" id="input-wpt-dist" min="0" max="1000" step="0.1" placeholder="e.g. 45.0">
-            </div>
+
+        <!-- Section 2: Detected Climbs Table -->
+        <div class="tool-section">
+          <div class="section-header-flex">
+            <span class="section-label" style="margin-bottom:0;">Detected Climbs</span>
+            <span id="climbs-count-badge" class="count-badge">0</span>
           </div>
 
-          <div class="field">
-            <label class="field-label" for="input-wpt-label">Label (optional)</label>
-            <input type="text" id="input-wpt-label" placeholder="e.g. Bottle Drop, Gel Feed" maxlength="16">
+          <div class="climbs-panel" id="climbs-box">
+            <table class="climbs-table">
+              <thead>
+                <tr>
+                  <th>Cat</th>
+                  <th>Distance</th>
+                  <th>Length</th>
+                  <th>Avg %</th>
+                  <th>Gain</th>
+                  <th>Summit</th>
+                  <th style="text-align:right; width:28px;">Badge</th>
+                </tr>
+              </thead>
+              <tbody id="climbs-table-body"></tbody>
+            </table>
+            <div class="climbs-empty-hint" id="climbs-empty-hint">No sustained climbs detected in track.</div>
           </div>
+        </div>
 
-          <button class="btn btn-secondary" id="btn-add-wpt" style="width:100%; justify-content:center;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-            Add Waypoint Pin
-          </button>
-
-          <div class="wpt-list-wrapper" id="wpt-list-wrapper">
-            <div class="wpt-empty-hint" id="wpt-empty-hint">No waypoints added yet. Click on the profile preview or add cues above.</div>
-            <div class="wpt-list" id="wpt-list"></div>
+        <!-- Section 3: Roadbook Gradient Zones Legend -->
+        <div class="tool-section">
+          <div class="section-label">Gradient Color Zones</div>
+          <div class="legend-grid">
+            <div class="legend-row">
+              <span class="legend-badge z1">&lt; 5%</span>
+              <span class="legend-desc">Flat / False Flat</span>
+            </div>
+            <div class="legend-row">
+              <span class="legend-badge z2">5 – 8%</span>
+              <span class="legend-desc">Moderate Climb</span>
+            </div>
+            <div class="legend-row">
+              <span class="legend-badge z3">8 – 12%</span>
+              <span class="legend-desc">Steep Climb</span>
+            </div>
+            <div class="legend-row">
+              <span class="legend-badge z4">&gt; 12%</span>
+              <span class="legend-desc">Severe Gradient</span>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Section 2: Detected Climbs Table -->
-      <div class="tool-section">
-        <div class="section-header-flex">
-          <span class="section-label" style="margin-bottom:0;">Detected Climbs</span>
-          <span id="climbs-count-badge" class="count-badge">0</span>
+      <!-- Container 2: Fueling Strategy (Visible in Fueling mode) -->
+      <div id="panel-fuel-content" style="display:none;">
+        <div class="tool-section">
+          <div class="section-header-flex">
+            <span class="section-label" style="margin-bottom:0;">Fueling Strategy</span>
+            <span id="fuel-count-badge" class="count-badge">0</span>
+          </div>
+
+          <div class="control-group" style="margin-top: 0.55rem;">
+            <!-- Target Carbs & Speed Inputs -->
+            <div class="field">
+              <div class="field-label">
+                <span>Target Carbs / Hour</span>
+                <span id="label-fuel-target-carbs" class="field-value-badge">75g</span>
+              </div>
+              <input type="range" id="input-fuel-target-carbs" min="40" max="120" step="5" value="75">
+            </div>
+
+            <div class="field-grid">
+              <div class="field">
+                <label class="field-label" for="input-fuel-avg-speed">Avg Speed (km/h)</label>
+                <input type="number" id="input-fuel-avg-speed" min="10" max="55" step="0.5" value="25">
+              </div>
+              <div class="field">
+                <label class="field-label">Index By</label>
+                <div class="segmented-pill-group" id="fuel-mode-pill-group" style="margin-top:0;">
+                  <button type="button" class="pill-opt active" data-mode="km">KM</button>
+                  <button type="button" class="pill-opt" data-mode="time">Time</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Stats Chips -->
+            <div class="fuel-stat-chips">
+              <div class="fuel-stat-chip">
+                <span class="chip-label">Total Carbs</span>
+                <span class="chip-val" id="fuel-stat-total-carbs">0g</span>
+              </div>
+              <div class="fuel-stat-chip">
+                <span class="chip-label">Avg Rate</span>
+                <span class="chip-val" id="fuel-stat-rate">0g/h</span>
+              </div>
+              <div class="fuel-stat-chip">
+                <span class="chip-label">Hydration</span>
+                <span class="chip-val" id="fuel-stat-fluid">0ml</span>
+              </div>
+            </div>
+
+            <!-- Hourly Intake Meter -->
+            <div class="field" style="margin-top:0.4rem;">
+              <div class="field-label">
+                <span>Hourly Carb Meter</span>
+              </div>
+              <div class="hourly-chart-container" id="fuel-hourly-chart">
+                <div class="hourly-empty">Load route to preview hourly pacing</div>
+              </div>
+            </div>
+
+            <!-- Regenerate Pro Plan Button -->
+            <button class="btn btn-secondary" id="btn-fuel-regenerate" style="width:100%; justify-content:center; margin-top:0.35rem;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+              </svg>
+              🪄 Regenerate Pro Plan
+            </button>
+          </div>
         </div>
 
-        <div class="climbs-panel" id="climbs-box">
-          <table class="climbs-table">
-            <thead>
-              <tr>
-                <th>Cat</th>
-                <th>Distance</th>
-                <th>Length</th>
-                <th>Avg %</th>
-                <th>Gain</th>
-                <th>Summit</th>
-                <th style="text-align:right; width:28px;">Badge</th>
-              </tr>
-            </thead>
-            <tbody id="climbs-table-body"></tbody>
-          </table>
-          <div class="climbs-empty-hint" id="climbs-empty-hint">No sustained climbs detected in track.</div>
+        <!-- Quick Add Presets Section -->
+        <div class="tool-section">
+          <div class="section-label">Quick Add Fuel Cue</div>
+          <div class="fuel-presets-grid">
+            <button type="button" class="fuel-preset-pill" data-fuel-preset="gel">⚡ Gel (25g)</button>
+            <button type="button" class="fuel-preset-pill" data-fuel-preset="gel_high_carb">⚡⚡ High-Carb (40g)</button>
+            <button type="button" class="fuel-preset-pill" data-fuel-preset="caff_gel">⚡☕ Caffeine (30g)</button>
+            <button type="button" class="fuel-preset-pill" data-fuel-preset="bottle_mix">🍾 Mix 500ml (40g)</button>
+            <button type="button" class="fuel-preset-pill" data-fuel-preset="bar">🍫 Bar (35g)</button>
+            <button type="button" class="fuel-preset-pill" data-fuel-preset="food">🥪 Food (30g)</button>
+            <button type="button" class="fuel-preset-pill" data-fuel-preset="feed_zone">🍽️ Aid Station</button>
+            <button type="button" class="fuel-preset-pill" data-fuel-preset="water">💧 Water</button>
+          </div>
         </div>
-      </div>
 
-      <!-- Section 3: Roadbook Gradient Zones Legend -->
-      <div class="tool-section">
-        <div class="section-label">Gradient Color Zones</div>
-        <div class="legend-grid">
-          <div class="legend-row">
-            <span class="legend-badge z1">&lt; 5%</span>
-            <span class="legend-desc">Flat / False Flat</span>
-          </div>
-          <div class="legend-row">
-            <span class="legend-badge z2">5 – 8%</span>
-            <span class="legend-desc">Moderate Climb</span>
-          </div>
-          <div class="legend-row">
-            <span class="legend-badge z3">8 – 12%</span>
-            <span class="legend-desc">Steep Climb</span>
-          </div>
-          <div class="legend-row">
-            <span class="legend-badge z4">&gt; 12%</span>
-            <span class="legend-desc">Severe Gradient</span>
+        <!-- Draggable Items Section -->
+        <div class="tool-section">
+          <div class="section-label">Fueling Schedule</div>
+          <div class="fuel-list-wrapper">
+            <div class="wpt-empty-hint" id="fuel-empty-hint">No fueling items yet. Drop a GPX file or click presets above.</div>
+            <div class="fuel-list" id="fuel-list"></div>
           </div>
         </div>
       </div>
@@ -524,6 +643,17 @@
         <!-- Right: Print Sheet Settings Controls -->
         <div class="print-settings-pane">
           
+          <!-- Section 0: Sticker Content (Elevation vs Fueling) -->
+          <div class="print-section">
+            <label class="field-label">Sticker Content</label>
+            <div class="segmented-pill-group" id="print-type-pill-group">
+              <button type="button" class="pill-opt active" data-sticker-type="active">Active View</button>
+              <button type="button" class="pill-opt" data-sticker-type="elevation">🏔️ Topo</button>
+              <button type="button" class="pill-opt" data-sticker-type="fueling">⚡ Fuel</button>
+              <button type="button" class="pill-opt" data-sticker-type="both">🔀 Both</button>
+            </div>
+          </div>
+
           <!-- Section 1: Copies & Theme -->
           <div class="print-section">
             <label class="field-label">Sticker Copies</label>

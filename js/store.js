@@ -12,6 +12,14 @@ import { processTrackSignal, matchWaypointsToTrack } from './signal.js';
 import { DEFAULT_SETTINGS } from './share.js';
 import { getRecommendedBlockPresets } from './layout.js';
 import { normalizeCoordinates } from './units.js';
+import {
+  DEFAULT_FUELING_CONFIG,
+  generateDefaultFuelPlan,
+  generateFuelId,
+  distToElapsedSeconds,
+  formatElapsedSeconds,
+  detectTerrainHazard
+} from './fueling.js';
 
 /**
  * @typedef {Object} StemStore
@@ -43,6 +51,12 @@ export function createStore(initialSettings = {}) {
     climbs: [],
     blocks: [],
     waypoints: [],
+    activeView: 'elevation',
+    fueling: {
+      ...DEFAULT_FUELING_CONFIG,
+      items: [],
+      customized: false
+    },
     settings: {
       ...DEFAULT_SETTINGS,
       title: '',
@@ -63,12 +77,41 @@ export function createStore(initialSettings = {}) {
     }
   }
 
+  function getStorageKey() {
+    if (!state.stats) return null;
+    const title = state.settings.title || 'route';
+    const dist = Math.round(state.stats.totalDist);
+    return `stemprofile_fuel_${title}_${dist}`;
+  }
+
+  function saveFuelingPlan() {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      const key = getStorageKey();
+      if (!key) return;
+      localStorage.setItem(key, JSON.stringify(state.fueling));
+    } catch (_) {}
+  }
+
+  function loadSavedFuelingPlan() {
+    try {
+      if (typeof localStorage === 'undefined') return null;
+      const key = getStorageKey();
+      if (!key) return null;
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   function reprocess(isNewGPX = false) {
     if (!state.rawCoords || state.rawCoords.length < 2) {
       state.points = [];
       state.stats = null;
       state.climbs = [];
       state.blocks = [];
+      state.fueling.items = [];
       return;
     }
 
@@ -95,8 +138,30 @@ export function createStore(initialSettings = {}) {
     state.climbs = climbs;
     state.blocks = blocks;
 
-    if (isNewGPX && state.rawWaypoints && state.rawWaypoints.length > 0) {
-      state.waypoints = matchWaypointsToTrack(state.rawWaypoints, state.rawCoords, points);
+    if (isNewGPX) {
+      state.waypoints = (state.rawWaypoints && state.rawWaypoints.length > 0)
+        ? matchWaypointsToTrack(state.rawWaypoints, state.rawCoords, points)
+        : [];
+    }
+
+    if (isNewGPX && state.points.length >= 2) {
+      const saved = loadSavedFuelingPlan();
+      if (saved && saved.items && saved.items.length > 0) {
+        state.fueling = {
+          ...DEFAULT_FUELING_CONFIG,
+          ...saved
+        };
+      } else {
+        state.fueling.items = generateDefaultFuelPlan({
+          points: state.points,
+          stats: state.stats,
+          climbs: state.climbs,
+          waypoints: state.waypoints,
+          config: state.fueling
+        });
+        state.fueling.customized = false;
+        saveFuelingPlan();
+      }
     }
   }
 
@@ -280,6 +345,167 @@ export function createStore(initialSettings = {}) {
       reprocess(false);
       notify('payload:loaded');
       return true;
+    },
+
+    /**
+     * Returns current active studio view ('elevation' | 'fueling').
+     * @returns {string}
+     */
+    getActiveView() {
+      return state.activeView || 'elevation';
+    },
+
+    /**
+     * Switches between elevation profile and fueling mode.
+     * @param {'elevation'|'fueling'} view
+     */
+    setActiveView(view) {
+      if (view === 'elevation' || view === 'fueling') {
+        state.activeView = view;
+        notify('view:changed');
+      }
+    },
+
+    /**
+     * Returns current fueling state.
+     * @returns {Object}
+     */
+    getFuelingState() {
+      return state.fueling;
+    },
+
+    /**
+     * Adds a new item to the fueling strategy.
+     * @param {Object} itemData
+     * @returns {Object} Created item
+     */
+    addFuelItem(itemData) {
+      const distM = Math.max(0, itemData.distM || 0);
+      const avgSpeed = state.fueling.avgSpeedKmh || 25;
+      const timeSec = distToElapsedSeconds(distM, avgSpeed);
+      const hazard = detectTerrainHazard(state.points, distM, state.climbs, state.fueling);
+
+      const newItem = {
+        id: generateFuelId(),
+        distM: Math.round(distM),
+        timeSec,
+        timeStr: formatElapsedSeconds(timeSec),
+        name: (itemData.name || 'Fuel Item').trim(),
+        type: itemData.type || 'gel',
+        icon: itemData.icon || '⚡',
+        carbsG: typeof itemData.carbsG === 'number' ? itemData.carbsG : 25,
+        fluidMl: typeof itemData.fluidMl === 'number' ? itemData.fluidMl : 0,
+        notes: (itemData.notes || '').trim(),
+        grade: hazard.grade,
+        isHazard: hazard.isHazard,
+        hazardType: hazard.type,
+        hazardMessage: hazard.message,
+        enabled: true
+      };
+
+      state.fueling.items.push(newItem);
+      state.fueling.items.sort((a, b) => a.distM - b.distM);
+      state.fueling.customized = true;
+      saveFuelingPlan();
+      notify('fueling:updated');
+      return newItem;
+    },
+
+    /**
+     * Updates an existing fuel item.
+     * @param {string} id
+     * @param {Object} partial
+     */
+    updateFuelItem(id, partial) {
+      const it = state.fueling.items.find(item => item.id === id);
+      if (!it) return;
+
+      Object.assign(it, partial);
+
+      if (partial.distM !== undefined) {
+        const avgSpeed = state.fueling.avgSpeedKmh || 25;
+        it.distM = Math.max(0, Math.round(partial.distM));
+        it.timeSec = distToElapsedSeconds(it.distM, avgSpeed);
+        it.timeStr = formatElapsedSeconds(it.timeSec);
+        const hazard = detectTerrainHazard(state.points, it.distM, state.climbs, state.fueling);
+        it.grade = hazard.grade;
+        it.isHazard = hazard.isHazard;
+        it.hazardType = hazard.type;
+        it.hazardMessage = hazard.message;
+        state.fueling.items.sort((a, b) => a.distM - b.distM);
+      }
+
+      state.fueling.customized = true;
+      saveFuelingPlan();
+      notify('fueling:updated');
+    },
+
+    /**
+     * Removes a fuel item by ID.
+     * @param {string} id
+     */
+    removeFuelItem(id) {
+      state.fueling.items = state.fueling.items.filter(item => item.id !== id);
+      state.fueling.customized = true;
+      saveFuelingPlan();
+      notify('fueling:updated');
+    },
+
+    /**
+     * Reorders fuel items by array index.
+     * @param {number} startIndex
+     * @param {number} endIndex
+     */
+    reorderFuelItems(startIndex, endIndex) {
+      const items = state.fueling.items;
+      if (startIndex < 0 || startIndex >= items.length || endIndex < 0 || endIndex >= items.length) return;
+      const [removed] = items.splice(startIndex, 1);
+      items.splice(endIndex, 0, removed);
+      state.fueling.customized = true;
+      saveFuelingPlan();
+      notify('fueling:updated');
+    },
+
+    /**
+     * Updates fueling settings (e.g. targetCarbsPerHour, avgSpeedKmh, mode).
+     * @param {Object} partialSettings
+     */
+    updateFuelSettings(partialSettings) {
+      state.fueling = {
+        ...state.fueling,
+        ...partialSettings
+      };
+
+      const avgSpeed = state.fueling.avgSpeedKmh || 25;
+      state.fueling.items.forEach(it => {
+        it.timeSec = distToElapsedSeconds(it.distM, avgSpeed);
+        it.timeStr = formatElapsedSeconds(it.timeSec);
+        const hazard = detectTerrainHazard(state.points, it.distM, state.climbs, state.fueling);
+        it.grade = hazard.grade;
+        it.isHazard = hazard.isHazard;
+        it.hazardType = hazard.type;
+        it.hazardMessage = hazard.message;
+      });
+
+      saveFuelingPlan();
+      notify('fueling:updated');
+    },
+
+    /**
+     * Regenerates the recommended fueling strategy from scratch.
+     */
+    regenerateFuelPlan() {
+      if (state.points.length < 2 || !state.stats) return;
+      state.fueling.items = generateDefaultFuelPlan({
+        points: state.points,
+        stats: state.stats,
+        climbs: state.climbs,
+        waypoints: state.waypoints,
+        config: state.fueling
+      });
+      state.fueling.customized = false;
+      saveFuelingPlan();
+      notify('fueling:updated');
     }
   };
 }

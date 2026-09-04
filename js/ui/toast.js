@@ -14,6 +14,7 @@
  * @param {number} [durationMs=2500] - Duration before auto-dismissal
  */
 export function showToast(message, type = 'info', durationMs = 2500) {
+  if (typeof document === 'undefined') return;
   let container = document.getElementById('toast-container');
   if (!container) {
     container = document.createElement('div');
