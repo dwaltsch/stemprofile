@@ -17,7 +17,7 @@ import { getRecommendedBlockPresets } from './layout.js';
 
 // Modular UI Controllers
 import { initTheme } from './ui/theme.js';
-import { initDropzone } from './ui/dropzone.js';
+import { initDropzone, openRouteFilePicker } from './ui/dropzone.js';
 import { initControls, syncFormControls, updateBlockSizePills } from './ui/controls.js';
 import { initWaypointsPanel, renderWaypointsList } from './ui/waypoints-panel.js';
 import { renderClimbsTable } from './ui/climbs-panel.js';
@@ -31,6 +31,7 @@ import { initPrintModal, openPrintModal, updatePrintModalPreview, getActivePrint
 export { store };
 export { getRecommendedBlockPresets } from './layout.js';
 export { updateBlockSizePills } from './ui/controls.js';
+export { openRouteFilePicker } from './ui/dropzone.js';
 
 /**
  * Backward compatibility helper for toggling climb label visibility.
@@ -71,14 +72,14 @@ export function updateUI() {
           </svg>
           <h3>No Route Loaded</h3>
           <p>Tap to select a GPX, TCX, or FIT file (or drop on desktop)</p>
-          <label for="file-input" class="btn btn-secondary empty-browse-btn" style="margin-top:0.35rem; cursor:pointer;" role="button" tabindex="0">
+          <button type="button" class="btn btn-secondary empty-browse-btn" id="btn-empty-browse" style="margin-top:0.35rem; cursor:pointer;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="17 8 12 3 7 8"></polyline>
               <line x1="12" y1="3" x2="12" y2="15"></line>
             </svg>
             Choose Route File
-          </label>
+          </button>
         </div>
       `;
     }
@@ -264,14 +265,20 @@ export async function loadFromUrlHash(hashStr) {
  */
 function initActions() {
   const svgHost = document.getElementById('svg-host');
-  const fin = document.getElementById('file-input');
 
-  // Clicking SVG: if empty opens file picker; if loaded pre-fills distance for waypoint form
+  // Clicking SVG: if empty browse button clicked, open picker; if loaded pre-fills distance for waypoint form
   if (svgHost) {
     svgHost.addEventListener('click', e => {
+      const browseBtn = e.target.closest('.empty-browse-btn');
+      if (browseBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        openRouteFilePicker();
+        return;
+      }
+
       const state = store.getState();
       if (state.points.length < 2 || !state.stats) {
-        if (fin) fin.click();
         return;
       }
       const svg = document.getElementById('profile-svg-elem');
@@ -300,18 +307,22 @@ function initActions() {
       if (e.target.closest('button') || e.target.closest('label') || e.target.closest('.stage-header-toolbar') || e.target.closest('.segmented-pill-group')) return;
       const state = store.getState();
       if (state.points.length < 2 || !state.stats) {
-        if (fin) fin.click();
+        openRouteFilePicker();
       }
     });
   }
 
-  // Header Load GPX label keyboard accessibility
+  // Header Load GPX button click & keyboard accessibility
   const btnLoadGpx = document.getElementById('btn-load-gpx');
-  if (btnLoadGpx && fin) {
+  if (btnLoadGpx) {
+    btnLoadGpx.addEventListener('click', e => {
+      e.preventDefault();
+      openRouteFilePicker();
+    });
     btnLoadGpx.addEventListener('keydown', e => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
-        fin.click();
+        openRouteFilePicker();
       }
     });
   }

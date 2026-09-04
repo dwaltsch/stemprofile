@@ -16,6 +16,18 @@ import { getInterpolatedEle } from './signal.js';
 import { getUnitFactors, getUnitLabels } from './units.js';
 
 /**
+ * Default nutritional values for standard products (customizable by athlete).
+ */
+export const DEFAULT_FUEL_PRODUCT_DEFAULTS = {
+  gelCarbs: 25,
+  bottleCarbs: 40,
+  bottleFluidMl: 500,
+  barCarbs: 35,
+  hcGelCarbs: 40,
+  caffGelCarbs: 30
+};
+
+/**
  * Standard default configuration for fueling strategies.
  */
 export const DEFAULT_FUELING_CONFIG = {
@@ -24,7 +36,8 @@ export const DEFAULT_FUELING_CONFIG = {
   displayMode: 'km',            // 'km' (default) or 'time'
   hazardClimbThreshold: 8.5,    // Grade % above which eating is hazardous
   hazardDescentThreshold: -5.0, // Grade % below which descending is hazardous
-  longClimbDistThresholdM: 5000 // 5km+ climb requires mid-climb fueling
+  longClimbDistThresholdM: 5000,// 5km+ climb requires mid-climb fueling
+  productDefaults: { ...DEFAULT_FUEL_PRODUCT_DEFAULTS }
 };
 
 /**
@@ -33,7 +46,7 @@ export const DEFAULT_FUELING_CONFIG = {
 export const FUEL_PRESETS = {
   gel: {
     id: 'gel',
-    name: 'Energy Gel',
+    name: 'Gel',
     type: 'gel',
     icon: '⚡',
     shortCode: 'GEL',
@@ -43,7 +56,7 @@ export const FUEL_PRESETS = {
   },
   gel_high_carb: {
     id: 'gel_high_carb',
-    name: 'High-Carb Hydrogel',
+    name: 'HC Gel',
     type: 'gel',
     icon: '⚡⚡',
     shortCode: 'HC GEL',
@@ -53,7 +66,7 @@ export const FUEL_PRESETS = {
   },
   caff_gel: {
     id: 'caff_gel',
-    name: 'Caffeine Gel',
+    name: 'Caff Gel',
     type: 'caff_gel',
     icon: '⚡☕',
     shortCode: 'CAFF',
@@ -63,7 +76,7 @@ export const FUEL_PRESETS = {
   },
   bottle_mix: {
     id: 'bottle_mix',
-    name: 'Carb Drink 500ml',
+    name: 'Carb Mix',
     type: 'bottle',
     icon: '🍾',
     shortCode: 'MIX',
@@ -73,7 +86,7 @@ export const FUEL_PRESETS = {
   },
   bottle_super: {
     id: 'bottle_super',
-    name: 'Super Carb Mix 750ml',
+    name: 'Super Mix',
     type: 'bottle',
     icon: '🍾',
     shortCode: 'SUPER',
@@ -83,7 +96,7 @@ export const FUEL_PRESETS = {
   },
   bar: {
     id: 'bar',
-    name: 'Energy Bar / Chews',
+    name: 'Bar',
     type: 'bar',
     icon: '🍫',
     shortCode: 'BAR',
@@ -91,19 +104,29 @@ export const FUEL_PRESETS = {
     fluidMl: 0,
     color: '#d97706'
   },
+  chews: {
+    id: 'chews',
+    name: 'Chews',
+    type: 'chews',
+    icon: '🍬',
+    shortCode: 'CHEW',
+    carbsG: 30,
+    fluidMl: 0,
+    color: '#16a34a'
+  },
   food: {
     id: 'food',
-    name: 'Rice Cake / Food',
-    type: 'food',
-    icon: '🥪',
-    shortCode: 'FOOD',
+    name: 'Chews',
+    type: 'chews',
+    icon: '🍬',
+    shortCode: 'CHEW',
     carbsG: 30,
     fluidMl: 0,
     color: '#16a34a'
   },
   feed_zone: {
     id: 'feed_zone',
-    name: 'Aid Station / Feed Zone',
+    name: 'Feed Zone',
     type: 'feed_zone',
     icon: '🍽️',
     shortCode: 'FEED',
@@ -113,7 +136,7 @@ export const FUEL_PRESETS = {
   },
   water: {
     id: 'water',
-    name: 'Water Refill 500ml',
+    name: 'Water',
     type: 'water',
     icon: '💧',
     shortCode: 'H2O',
@@ -123,7 +146,7 @@ export const FUEL_PRESETS = {
   },
   salt: {
     id: 'salt',
-    name: 'Electrolyte / Salt Tab',
+    name: 'Salt Tab',
     type: 'salt',
     icon: '💊',
     shortCode: 'SALT',
@@ -330,6 +353,7 @@ export function generateDefaultFuelPlan({ points, stats, climbs = [], waypoints 
   }
 
   const cfg = { ...DEFAULT_FUELING_CONFIG, ...config };
+  const prod = { ...DEFAULT_FUEL_PRODUCT_DEFAULTS, ...(cfg.productDefaults || {}) };
   const targetCarbsPerHour = Math.max(30, Math.min(130, cfg.targetCarbsPerHour || 75));
   const avgSpeedKmh = Math.max(10, Math.min(60, cfg.avgSpeedKmh || 25));
   const totalDistM = stats.totalDist;
@@ -344,11 +368,11 @@ export function generateDefaultFuelPlan({ points, stats, climbs = [], waypoints 
       items.push({
         id: generateFuelId(),
         distM: Math.round(wpt.distM),
-        name: wpt.label ? `Aid Station: ${wpt.label}` : 'Feed Zone / Musette',
+        name: wpt.label || 'Feed Zone',
         type: 'feed_zone',
         icon: FUEL_PRESETS.feed_zone.icon,
-        carbsG: 40,
-        fluidMl: 500,
+        carbsG: prod.bottleCarbs || 40,
+        fluidMl: prod.bottleFluidMl || 500,
         isAidStation: true,
         notes: 'Refill bottles & grab supplies'
       });
@@ -356,11 +380,11 @@ export function generateDefaultFuelPlan({ points, stats, climbs = [], waypoints 
       items.push({
         id: generateFuelId(),
         distM: Math.round(wpt.distM),
-        name: wpt.label ? `Water: ${wpt.label}` : 'Water Refill',
+        name: wpt.label || 'Water',
         type: 'water',
         icon: FUEL_PRESETS.water.icon,
         carbsG: 0,
-        fluidMl: 500,
+        fluidMl: prod.bottleFluidMl || 500,
         isAidStation: true,
         notes: 'Top off hydration'
       });
@@ -368,10 +392,10 @@ export function generateDefaultFuelPlan({ points, stats, climbs = [], waypoints 
       items.push({
         id: generateFuelId(),
         distM: Math.round(wpt.distM),
-        name: wpt.label ? `Food: ${wpt.label}` : 'Food Depot',
-        type: 'food',
-        icon: FUEL_PRESETS.food.icon,
-        carbsG: 35,
+        name: wpt.label || 'Bar',
+        type: 'bar',
+        icon: FUEL_PRESETS.bar.icon,
+        carbsG: prod.barCarbs || 35,
         fluidMl: 0,
         isAidStation: true,
         notes: 'Solid fuel checkpoint'
@@ -398,14 +422,15 @@ export function generateDefaultFuelPlan({ points, stats, climbs = [], waypoints 
       // Check if another item is already close (< 2.5km)
       const hasCloseItem = items.some(it => Math.abs(it.distM - safePreClimbM) < 2500);
       if (!hasCloseItem) {
-        const isBigClimb = climb.category === 'HC' || climb.category === '1';
+        const catStr = String(climb.category || '');
+        const isBigClimb = catStr.toUpperCase().includes('HC') || catStr.includes('1');
         items.push({
           id: generateFuelId(),
           distM: Math.round(safePreClimbM),
-          name: isBigClimb ? `Caffeine Gel (${climb.category})` : `Gel before ${climb.category} Climb`,
+          name: isBigClimb ? `Caff Gel (${climb.category})` : `HC Gel (${climb.category})`,
           type: isBigClimb ? 'caff_gel' : 'gel_high_carb',
           icon: isBigClimb ? FUEL_PRESETS.caff_gel.icon : FUEL_PRESETS.gel_high_carb.icon,
-          carbsG: isBigClimb ? 30 : 40,
+          carbsG: isBigClimb ? (prod.caffGelCarbs || 30) : (prod.hcGelCarbs || 40),
           fluidMl: 0,
           notes: `Take 10m before ${climb.category} ascent`
         });
@@ -421,10 +446,10 @@ export function generateDefaultFuelPlan({ points, stats, climbs = [], waypoints 
         items.push({
           id: generateFuelId(),
           distM: Math.round(safeMidM),
-          name: 'Mid-Climb Sustained Gel',
+          name: 'Climb Gel',
           type: 'gel',
           icon: FUEL_PRESETS.gel.icon,
-          carbsG: 25,
+          carbsG: prod.gelCarbs || 25,
           fluidMl: 0,
           notes: 'Keep glucose topped during long grind'
         });
@@ -459,17 +484,17 @@ export function generateDefaultFuelPlan({ points, stats, climbs = [], waypoints 
 
     const progressRatio = safeTargetM / totalDistM;
 
-    // First third of race: solids (rice cake / energy bar) + carb mix
+    // First third of race: solids (bars / chews) + carb mix
     // Middle & late race: gels & hydrogels
     if (progressRatio < 0.35) {
       if (step % 2 === 1) {
         items.push({
           id: generateFuelId(),
           distM: Math.round(safeTargetM),
-          name: 'Solid Bar / Rice Cake',
+          name: 'Bar',
           type: 'bar',
           icon: FUEL_PRESETS.bar.icon,
-          carbsG: 35,
+          carbsG: prod.barCarbs || 35,
           fluidMl: 0,
           notes: 'Eat early while intensity is moderate'
         });
@@ -477,11 +502,11 @@ export function generateDefaultFuelPlan({ points, stats, climbs = [], waypoints 
         items.push({
           id: generateFuelId(),
           distM: Math.round(safeTargetM),
-          name: 'Carb Drink Mix (Bottle 1)',
+          name: 'Carb Mix 1',
           type: 'bottle_mix',
           icon: FUEL_PRESETS.bottle_mix.icon,
-          carbsG: 40,
-          fluidMl: 500,
+          carbsG: prod.bottleCarbs || 40,
+          fluidMl: prod.bottleFluidMl || 500,
           notes: 'Steady sips every 15 mins'
         });
       }
@@ -491,21 +516,21 @@ export function generateDefaultFuelPlan({ points, stats, climbs = [], waypoints 
         items.push({
           id: generateFuelId(),
           distM: Math.round(safeTargetM),
-          name: 'Carb Drink Mix (Bottle 2)',
+          name: 'Carb Mix 2',
           type: 'bottle_mix',
           icon: FUEL_PRESETS.bottle_mix.icon,
-          carbsG: 40,
-          fluidMl: 500,
+          carbsG: prod.bottleCarbs || 40,
+          fluidMl: prod.bottleFluidMl || 500,
           notes: 'Finish second bottle'
         });
       } else {
         items.push({
           id: generateFuelId(),
           distM: Math.round(safeTargetM),
-          name: 'Energy Gel',
+          name: 'Gel',
           type: 'gel',
           icon: FUEL_PRESETS.gel.icon,
-          carbsG: 25,
+          carbsG: prod.gelCarbs || 25,
           fluidMl: 0,
           notes: 'Instant carb replenishment'
         });

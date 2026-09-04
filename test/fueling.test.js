@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEFAULT_FUELING_CONFIG,
+  DEFAULT_FUEL_PRODUCT_DEFAULTS,
   FUEL_PRESETS,
   evaluateGradientAt,
   detectTerrainHazard,
@@ -22,15 +23,43 @@ describe('Fueling Module: Presets & Config', () => {
     assert.strictEqual(DEFAULT_FUELING_CONFIG.hazardDescentThreshold, -5.0);
   });
 
-  it('provides complete pro cycling nutrition item presets', () => {
+  it('defines valid product defaults and excludes any rice cake mentions', () => {
+    assert.strictEqual(DEFAULT_FUEL_PRODUCT_DEFAULTS.gelCarbs, 25);
+    assert.strictEqual(DEFAULT_FUEL_PRODUCT_DEFAULTS.bottleCarbs, 40);
+    assert.strictEqual(DEFAULT_FUEL_PRODUCT_DEFAULTS.bottleFluidMl, 500);
+    assert.strictEqual(DEFAULT_FUEL_PRODUCT_DEFAULTS.barCarbs, 35);
+    assert.strictEqual(DEFAULT_FUEL_PRODUCT_DEFAULTS.hcGelCarbs, 40);
+    assert.strictEqual(DEFAULT_FUEL_PRODUCT_DEFAULTS.caffGelCarbs, 30);
+
+    const presetNames = Object.values(FUEL_PRESETS).map(p => `${p.name} ${p.notes || ''}`).join(' ');
+    assert.ok(!presetNames.toLowerCase().includes('rice cake'), 'Rice cake should not be in presets');
+  });
+
+  it('provides complete pro cycling nutrition item presets with concise glanceable names', () => {
     assert.ok(FUEL_PRESETS.gel);
+    assert.strictEqual(FUEL_PRESETS.gel.name, 'Gel');
     assert.strictEqual(FUEL_PRESETS.gel.carbsG, 25);
+
+    assert.strictEqual(FUEL_PRESETS.gel_high_carb.name, 'HC Gel');
+    assert.strictEqual(FUEL_PRESETS.caff_gel.name, 'Caff Gel');
+
     assert.ok(FUEL_PRESETS.bottle_mix);
+    assert.strictEqual(FUEL_PRESETS.bottle_mix.name, 'Carb Mix');
     assert.strictEqual(FUEL_PRESETS.bottle_mix.carbsG, 40);
+
+    assert.strictEqual(FUEL_PRESETS.bottle_super.name, 'Super Mix');
+    assert.strictEqual(FUEL_PRESETS.bar.name, 'Bar');
+    assert.strictEqual(FUEL_PRESETS.food.name, 'Chews');
+
     assert.ok(FUEL_PRESETS.feed_zone);
+    assert.strictEqual(FUEL_PRESETS.feed_zone.name, 'Feed Zone');
     assert.strictEqual(FUEL_PRESETS.feed_zone.type, 'feed_zone');
+
     assert.ok(FUEL_PRESETS.water);
+    assert.strictEqual(FUEL_PRESETS.water.name, 'Water');
     assert.strictEqual(FUEL_PRESETS.water.carbsG, 0);
+
+    assert.strictEqual(FUEL_PRESETS.salt.name, 'Salt Tab');
   });
 });
 
@@ -214,6 +243,46 @@ describe('Fueling Module: Default Plan Generation', () => {
     const preClimbItem = plan.find(it => it.distM >= 26000 && it.distM <= 30000);
     assert.ok(preClimbItem, 'Expected pre-climb fueling item before 30km');
     assert.ok(preClimbItem.type === 'caff_gel' || preClimbItem.type === 'gel_high_carb');
+    assert.strictEqual(preClimbItem.name, 'Caff Gel (Cat 1)');
+  });
+
+  it('generates default fueling plan using custom product defaults and excludes rice cake', () => {
+    const customDefaults = {
+      gelCarbs: 30,
+      bottleCarbs: 55,
+      bottleFluidMl: 600,
+      barCarbs: 42,
+      hcGelCarbs: 45,
+      caffGelCarbs: 35
+    };
+
+    const plan = generateDefaultFuelPlan({
+      points: mockPoints,
+      stats: mockStats,
+      climbs: [],
+      waypoints: [],
+      config: {
+        productDefaults: customDefaults
+      }
+    });
+
+    assert.ok(plan.length > 0);
+    const gel = plan.find(it => it.type === 'gel');
+    if (gel) {
+      assert.strictEqual(gel.carbsG, 30);
+    }
+    const bottle = plan.find(it => it.type === 'bottle_mix');
+    if (bottle) {
+      assert.strictEqual(bottle.carbsG, 55);
+      assert.strictEqual(bottle.fluidMl, 600);
+    }
+    const bar = plan.find(it => it.type === 'bar');
+    if (bar) {
+      assert.strictEqual(bar.carbsG, 42);
+    }
+
+    const allPlanText = plan.map(it => `${it.name} ${it.notes || ''}`).join(' ');
+    assert.ok(!allPlanText.toLowerCase().includes('rice cake'), 'Plan should have no rice cake mentions');
   });
 
   it('handles empty points or zero distance gracefully', () => {
@@ -364,5 +433,137 @@ describe('Fueling Renderer Module: SVG Output', () => {
     assert.ok(svg.includes('class="fueling-header"'));
   });
 });
+
+describe('Fueling Store: Product Defaults Management', () => {
+  it('updates product defaults without modifying existing items when applyToExisting is false', async () => {
+    const { createStore } = await import('../js/store.js');
+    const store = createStore();
+    const item = store.addFuelItem({ type: 'gel', name: 'Standard Gel', carbsG: 25 });
+
+    store.updateProductDefaults({ gelCarbs: 30, bottleCarbs: 50 }, false);
+    const state = store.getFuelingState();
+    assert.strictEqual(state.productDefaults.gelCarbs, 30);
+    assert.strictEqual(state.productDefaults.bottleCarbs, 50);
+
+    // Existing item should remain at 25g
+    const existing = state.items.find(it => it.id === item.id);
+    assert.strictEqual(existing.carbsG, 25);
+  });
+
+  it('updates product defaults and updates existing items when applyToExisting is true', async () => {
+    const { createStore } = await import('../js/store.js');
+    const store = createStore();
+    const gel = store.addFuelItem({ type: 'gel', carbsG: 25 });
+    const bottle = store.addFuelItem({ type: 'bottle_mix', carbsG: 40, fluidMl: 500 });
+    const bar = store.addFuelItem({ type: 'bar', carbsG: 35 });
+
+    store.updateProductDefaults({
+      gelCarbs: 32,
+      bottleCarbs: 60,
+      bottleFluidMl: 650,
+      barCarbs: 45
+    }, true);
+
+    const state = store.getFuelingState();
+    const updatedGel = state.items.find(it => it.id === gel.id);
+    const updatedBottle = state.items.find(it => it.id === bottle.id);
+    const updatedBar = state.items.find(it => it.id === bar.id);
+
+    assert.strictEqual(updatedGel.carbsG, 32);
+    assert.strictEqual(updatedBottle.carbsG, 60);
+    assert.strictEqual(updatedBottle.fluidMl, 650);
+    assert.strictEqual(updatedBar.carbsG, 45);
+  });
+
+  it('uses configured product defaults when adding new items without explicit carbs', async () => {
+    const { createStore } = await import('../js/store.js');
+    const store = createStore();
+    store.updateProductDefaults({ gelCarbs: 30, barCarbs: 40 });
+
+    const newGel = store.addFuelItem({ type: 'gel' });
+    assert.strictEqual(newGel.carbsG, 30);
+
+    const newBar = store.addFuelItem({ type: 'bar' });
+    assert.strictEqual(newBar.carbsG, 40);
+  });
+});
+
+describe('Fueling Panel UI: Card Rendering & Editable Fields', () => {
+  it('renders fuel item cards with editable inputs, non-draggable inputs, and drag handle', async () => {
+    const { createStore } = await import('../js/store.js');
+    const { renderFuelingPanel } = await import('../js/ui/fueling-panel.js');
+
+    const store = createStore();
+    store.setActiveView('fueling');
+    store.addFuelItem({
+      distM: 10000,
+      name: 'Gel',
+      type: 'gel',
+      icon: '⚡',
+      carbsG: 25
+    });
+
+    const mockListEl = {
+      innerHTML: '',
+      querySelectorAll() { return []; },
+      querySelector() { return null; },
+      contains() { return false; }
+    };
+
+    const origDoc = globalThis.document;
+    globalThis.document = {
+      activeElement: null,
+      getElementById: (id) => {
+        if (id === 'fuel-list') return mockListEl;
+        return { textContent: '', value: '', style: {}, innerHTML: '' };
+      },
+      querySelectorAll: () => []
+    };
+
+    try {
+      renderFuelingPanel(store);
+      assert.ok(mockListEl.innerHTML.includes('class="fuel-card-meta-row"'));
+      assert.ok(mockListEl.innerHTML.includes('class="fuel-type-select'));
+      assert.ok(mockListEl.innerHTML.includes('class="fuel-card-name-row"'));
+      assert.ok(mockListEl.innerHTML.includes('class="fuel-name-input"'));
+      assert.ok(mockListEl.innerHTML.includes('data-action="edit-name"'));
+      assert.ok(mockListEl.innerHTML.includes('value="Gel"'));
+      assert.ok(mockListEl.innerHTML.includes('draggable="false"'));
+      assert.ok(mockListEl.innerHTML.includes('class="fuel-card-handle" draggable="true"'));
+      // Ensure the outer card does not have draggable="true"
+      assert.ok(!mockListEl.innerHTML.includes('<div class="fuel-item-card" data-id= draggable="true"'));
+    } finally {
+      globalThis.document = origDoc;
+    }
+  });
+
+  it('updates fuel item name when modified and reflects in SVG output', async () => {
+    const { createStore } = await import('../js/store.js');
+    const { renderFuelingSVG } = await import('../js/fueling-renderer.js');
+
+    const store = createStore();
+    const item = store.addFuelItem({
+      distM: 12000,
+      name: 'Gel',
+      type: 'gel',
+      icon: '⚡',
+      carbsG: 25
+    });
+
+    // Verify initial SVG includes 'Gel'
+    let svg = renderFuelingSVG(store.getState());
+    assert.ok(svg.includes('>Gel<'));
+
+    // Update item name
+    store.updateFuelItem(item.id, { name: 'Maurten Gel 100' });
+    const updated = store.getFuelingState().items.find(it => it.id === item.id);
+    assert.strictEqual(updated.name, 'Maurten Gel 100');
+
+    // Verify updated SVG reflects new name
+    svg = renderFuelingSVG(store.getState());
+    assert.ok(svg.includes('>Maurten Gel 100<'));
+  });
+});
+
 
 

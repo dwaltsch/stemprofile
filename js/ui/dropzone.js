@@ -42,11 +42,20 @@ export function handleRouteFile(file, store) {
       showToast(`Loaded ${file.name} (${coords.length} points)`, 'success');
     } catch (err) {
       showToast('Error parsing file: ' + err.message, 'error');
+    } finally {
+      if (typeof document !== 'undefined') {
+        const fin = document.getElementById('file-input');
+        if (fin) fin.value = '';
+      }
     }
   };
 
   reader.onerror = function() {
     showToast('Failed to read file from disk.', 'error');
+    if (typeof document !== 'undefined') {
+      const fin = document.getElementById('file-input');
+      if (fin) fin.value = '';
+    }
   };
 
   if (isBinary) {
@@ -60,6 +69,27 @@ export function handleRouteFile(file, store) {
  * Backward-compatible alias for handleRouteFile.
  */
 export const handleGPXFile = handleRouteFile;
+
+let lastPickerOpenTimestamp = 0;
+
+/**
+ * Triggers the route file selector with debounce protection against duplicate
+ * rapid-fire invocations that cause macOS file dialogs to open and immediately close.
+ */
+export function openRouteFilePicker() {
+  if (typeof document === 'undefined') return;
+  const now = Date.now();
+  if (now - lastPickerOpenTimestamp < 500) {
+    return; // Guard against dual-event triggering
+  }
+  lastPickerOpenTimestamp = now;
+
+  const fin = document.getElementById('file-input');
+  if (fin) {
+    fin.value = ''; // Always clear previous selection so re-selecting the same file triggers change reliably
+    fin.click();
+  }
+}
 
 /**
  * Initializes dropzone listeners on the workbench stage and window.
@@ -119,8 +149,8 @@ export function initDropzone(store) {
   if (fin) {
     fin.addEventListener('change', e => {
       if (e.target.files && e.target.files.length > 0) {
-        handleRouteFile(e.target.files[0], store);
-        fin.value = '';
+        const selectedFile = e.target.files[0];
+        handleRouteFile(selectedFile, store);
       }
     });
   }

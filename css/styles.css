@@ -100,7 +100,6 @@ body {
   height: 1px !important;
   opacity: 0 !important;
   overflow: hidden !important;
-  pointer-events: none !important;
   z-index: -1 !important;
 }
 
@@ -2119,7 +2118,14 @@ body.modal-open {
   align-items: center;
   color: var(--text-dim);
   cursor: grab;
-  padding: 0 0.15rem;
+  padding: 0.15rem 0.25rem;
+  border-radius: 3px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.fuel-card-handle:hover {
+  color: var(--text-primary);
+  background: var(--bg-pill);
 }
 
 .fuel-card-handle:active {
@@ -2134,10 +2140,58 @@ body.modal-open {
   min-width: 0;
 }
 
-.fuel-card-header {
+.fuel-card-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+.fuel-card-meta-left {
   display: flex;
   align-items: center;
   gap: 0.35rem;
+  min-width: 0;
+}
+
+.fuel-card-meta-right {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.fuel-type-select {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 900;
+  font-family: var(--font-mono, monospace);
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  outline: none;
+  border-width: 1px;
+  border-style: solid;
+  transition: opacity 0.15s ease, border-color 0.15s ease;
+}
+
+.fuel-type-select:hover {
+  filter: brightness(0.96);
+}
+
+.fuel-type-select option {
+  background: var(--bg-card, #ffffff);
+  color: var(--text-primary, #0f172a);
+  font-weight: 700;
+}
+
+.fuel-card-name-row {
+  display: flex;
+  width: 100%;
 }
 
 .fuel-index-badge {
@@ -2156,21 +2210,28 @@ body.modal-open {
 }
 
 .fuel-name-input {
-  flex: 1;
-  min-width: 0;
-  border: 1px solid transparent;
-  background: transparent;
+  width: 100%;
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
   font-size: 0.78rem;
   font-weight: 700;
   color: var(--text-primary);
-  border-radius: 3px;
-  padding: 0.15rem 0.25rem;
+  border-radius: 4px;
+  padding: 0.22rem 0.45rem;
+  cursor: text;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fuel-name-input:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-input-hover);
 }
 
 .fuel-name-input:focus {
   border-color: var(--border-focus);
   background: var(--bg-input);
   outline: none;
+  box-shadow: 0 0 0 2px var(--accent-subtle);
 }
 
 .fuel-carbs-pill {
@@ -2183,6 +2244,11 @@ body.modal-open {
   font-size: 0.72rem;
   font-weight: 800;
   color: var(--text-secondary);
+  transition: border-color 0.15s ease;
+}
+
+.fuel-carbs-pill:hover {
+  border-color: var(--border-hover);
 }
 
 .fuel-carbs-input {
@@ -2308,6 +2374,248 @@ body.modal-open {
   flex: 1;
   max-height: none;
   height: 100%;
+}
+
+/* Fueling Plan Top Header & Controls */
+.fuel-card-top-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.6rem;
+}
+
+.fuel-header-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.fuel-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.mini-pill-group .pill-opt {
+  padding: 0.2rem 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.btn-auto-plan {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 4px;
+}
+
+/* Fueling Telemetry Summary Row */
+.fuel-summary-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+  margin-bottom: 0.6rem;
+  background: var(--bg-pill, #f1f5f9);
+  padding: 0.4rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color, #e2e8f0);
+}
+
+.fuel-metric-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.fuel-metric-chip .metric-lbl {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim, #94a3b8);
+}
+
+.fuel-metric-chip .metric-val {
+  font-size: 0.82rem;
+  font-weight: 900;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-primary, #0f172a);
+}
+
+/* Controls Bar (Target, Speed, Defaults) */
+.fuel-controls-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+}
+
+.fuel-control-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.fuel-control-field label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-secondary, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.input-with-unit {
+  display: flex;
+  align-items: center;
+  background: var(--bg-input, #ffffff);
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 4px;
+  padding: 0 0.35rem;
+  transition: border-color 0.15s ease;
+}
+
+.input-with-unit:focus-within {
+  border-color: var(--accent-blue, #3b82f6);
+  box-shadow: 0 0 0 2px var(--accent-subtle, rgba(59, 130, 246, 0.15));
+}
+
+.input-with-unit input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-primary, #0f172a);
+  padding: 0.22rem 0;
+}
+
+.input-with-unit input:focus {
+  outline: none;
+}
+
+.input-with-unit .unit-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-dim, #94a3b8);
+  white-space: nowrap;
+}
+
+.btn-toggle-defaults {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  height: 28px;
+  white-space: nowrap;
+}
+
+.btn-toggle-defaults.active {
+  background: var(--accent-blue, #3b82f6);
+  color: #ffffff;
+  border-color: var(--accent-blue, #3b82f6);
+}
+
+/* Product Defaults Drawer */
+.fuel-defaults-panel {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 6px;
+  padding: 0.6rem;
+  margin-bottom: 0.65rem;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06);
+  animation: fadeInDown 0.15s ease-out;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.defaults-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.45rem;
+}
+
+.defaults-drawer-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-primary, #0f172a);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.btn-close-defaults {
+  background: transparent;
+  border: none;
+  font-size: 0.8rem;
+  color: var(--text-dim, #94a3b8);
+  cursor: pointer;
+  padding: 0.1rem 0.25rem;
+  border-radius: 3px;
+  line-height: 1;
+}
+
+.btn-close-defaults:hover {
+  color: var(--text-primary, #0f172a);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.defaults-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.default-input-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.default-input-item label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-secondary, #64748b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mini-unit {
+  padding: 0 0.25rem;
+}
+
+.mini-unit input {
+  font-size: 0.74rem;
+  padding: 0.15rem 0;
+}
+
+.mini-unit .unit-tag {
+  font-size: 0.62rem;
+}
+
+.defaults-drawer-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--border-color, #e2e8f0);
 }
 
 /* Fueling Telemetry Stats Strip Items */

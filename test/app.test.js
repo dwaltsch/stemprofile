@@ -142,4 +142,37 @@ describe('App & UI Integration: Route File Ingestion Flow', () => {
       globalThis.FileReader = origFileReader;
     }
   });
+
+  it('verifies openRouteFilePicker debounces rapid dual-clicks and clears value on open', async () => {
+    const { openRouteFilePicker } = await import('../js/ui/dropzone.js');
+
+    let clickCount = 0;
+    const fakeInput = {
+      value: 'previous.gpx',
+      click() {
+        clickCount++;
+      }
+    };
+
+    const origGetElementById = globalThis.document ? globalThis.document.getElementById : null;
+    if (!globalThis.document) {
+      globalThis.document = {};
+    }
+    globalThis.document.getElementById = id => id === 'file-input' ? fakeInput : null;
+
+    try {
+      openRouteFilePicker();
+      assert.equal(clickCount, 1, 'First picker invocation should trigger input click');
+      assert.equal(fakeInput.value, '', 'Input value should be cleared on open');
+
+      // Immediate second call should be ignored by debounce guard
+      openRouteFilePicker();
+      assert.equal(clickCount, 1, 'Immediate second call within 500ms must be suppressed to prevent macOS dialog dismissal');
+    } finally {
+      if (origGetElementById) {
+        globalThis.document.getElementById = origGetElementById;
+      }
+    }
+  });
 });
+

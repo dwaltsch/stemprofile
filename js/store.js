@@ -14,6 +14,7 @@ import { getRecommendedBlockPresets } from './layout.js';
 import { normalizeCoordinates } from './units.js';
 import {
   DEFAULT_FUELING_CONFIG,
+  DEFAULT_FUEL_PRODUCT_DEFAULTS,
   generateDefaultFuelPlan,
   generateFuelId,
   distToElapsedSeconds,
@@ -384,6 +385,24 @@ export function createStore(initialSettings = {}) {
       const avgSpeed = state.fueling.avgSpeedKmh || 25;
       const timeSec = distToElapsedSeconds(distM, avgSpeed);
       const hazard = detectTerrainHazard(state.points, distM, state.climbs, state.fueling);
+      const defs = state.fueling.productDefaults || DEFAULT_FUEL_PRODUCT_DEFAULTS;
+
+      let defaultCarbs = 25;
+      let defaultFluid = 0;
+      const t = (itemData.type || 'gel').toLowerCase();
+      if (t === 'gel') defaultCarbs = defs.gelCarbs ?? 25;
+      else if (t === 'gel_high_carb' || t === 'hc') defaultCarbs = defs.hcGelCarbs ?? 40;
+      else if (t === 'caff_gel' || t === 'caff') defaultCarbs = defs.caffGelCarbs ?? 30;
+      else if (t === 'bottle_mix' || t === 'bottle') {
+        defaultCarbs = defs.bottleCarbs ?? 40;
+        defaultFluid = defs.bottleFluidMl ?? 500;
+      } else if (t === 'bottle_super') {
+        defaultCarbs = Math.round((defs.bottleCarbs ?? 40) * 1.8);
+        defaultFluid = Math.round((defs.bottleFluidMl ?? 500) * 1.5);
+      } else if (t === 'bar') defaultCarbs = defs.barCarbs ?? 35;
+      else if (t === 'chews' || t === 'food') defaultCarbs = 30;
+      else if (t === 'water') { defaultCarbs = 0; defaultFluid = defs.bottleFluidMl ?? 500; }
+      else if (t === 'feed_zone') { defaultCarbs = defs.bottleCarbs ?? 40; defaultFluid = defs.bottleFluidMl ?? 500; }
 
       const newItem = {
         id: generateFuelId(),
@@ -393,8 +412,8 @@ export function createStore(initialSettings = {}) {
         name: (itemData.name || 'Fuel Item').trim(),
         type: itemData.type || 'gel',
         icon: itemData.icon || '⚡',
-        carbsG: typeof itemData.carbsG === 'number' ? itemData.carbsG : 25,
-        fluidMl: typeof itemData.fluidMl === 'number' ? itemData.fluidMl : 0,
+        carbsG: typeof itemData.carbsG === 'number' ? itemData.carbsG : defaultCarbs,
+        fluidMl: typeof itemData.fluidMl === 'number' ? itemData.fluidMl : defaultFluid,
         notes: (itemData.notes || '').trim(),
         grade: hazard.grade,
         isHazard: hazard.isHazard,
@@ -486,6 +505,35 @@ export function createStore(initialSettings = {}) {
         it.hazardType = hazard.type;
         it.hazardMessage = hazard.message;
       });
+
+      saveFuelingPlan();
+      notify('fueling:updated');
+    },
+
+    /**
+     * Updates product defaults and optionally applies them to existing items.
+     * @param {Object} newDefaults
+     * @param {boolean} [applyToExisting=false]
+     */
+    updateProductDefaults(newDefaults, applyToExisting = false) {
+      state.fueling.productDefaults = {
+        ...(state.fueling.productDefaults || DEFAULT_FUEL_PRODUCT_DEFAULTS),
+        ...newDefaults
+      };
+
+      if (applyToExisting && Array.isArray(state.fueling.items)) {
+        const defs = state.fueling.productDefaults;
+        state.fueling.items.forEach(it => {
+          const type = (it.type || '').toLowerCase();
+          if (type === 'gel') it.carbsG = defs.gelCarbs ?? 25;
+          else if (type === 'gel_high_carb' || type === 'hc') it.carbsG = defs.hcGelCarbs ?? 40;
+          else if (type === 'caff_gel' || type === 'caff') it.carbsG = defs.caffGelCarbs ?? 30;
+          else if (type === 'bottle_mix' || type === 'bottle') {
+            it.carbsG = defs.bottleCarbs ?? 40;
+            it.fluidMl = defs.bottleFluidMl ?? 500;
+          } else if (type === 'bar') it.carbsG = defs.barCarbs ?? 35;
+        });
+      }
 
       saveFuelingPlan();
       notify('fueling:updated');
