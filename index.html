@@ -29,13 +29,13 @@
       </div>
     </div>
 
-    <!-- Mode Switcher: Topo Elevation Profile vs Fueling Strategy Decal -->
+    <!-- Mode Switcher: Profile vs Fueling Decal -->
     <div class="view-switch-group" id="view-switch-group">
-      <button type="button" class="view-switch-btn active" data-view="elevation" id="btn-view-elevation" title="Elevation Profile Topo Sticker">
-        <span>🏔️ Topo Profile</span>
+      <button type="button" class="view-switch-btn active" data-view="elevation" id="btn-view-elevation" title="Elevation Profile Sticker">
+        <span>🏔️ Profile</span>
       </button>
-      <button type="button" class="view-switch-btn" data-view="fueling" id="btn-view-fueling" title="Fueling Strategy Decal">
-        <span>⚡ Fueling Decal</span>
+      <button type="button" class="view-switch-btn" data-view="fueling" id="btn-view-fueling" title="Top Tube Fueling Decal">
+        <span>⚡ Fueling</span>
       </button>
     </div>
 
@@ -231,7 +231,7 @@
       </div>
 
       <!-- Section 2: Granularity & Styling -->
-      <div class="tool-section">
+      <div class="tool-section tool-section-elevation">
         <div class="section-label">Granularity & Signal</div>
         <div class="control-group">
           
@@ -300,7 +300,7 @@
       </div>
 
       <!-- Section 3: Overlays & Display -->
-      <div class="tool-section">
+      <div class="tool-section tool-section-elevation">
         <div class="section-label">Overlays & Cues</div>
         <div class="checkbox-grid">
           <label class="checkbox-row">
@@ -402,12 +402,6 @@
     <!-- RIGHT COLUMN: Waypoints, Climbs & Telemetry Inspector -->
     <aside class="sidebar-right" id="sidebar-right">
       
-      <!-- Sidebar Panel Mode Tabs (Climbs & Cues vs Fueling Strategy) -->
-      <div class="segmented-pill-group" id="sidebar-tab-strip" style="margin-bottom:0.85rem;">
-        <button type="button" class="pill-opt active" id="tab-btn-cues" data-view="elevation">⛰️ Climbs &amp; Cues</button>
-        <button type="button" class="pill-opt" id="tab-btn-fuel" data-view="fueling">⚡ Fueling Plan</button>
-      </div>
-
       <!-- Container 1: Climbs & Cues (Visible in Elevation mode) -->
       <div id="panel-cues-content">
         <!-- Section 1: Waypoints & Nutrition Cues (Moved to Right Panel above Climbs) -->
@@ -512,91 +506,71 @@
       <!-- Container 2: Fueling Strategy (Visible in Fueling mode) -->
       <div id="panel-fuel-content" style="display:none;">
         <div class="tool-section">
-          <div class="section-header-flex">
-            <span class="section-label" style="margin-bottom:0;">Fueling Strategy</span>
-            <span id="fuel-count-badge" class="count-badge">0</span>
+          <!-- Top Row: Summary Pill & KM/Time Mode Switch -->
+          <div class="fuel-header-strip">
+            <div class="fuel-summary-pill" id="fuel-summary-pill" title="Nutrition Summary">
+              <span class="fuel-sum-icon">⚡</span>
+              <span id="fuel-stat-total-carbs" class="fuel-sum-bold">0g</span>
+              <span class="fuel-sum-muted">·</span>
+              <span id="fuel-stat-rate">0g/h</span>
+              <span class="fuel-sum-muted">·</span>
+              <span id="fuel-stat-fluid">0ml</span>
+            </div>
+            <div class="segmented-pill-group mini-pill-group" id="fuel-mode-pill-group">
+              <button type="button" class="pill-opt active" data-mode="km">KM</button>
+              <button type="button" class="pill-opt" data-mode="time">Time</button>
+            </div>
           </div>
 
-          <div class="control-group" style="margin-top: 0.55rem;">
-            <!-- Target Carbs & Speed Inputs -->
-            <div class="field">
-              <div class="field-label">
-                <span>Target Carbs / Hour</span>
-                <span id="label-fuel-target-carbs" class="field-value-badge">75g</span>
+          <!-- Compact Inline Settings Row: Target, Speed, Auto-Plan -->
+          <div class="fuel-inline-settings">
+            <div class="inline-setting-item">
+              <label for="input-fuel-target-carbs">Target</label>
+              <div class="input-with-unit">
+                <input type="number" id="input-fuel-target-carbs" min="30" max="140" step="5" value="75">
+                <span class="unit-tag">g/h</span>
               </div>
-              <input type="range" id="input-fuel-target-carbs" min="40" max="120" step="5" value="75">
             </div>
-
-            <div class="field-grid">
-              <div class="field">
-                <label class="field-label" for="input-fuel-avg-speed">Avg Speed (km/h)</label>
+            <div class="inline-setting-item">
+              <label for="input-fuel-avg-speed">Speed</label>
+              <div class="input-with-unit">
                 <input type="number" id="input-fuel-avg-speed" min="10" max="55" step="0.5" value="25">
-              </div>
-              <div class="field">
-                <label class="field-label">Index By</label>
-                <div class="segmented-pill-group" id="fuel-mode-pill-group" style="margin-top:0;">
-                  <button type="button" class="pill-opt active" data-mode="km">KM</button>
-                  <button type="button" class="pill-opt" data-mode="time">Time</button>
-                </div>
+                <span class="unit-tag">km/h</span>
               </div>
             </div>
-
-            <!-- Stats Chips -->
-            <div class="fuel-stat-chips">
-              <div class="fuel-stat-chip">
-                <span class="chip-label">Total Carbs</span>
-                <span class="chip-val" id="fuel-stat-total-carbs">0g</span>
-              </div>
-              <div class="fuel-stat-chip">
-                <span class="chip-label">Avg Rate</span>
-                <span class="chip-val" id="fuel-stat-rate">0g/h</span>
-              </div>
-              <div class="fuel-stat-chip">
-                <span class="chip-label">Hydration</span>
-                <span class="chip-val" id="fuel-stat-fluid">0ml</span>
-              </div>
-            </div>
-
-            <!-- Hourly Intake Meter -->
-            <div class="field" style="margin-top:0.4rem;">
-              <div class="field-label">
-                <span>Hourly Carb Meter</span>
-              </div>
-              <div class="hourly-chart-container" id="fuel-hourly-chart">
-                <div class="hourly-empty">Load route to preview hourly pacing</div>
-              </div>
-            </div>
-
-            <!-- Regenerate Pro Plan Button -->
-            <button class="btn btn-secondary" id="btn-fuel-regenerate" style="width:100%; justify-content:center; margin-top:0.35rem;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <button type="button" class="btn btn-sm btn-subtle" id="btn-fuel-regenerate" title="Auto-plan nutrition schedule based on route">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
               </svg>
-              🪄 Regenerate Pro Plan
+              <span>Auto</span>
             </button>
           </div>
         </div>
 
-        <!-- Quick Add Presets Section -->
-        <div class="tool-section">
-          <div class="section-label">Quick Add Fuel Cue</div>
-          <div class="fuel-presets-grid">
-            <button type="button" class="fuel-preset-pill" data-fuel-preset="gel">⚡ Gel (25g)</button>
-            <button type="button" class="fuel-preset-pill" data-fuel-preset="gel_high_carb">⚡⚡ High-Carb (40g)</button>
-            <button type="button" class="fuel-preset-pill" data-fuel-preset="caff_gel">⚡☕ Caffeine (30g)</button>
-            <button type="button" class="fuel-preset-pill" data-fuel-preset="bottle_mix">🍾 Mix 500ml (40g)</button>
-            <button type="button" class="fuel-preset-pill" data-fuel-preset="bar">🍫 Bar (35g)</button>
-            <button type="button" class="fuel-preset-pill" data-fuel-preset="food">🥪 Food (30g)</button>
-            <button type="button" class="fuel-preset-pill" data-fuel-preset="feed_zone">🍽️ Aid Station</button>
-            <button type="button" class="fuel-preset-pill" data-fuel-preset="water">💧 Water</button>
+        <!-- Quick Add Fuel Cue Micro-Pills -->
+        <div class="tool-section" style="margin-top:0.6rem;">
+          <div class="fuel-quick-bar">
+            <span class="quick-bar-label">+ Add</span>
+            <div class="fuel-quick-scroll">
+              <button type="button" class="fuel-mini-pill" data-fuel-preset="gel">⚡ Gel</button>
+              <button type="button" class="fuel-mini-pill" data-fuel-preset="gel_high_carb">⚡⚡ High-Carb</button>
+              <button type="button" class="fuel-mini-pill" data-fuel-preset="bottle_mix">🍾 Mix</button>
+              <button type="button" class="fuel-mini-pill" data-fuel-preset="bar">🍫 Bar</button>
+              <button type="button" class="fuel-mini-pill" data-fuel-preset="caff_gel">☕ Caff</button>
+              <button type="button" class="fuel-mini-pill" data-fuel-preset="feed_zone">🍽️ Aid</button>
+              <button type="button" class="fuel-mini-pill" data-fuel-preset="water">💧 Water</button>
+            </div>
           </div>
         </div>
 
-        <!-- Draggable Items Section -->
-        <div class="tool-section">
-          <div class="section-label">Fueling Schedule</div>
+        <!-- The List (Hero!) -->
+        <div class="tool-section fuel-list-section" style="margin-top:0.6rem; flex:1; display:flex; flex-direction:column; min-height:0;">
+          <div class="section-header-flex">
+            <span class="section-label" style="margin-bottom:0;">Top Tube Schedule</span>
+            <span id="fuel-count-badge" class="count-badge">0</span>
+          </div>
           <div class="fuel-list-wrapper">
-            <div class="wpt-empty-hint" id="fuel-empty-hint">No fueling items yet. Drop a GPX file or click presets above.</div>
+            <div class="wpt-empty-hint" id="fuel-empty-hint">No fueling items yet. Load a route or click + Add above.</div>
             <div class="fuel-list" id="fuel-list"></div>
           </div>
         </div>

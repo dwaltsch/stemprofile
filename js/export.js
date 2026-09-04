@@ -221,8 +221,11 @@ export function generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks,
   };
 
   const count = Math.max(1, parseInt(cfg.copies, 10) || 1);
-  const W = p.settings.widthMm || 110;
-  const H = p.settings.heightMm || 35;
+  const stickerType = cfg.stickerType || 'active';
+  const isSheetFueling = (stickerType === 'fueling') ||
+    ((stickerType === 'active' || !stickerType) && p.activeView === 'fueling');
+  const W = isSheetFueling ? (p.settings.fuelingWidthMm || 35) : (p.settings.widthMm || 110);
+  const H = isSheetFueling ? (p.settings.fuelingHeightMm || 115) : (p.settings.heightMm || 35);
   const radius = p.settings.radiusMm || 0;
   const cropOffset = 3.5; // mm margin around sticker for crop marks
 
@@ -240,7 +243,6 @@ export function generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks,
 
   // Render individual sticker SVG
   const renderCellSvg = (cellIndex) => {
-    const stickerType = cfg.stickerType || 'active';
     let isFuel = false;
     if (stickerType === 'fueling') {
       isFuel = true;

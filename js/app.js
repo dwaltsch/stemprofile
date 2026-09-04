@@ -149,7 +149,35 @@ export function updateUI() {
     }
   }
 
-  // 5. Update Panels & Overlays
+  // 5. Update Workbench Stage Sizing & Calipers
+  const previewStage = document.getElementById('preview-stage');
+  if (previewStage) {
+    previewStage.classList.toggle('mode-fueling', isFuelingView);
+  }
+
+  const stageSizeLabel = document.getElementById('stage-size-label');
+  if (stageSizeLabel) {
+    if (isFuelingView) {
+      const fw = cfg.fuelingWidthMm || 35;
+      const fh = cfg.fuelingHeightMm || 115;
+      stageSizeLabel.textContent = `${fw} × ${fh} mm (Top Tube)`;
+    } else {
+      stageSizeLabel.textContent = `${cfg.widthMm} × ${cfg.heightMm} mm`;
+    }
+  }
+
+  // Declutter Left Sidebar: Hide elevation-only sections when viewing fueling decal
+  const elevationSections = document.querySelectorAll('.tool-section-elevation');
+  elevationSections.forEach(sec => {
+    sec.style.display = isFuelingView ? 'none' : 'flex';
+  });
+
+  const stickerWrapper = document.getElementById('sticker-container');
+  if (stickerWrapper && !stickerWrapper.classList.contains('zoom-actual')) {
+    document.documentElement.style.setProperty('--stage-zoom-w', isFuelingView ? '260px' : '720px');
+  }
+
+  // 6. Update Panels & Overlays
   renderClimbsTable(store);
   renderWaypointsList(store);
   renderFuelingPanel(store);

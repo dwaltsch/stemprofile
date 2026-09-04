@@ -68,6 +68,15 @@ export function renderFuelingPanel(store) {
   if (summaryRate) summaryRate.textContent = `${intake.avgCarbsPerHour}g/h`;
   if (summaryFluid) summaryFluid.textContent = `${intake.totalFluidMl}ml`;
 
+  const inputTargetCarbs = document.getElementById('input-fuel-target-carbs');
+  const inputAvgSpeed = document.getElementById('input-fuel-avg-speed');
+  if (inputTargetCarbs && document.activeElement !== inputTargetCarbs) {
+    inputTargetCarbs.value = targetCarbs;
+  }
+  if (inputAvgSpeed && document.activeElement !== inputAvgSpeed) {
+    inputAvgSpeed.value = avgSpeed;
+  }
+
   if (hourlyHost) {
     if (intake.hours.length === 0 || stats.totalDist <= 0) {
       hourlyHost.innerHTML = '<div class="hourly-empty">Load route to preview hourly pacing</div>';
@@ -222,13 +231,15 @@ export function initFuelingPanel(store) {
   const inputAvgSpeed = document.getElementById('input-fuel-avg-speed');
   const modePills = document.querySelectorAll('#fuel-mode-pill-group .pill-opt');
 
-  // 1. Target Carbs Slider / Input
+  // 1. Target Carbs Input
   if (inputTargetCarbs) {
-    inputTargetCarbs.addEventListener('input', e => {
+    const handleTargetChange = (e) => {
       const val = parseInt(e.target.value, 10) || 75;
       if (labelTargetCarbs) labelTargetCarbs.textContent = `${val}g`;
       store.updateFuelSettings({ targetCarbsPerHour: val });
-    });
+    };
+    inputTargetCarbs.addEventListener('input', handleTargetChange);
+    inputTargetCarbs.addEventListener('change', handleTargetChange);
   }
 
   // 2. Average Speed Input

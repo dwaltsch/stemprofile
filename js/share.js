@@ -20,6 +20,8 @@
 export const DEFAULT_SETTINGS = {
   widthMm: 110,
   heightMm: 35,
+  fuelingWidthMm: 35,
+  fuelingHeightMm: 115,
   radiusMm: 2,
   smoothingWindow: 7,
   blockSizeM: 1000,
