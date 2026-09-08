@@ -325,10 +325,10 @@ export function formatElapsedSeconds(sec) {
  * @param {number} avgSpeedKmh - Average speed in km/h
  * @returns {number} Elapsed seconds
  */
-export function distToElapsedSeconds(distM, avgSpeedKmh) {
+export function distToElapsedSeconds(distM, avgSpeedKmh, stopSec = 0) {
   const safeSpeed = Math.max(5, avgSpeedKmh || 25);
   const distKm = distM / 1000;
-  return Math.round((distKm / safeSpeed) * 3600);
+  return Math.round((distKm / safeSpeed) * 3600) + Math.round(stopSec || 0);
 }
 
 /**
@@ -364,38 +364,42 @@ export function generateDefaultFuelPlan({ points, stats, climbs = [], waypoints 
   const mappedWaypoints = (waypoints || []).filter(w => w && w.enabled !== false && w.distM >= 0 && w.distM <= totalDistM);
   for (const wpt of mappedWaypoints) {
     const wptType = wpt.type || 'feed';
+    const isFinish = wpt.distM >= totalDistM - 1000;
+    const isStart = wpt.distM < 1000;
+    const cleanLabel = (wpt.label || (wptType === 'water' ? 'Water' : (wptType === 'food' ? 'Bar' : 'Feed Zone'))).trim();
+
     if (wptType === 'feed') {
       items.push({
         id: generateFuelId(),
         distM: Math.round(wpt.distM),
-        name: wpt.label || 'Feed Zone',
+        name: isFinish ? `${cleanLabel} (Finish)` : cleanLabel,
         type: 'feed_zone',
         icon: FUEL_PRESETS.feed_zone.icon,
-        carbsG: prod.bottleCarbs || 40,
-        fluidMl: prod.bottleFluidMl || 500,
+        carbsG: isFinish || isStart ? 0 : (prod.bottleCarbs || 40),
+        fluidMl: isFinish || isStart ? 0 : (prod.bottleFluidMl || 500),
         isAidStation: true,
-        notes: 'Refill bottles & grab supplies'
+        notes: isFinish ? 'Finish line recovery & resupply' : (isStart ? 'Start staging & bottle check' : 'Refill bottles & grab supplies')
       });
     } else if (wptType === 'water') {
       items.push({
         id: generateFuelId(),
         distM: Math.round(wpt.distM),
-        name: wpt.label || 'Water',
+        name: isFinish ? `${cleanLabel} (Finish)` : cleanLabel,
         type: 'water',
         icon: FUEL_PRESETS.water.icon,
         carbsG: 0,
-        fluidMl: prod.bottleFluidMl || 500,
+        fluidMl: isFinish || isStart ? 0 : (prod.bottleFluidMl || 500),
         isAidStation: true,
-        notes: 'Top off hydration'
+        notes: isFinish ? 'Finish hydration' : 'Top off hydration'
       });
     } else if (wptType === 'food') {
       items.push({
         id: generateFuelId(),
         distM: Math.round(wpt.distM),
-        name: wpt.label || 'Bar',
+        name: cleanLabel,
         type: 'bar',
         icon: FUEL_PRESETS.bar.icon,
-        carbsG: prod.barCarbs || 35,
+        carbsG: isFinish || isStart ? 0 : (prod.barCarbs || 35),
         fluidMl: 0,
         isAidStation: true,
         notes: 'Solid fuel checkpoint'
@@ -407,7 +411,7 @@ export function generateDefaultFuelPlan({ points, stats, climbs = [], waypoints 
   const majorClimbs = (climbs || []).filter(c => {
     if (!c || c.enabled === false) return false;
     const cat = String(c.category || '');
-    return cat === 'HC' || cat.includes('1') || cat.includes('2') || cat.includes('3');
+    return cat === 'HC' || cat.includes('1') || cat.includes('2') || cat.includes('3') || cat.includes('4');
   });
   for (const climb of majorClimbs) {
     const cStartM = (climb.startKm || 0) * 1000;
@@ -419,18 +423,22 @@ export function generateDefaultFuelPlan({ points, stats, climbs = [], waypoints 
       const preClimbM = Math.max(1000, cStartM - 2000);
       const safePreClimbM = findNearestSafeWindow(points, preClimbM, 1500, 'backward');
 
-      // Check if another item is already close (< 2.5km)
-      const hasCloseItem = items.some(it => Math.abs(it.distM - safePreClimbM) < 2500);
+      // Check if another item is already close (< 3.5km)
+      const hasCloseItem = items.some(it => Math.abs(it.distM - safePreClimbM) < 3500);
       if (!hasCloseItem) {
         const catStr = String(climb.category || '');
         const isBigClimb = catStr.toUpperCase().includes('HC') || catStr.includes('1');
+        const isMidClimb = catStr.includes('2') || catStr.includes('3');
+        const type = isBigClimb ? 'caff_gel' : (isMidClimb ? 'gel_high_carb' : 'gel');
+        const name = isBigClimb ? `Caff Gel (${climb.category})` : (isMidClimb ? `HC Gel (${climb.category})` : `Gel (${climb.category})`);
+        const carbs = isBigClimb ? (prod.caffGelCarbs || 30) : (isMidClimb ? (prod.hcGelCarbs || 40) : (prod.gelCarbs || 25));
         items.push({
           id: generateFuelId(),
           distM: Math.round(safePreClimbM),
-          name: isBigClimb ? `Caff Gel (${climb.category})` : `HC Gel (${climb.category})`,
-          type: isBigClimb ? 'caff_gel' : 'gel_high_carb',
-          icon: isBigClimb ? FUEL_PRESETS.caff_gel.icon : FUEL_PRESETS.gel_high_carb.icon,
-          carbsG: isBigClimb ? (prod.caffGelCarbs || 30) : (prod.hcGelCarbs || 40),
+          name,
+          type,
+          icon: FUEL_PRESETS[type]?.icon || '⚡',
+          carbsG: carbs,
           fluidMl: 0,
           notes: `Take 10m before ${climb.category} ascent`
         });
@@ -441,7 +449,7 @@ export function generateDefaultFuelPlan({ points, stats, climbs = [], waypoints 
     if (cLengthM >= (cfg.longClimbDistThresholdM || 5000)) {
       const midPointM = cStartM + (cLengthM * 0.5);
       const safeMidM = findNearestSafeWindow(points, midPointM, 1200, 'nearest');
-      const hasMidItem = items.some(it => Math.abs(it.distM - safeMidM) < 2500);
+      const hasMidItem = items.some(it => Math.abs(it.distM - safeMidM) < 3000);
       if (!hasMidItem) {
         items.push({
           id: generateFuelId(),
@@ -457,93 +465,99 @@ export function generateDefaultFuelPlan({ points, stats, climbs = [], waypoints 
     }
   }
 
-  // 3. Cadence-Based Feeding (Aiming for ~20-30 min intervals, or ~8-12 km intervals)
+  // 3. Dynamic Carb Cadence Feeding
+  items.sort((a, b) => a.distM - b.distM);
+
   const distPerHourM = avgSpeedKmh * 1000;
-  const feedIntervalSec = Math.round(3600 / (targetCarbsPerHour / 25)); // e.g. 3600 / 3 = 1200s (20 mins)
-  const feedIntervalM = Math.max(5000, (feedIntervalSec / 3600) * distPerHourM); // ~8km
+  const targetFeedsPerHour = targetCarbsPerHour / 32;
+  const nominalIntervalHours = 1 / targetFeedsPerHour;
+  const nominalIntervalM = Math.max(6000, nominalIntervalHours * distPerHourM);
+  const minSpacingM = Math.max(5500, nominalIntervalM * 0.70);
 
-  const numIntervals = Math.floor(totalDistM / feedIntervalM);
+  let curM = nominalIntervalM;
+  let cadenceStep = 0;
 
-  for (let step = 1; step <= numIntervals; step++) {
-    const rawTargetM = step * feedIntervalM;
-    if (rawTargetM > totalDistM - 3000) break; // Skip right at the finish line
-
-    // Don't place if already an item within 3km
-    const alreadyCovered = items.some(it => Math.abs(it.distM - rawTargetM) < 3000);
-    if (alreadyCovered) continue;
-
-    // Determine hazard & safe window
-    let safeTargetM = rawTargetM;
-    const hazard = detectTerrainHazard(points, rawTargetM, climbs, cfg);
-    if (hazard.isHazard) {
-      safeTargetM = findNearestSafeWindow(points, rawTargetM, 2000, 'backward');
+  while (curM < totalDistM - 3500) {
+    // Check if an existing item (aid station or pre-climb gel) is nearby
+    const nearbyItem = items.find(it => Math.abs(it.distM - curM) < minSpacingM);
+    if (nearbyItem) {
+      const nextIntervalM = Math.max(6000, (((nearbyItem.carbsG || 30) / targetCarbsPerHour) * distPerHourM));
+      curM = nearbyItem.distM + nextIntervalM;
+      continue;
     }
 
-    // Avoid collision after snapping
-    if (items.some(it => Math.abs(it.distM - safeTargetM) < 2500)) continue;
+    cadenceStep++;
+    let safeTargetM = curM;
+    const hazard = detectTerrainHazard(points, curM, climbs, cfg);
+    if (hazard.isHazard) {
+      safeTargetM = findNearestSafeWindow(points, curM, 2000, 'backward');
+    }
 
-    const progressRatio = safeTargetM / totalDistM;
+    const conflict = items.some(it => Math.abs(it.distM - safeTargetM) < (minSpacingM * 0.75));
+    let itemCarbs = prod.gelCarbs || 25;
 
-    // First third of race: solids (bars / chews) + carb mix
-    // Middle & late race: gels & hydrogels
-    if (progressRatio < 0.35) {
-      if (step % 2 === 1) {
-        items.push({
-          id: generateFuelId(),
-          distM: Math.round(safeTargetM),
-          name: 'Bar',
-          type: 'bar',
-          icon: FUEL_PRESETS.bar.icon,
-          carbsG: prod.barCarbs || 35,
-          fluidMl: 0,
-          notes: 'Eat early while intensity is moderate'
-        });
+    if (!conflict) {
+      const progressRatio = safeTargetM / totalDistM;
+
+      if (progressRatio < 0.35) {
+        if (cadenceStep % 2 === 1) {
+          itemCarbs = prod.barCarbs || 35;
+          items.push({
+            id: generateFuelId(),
+            distM: Math.round(safeTargetM),
+            name: 'Bar',
+            type: 'bar',
+            icon: FUEL_PRESETS.bar.icon,
+            carbsG: itemCarbs,
+            fluidMl: 0,
+            notes: 'Eat early while intensity is moderate'
+          });
+        } else {
+          itemCarbs = prod.bottleCarbs || 40;
+          items.push({
+            id: generateFuelId(),
+            distM: Math.round(safeTargetM),
+            name: 'Carb Mix',
+            type: 'bottle_mix',
+            icon: FUEL_PRESETS.bottle_mix.icon,
+            carbsG: itemCarbs,
+            fluidMl: prod.bottleFluidMl || 500,
+            notes: 'Steady sips every 15 mins'
+          });
+        }
       } else {
+        const isHc = cadenceStep % 3 === 0;
+        itemCarbs = isHc ? (prod.hcGelCarbs || 40) : (prod.gelCarbs || 25);
         items.push({
           id: generateFuelId(),
           distM: Math.round(safeTargetM),
-          name: 'Carb Mix 1',
-          type: 'bottle_mix',
-          icon: FUEL_PRESETS.bottle_mix.icon,
-          carbsG: prod.bottleCarbs || 40,
-          fluidMl: prod.bottleFluidMl || 500,
-          notes: 'Steady sips every 15 mins'
-        });
-      }
-    } else {
-      // Latter stages: gels and high carb
-      if (step % 3 === 0) {
-        items.push({
-          id: generateFuelId(),
-          distM: Math.round(safeTargetM),
-          name: 'Carb Mix 2',
-          type: 'bottle_mix',
-          icon: FUEL_PRESETS.bottle_mix.icon,
-          carbsG: prod.bottleCarbs || 40,
-          fluidMl: prod.bottleFluidMl || 500,
-          notes: 'Finish second bottle'
-        });
-      } else {
-        items.push({
-          id: generateFuelId(),
-          distM: Math.round(safeTargetM),
-          name: 'Gel',
-          type: 'gel',
-          icon: FUEL_PRESETS.gel.icon,
-          carbsG: prod.gelCarbs || 25,
+          name: isHc ? 'HC Gel' : 'Gel',
+          type: isHc ? 'gel_high_carb' : 'gel',
+          icon: isHc ? FUEL_PRESETS.gel_high_carb.icon : FUEL_PRESETS.gel.icon,
+          carbsG: itemCarbs,
           fluidMl: 0,
           notes: 'Instant carb replenishment'
         });
       }
     }
+
+    const nextGapM = Math.max(6000, ((itemCarbs / targetCarbsPerHour) * distPerHourM));
+    curM = safeTargetM + nextGapM;
   }
 
   // Sort chronologically by distance
   items.sort((a, b) => a.distM - b.distM);
 
-  // Compute elapsed time and terrain hazard info for each item
+  // Compute elapsed time (with optional aid station stop time) and terrain hazard info
+  const stopMinutesPerStation = cfg.aidStationStopMin || 0;
+
   return items.map(item => {
-    const timeSec = distToElapsedSeconds(item.distM, avgSpeedKmh);
+    let stopSec = 0;
+    if (stopMinutesPerStation > 0) {
+      const priorStations = items.filter(it => it.isAidStation && it.distM < item.distM).length;
+      stopSec = priorStations * (stopMinutesPerStation * 60);
+    }
+    const timeSec = distToElapsedSeconds(item.distM, avgSpeedKmh, stopSec);
     const hazard = detectTerrainHazard(points, item.distM, climbs, cfg);
     return {
       ...item,

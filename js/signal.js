@@ -584,16 +584,28 @@ export function matchWaypointsToTrack(rawWaypoints, coords, points) {
 
   const results = [];
   const totalDist = points[points.length - 1].dist;
+  const N = normCoords.length;
+  const isLoop = N >= 2 && calcHaversine(normCoords[0].lat, normCoords[0].lon, normCoords[N - 1].lat, normCoords[N - 1].lon) <= 1000;
 
   rawWaypoints.forEach((wpt, index) => {
     let bestDistM = 0;
     let minDistToTrack = Infinity;
 
-    for (let i = 0; i < normCoords.length; i++) {
+    for (let i = 0; i < N; i++) {
       const d = calcHaversine(wpt.lat, wpt.lon, normCoords[i].lat, normCoords[i].lon);
       if (d < minDistToTrack) {
         minDistToTrack = d;
         bestDistM = points[i] ? points[i].dist : 0;
+      }
+    }
+
+    // On loop routes, if a waypoint is near both start and finish, match to finish unless explicitly named start
+    if (isLoop && minDistToTrack <= 5000) {
+      const dToStart = calcHaversine(wpt.lat, wpt.lon, normCoords[0].lat, normCoords[0].lon);
+      const dToEnd = calcHaversine(wpt.lat, wpt.lon, normCoords[N - 1].lat, normCoords[N - 1].lon);
+      const combinedText = `${wpt.name} ${wpt.sym} ${wpt.desc} ${wpt.typeStr}`.toLowerCase();
+      if (dToStart <= 1000 && dToEnd <= 1000 && !/(^|\b)(start|départ|abfahrt|begin)(\b|$)/i.test(combinedText)) {
+        bestDistM = totalDist;
       }
     }
 

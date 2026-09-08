@@ -78,6 +78,10 @@ export function renderFuelingPanel(store) {
   if (inputTargetCarbs && document.activeElement !== inputTargetCarbs) {
     inputTargetCarbs.value = targetCarbs;
   }
+  const labelTargetCarbs = document.getElementById('label-fuel-target-carbs');
+  if (labelTargetCarbs) {
+    labelTargetCarbs.textContent = `${targetCarbs}g`;
+  }
   if (inputAvgSpeed && document.activeElement !== inputAvgSpeed) {
     inputAvgSpeed.value = avgSpeed;
   }

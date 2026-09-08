@@ -1,3 +1,4 @@
+import './helpers/dom-shim.js';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -432,6 +433,32 @@ describe('Fueling Renderer Module: SVG Output', () => {
     // Verifies header title is safely handled
     assert.ok(svg.includes('class="fueling-header"'));
   });
+
+  it('does not stretch short item names with textLength or lengthAdjust', async () => {
+    const { renderFuelingSVG } = await import('../js/fueling-renderer.js');
+    const mockState = {
+      settings: { fuelingWidthMm: 35, fuelingHeightMm: 115, theme: 'white', title: 'Route Fueling' },
+      stats: { totalDist: 80000 },
+      fueling: {
+        mode: 'km',
+        targetCarbsPerHour: 80,
+        avgSpeedKmh: 28,
+        items: [
+          { id: 'f1', distM: 20000, name: 'Bar', carbsG: 40, type: 'bar' },
+          { id: 'f2', distM: 40000, name: 'Gel', carbsG: 25, type: 'gel' },
+          { id: 'f3', distM: 60000, name: 'Carb Mix', carbsG: 50, type: 'bottle_mix' }
+        ]
+      }
+    };
+
+    const svg = renderFuelingSVG(mockState);
+    // Verifies short names are not distorted or horizontally stretched with textLength
+    assert.ok(!svg.includes('textLength='));
+    assert.ok(!svg.includes('lengthAdjust='));
+    assert.ok(svg.includes('>Bar</text>'));
+    assert.ok(svg.includes('>Gel</text>'));
+    assert.ok(svg.includes('>Carb Mix</text>'));
+  });
 });
 
 describe('Fueling Store: Product Defaults Management', () => {
@@ -564,6 +591,119 @@ describe('Fueling Panel UI: Card Rendering & Editable Fields', () => {
     assert.ok(svg.includes('>Maurten Gel 100<'));
   });
 });
+
+describe('Fueling Module: Ultra-Distance & Loop Course Robustness', () => {
+  it('generates a realistic, GI-safe plan on 300km loop course (Bodensee Platin)', async () => {
+    const fs = await import('node:fs');
+    if (!fs.existsSync('testdata/PLATIN_2026_020926.gpx')) {
+      return;
+    }
+    const { parseGPX } = await import('../js/parser.js');
+    const { processTrackSignal, matchWaypointsToTrack } = await import('../js/signal.js');
+
+    const xml = fs.readFileSync('testdata/PLATIN_2026_020926.gpx', 'utf8');
+    const parsed = parseGPX(xml);
+    const { points, stats, climbs } = processTrackSignal(parsed.coords);
+    const waypoints = matchWaypointsToTrack(parsed.rawWaypoints, parsed.coords, points);
+
+    // Verify Altenrhein matched to finish on loop
+    const altenrhein = waypoints.find(w => w.label.includes('Altenrhein'));
+    assert.ok(altenrhein, 'Altenrhein waypoint should exist');
+    assert.ok(altenrhein.distM > 300000, `Expected finish distance > 300km, got ${altenrhein.distM}`);
+
+    const plan = generateDefaultFuelPlan({
+      points,
+      stats,
+      climbs,
+      waypoints,
+      config: { targetCarbsPerHour: 75, avgSpeedKmh: 25 }
+    });
+
+    assert.ok(plan.length >= 15 && plan.length <= 32, `Plan length should be balanced (15-32 items), got ${plan.length}`);
+
+    // Verify no 0km feed zone
+    const startFeed = plan.find(it => it.distM === 0 && it.carbsG > 0);
+    assert.strictEqual(startFeed, undefined, 'Should not schedule 40g feed zone at km 0.00');
+
+    // Verify Cat 4 climbs get pre-climb fueling
+    const cat4PreClimb = plan.find(it => it.name.includes('(Cat 4)'));
+    assert.ok(cat4PreClimb, 'Should generate pre-climb fueling for Cat 4 climbs');
+
+    // Verify hourly intake and average rate
+    const intake = calculateHourlyIntake(plan, stats.totalDist, 25);
+    assert.ok(intake.avgCarbsPerHour >= 60 && intake.avgCarbsPerHour <= 80, `Average carbs/h should be in 60-80g range, got ${intake.avgCarbsPerHour}`);
+    assert.ok(intake.totalFluidMl <= 5500, `Total fluid should be realistic (<= 5500ml), got ${intake.totalFluidMl}ml`);
+
+    // Verify max hourly carbs does not exceed 100g (no 130g gut-rot spikes)
+    intake.hours.forEach(h => {
+      assert.ok(h.carbsG <= 100, `Hour ${h.hour} carbs (${h.carbsG}g) should not exceed 100g`);
+    });
+  });
+
+  it('guarantees zero decal height overflow in renderFuelingSVG with high item count', async () => {
+    const { renderFuelingSVG } = await import('../js/fueling-renderer.js');
+    const mockItems = [];
+    for (let i = 0; i < 35; i++) {
+      mockItems.push({
+        id: `it-${i}`,
+        distM: (i + 1) * 8000,
+        timeSec: (i + 1) * 1200,
+        name: i % 2 === 0 ? 'Energy Gel' : 'Solid Bar',
+        type: i % 2 === 0 ? 'gel' : 'bar',
+        carbsG: 25,
+        fluidMl: 0,
+        isHazard: false
+      });
+    }
+
+    const mockState = {
+      settings: { fuelingWidthMm: 35, fuelingHeightMm: 115, theme: 'white' },
+      stats: { totalDist: 300000 },
+      fueling: { mode: 'km', targetCarbsPerHour: 75, avgSpeedKmh: 25, items: mockItems }
+    };
+
+    const svg = renderFuelingSVG(mockState);
+    const rowYPositions = [...svg.matchAll(/transform="translate\([^,]+,\s*([^)]+)\)"/g)].map(m => parseFloat(m[1]));
+    const maxRowY = Math.max(...rowYPositions);
+
+    // Decal height is 115mm, footer is at 108.4mm; last row must be <= 106mm
+    assert.ok(maxRowY <= 106, `Max row Y (${maxRowY}mm) must not exceed 106mm on 115mm decal`);
+  });
+
+  it('renders multi-column 2-column layout when decal width >= 55mm', async () => {
+    const { renderFuelingSVG } = await import('../js/fueling-renderer.js');
+    const mockItems = [];
+    for (let i = 0; i < 16; i++) {
+      mockItems.push({
+        id: `col-it-${i}`,
+        distM: (i + 1) * 10000,
+        timeSec: (i + 1) * 1500,
+        name: 'Item ' + (i + 1),
+        type: 'gel',
+        carbsG: 25,
+        fluidMl: 0,
+        isHazard: false
+      });
+    }
+
+    const mockState = {
+      settings: { fuelingWidthMm: 70, fuelingHeightMm: 115, theme: 'white' },
+      stats: { totalDist: 160000 },
+      fueling: { mode: 'km', targetCarbsPerHour: 75, avgSpeedKmh: 25, items: mockItems }
+    };
+
+    const svg = renderFuelingSVG(mockState, { widthMm: 70 });
+    const colXPositions = new Set([...svg.matchAll(/transform="translate\(([^,]+),/g)].map(m => parseFloat(m[1])));
+    assert.ok(colXPositions.size >= 2, 'Should position items in at least 2 distinct column X offsets');
+  });
+
+  it('calculates elapsed seconds including aid station stoppage time', () => {
+    // 25km at 25km/h = 3600s + 600s stop = 4200s
+    const sec = distToElapsedSeconds(25000, 25, 600);
+    assert.strictEqual(sec, 4200);
+  });
+});
+
 
 
 

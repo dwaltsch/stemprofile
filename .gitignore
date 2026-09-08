@@ -1,0 +1,14 @@
+# Cycling route, activity & track data files
+*.gpx
+*.fit
+*.tcx
+*.kml
+*.kmz
+testdata/
+
+# OS & temporary files
+.DS_Store
+Thumbs.db
+*.bak
+.trash/
+node_modules/
