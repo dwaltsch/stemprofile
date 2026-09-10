@@ -10,6 +10,12 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Import dom-shim for Node environments
 import './helpers/dom-shim.js';
@@ -172,6 +178,116 @@ describe('App & UI Integration: Route File Ingestion Flow', () => {
       if (origGetElementById) {
         globalThis.document.getElementById = origGetElementById;
       }
+    }
+  });
+});
+
+describe('App & UI Responsiveness: Viewport Layout & Overflow Prevention', () => {
+  const htmlPath = path.resolve(__dirname, '../index.html');
+  const cssPath = path.resolve(__dirname, '../css/styles.css');
+  const html = fs.readFileSync(htmlPath, 'utf8');
+  const css = fs.readFileSync(cssPath, 'utf8');
+
+  it('guarantees page and body level horizontal overflow is locked', () => {
+    assert.match(css, /html\s*\{[^}]*overflow-x:\s*hidden/, 'html must specify overflow-x: hidden');
+    assert.match(css, /body\s*\{[^}]*overflow-x:\s*hidden/, 'body must specify overflow-x: hidden');
+    assert.match(css, /max-width:\s*100vw/, 'viewport containment must clamp max-width: 100vw');
+  });
+
+  it('ensures sidebars have overflow-x hidden to prevent internal scrollbars', () => {
+    assert.match(
+      css,
+      /aside\.sidebar-left,\s*aside\.sidebar-right\s*\{[^}]*overflow-x:\s*hidden/,
+      'Sidebars must have overflow-x: hidden'
+    );
+  });
+
+  it('ensures app-layout center column uses minmax(0, 1fr) to prevent track expansion', () => {
+    assert.match(
+      css,
+      /\.app-layout\s*\{[^}]*grid-template-columns:\s*290px\s+minmax\(0,\s*1fr\)\s+290px/,
+      'Main grid must use minmax(0, 1fr) for center track'
+    );
+  });
+
+  it('verifies Sticker Theme and Units have dedicated fields to avoid horizontal crowding', () => {
+    assert.ok(html.includes('for="select-theme"'), 'select-theme label must exist');
+    assert.ok(html.includes('for="select-units"'), 'select-units label must exist');
+    // Verify they are not trapped together in a cramped 2-column field-grid
+    assert.ok(
+      !html.includes('<div class="field-grid">\n            <div class="field">\n              <label class="field-label" for="select-theme">'),
+      'select-theme and select-units should not be grouped in a side-by-side field-grid'
+    );
+  });
+
+  it('verifies responsive breakpoints adapt smoothly across screen sizes', () => {
+    assert.match(css, /@media\s*\(max-width:\s*1200px\)/, 'Should have 1200px breakpoint');
+    assert.match(css, /@media\s*\(max-width:\s*1080px\)/, 'Should have 1080px breakpoint');
+    assert.match(css, /@media\s*\(max-width:\s*960px\)/, 'Should have 960px breakpoint for mobile tab view');
+  });
+});
+
+describe('App & UI Polish: Professional Typography & Zero Emojis', () => {
+  const htmlPath = path.resolve(__dirname, '../index.html');
+  const html = fs.readFileSync(htmlPath, 'utf8');
+  const emojiRegex = /[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
+
+  it('guarantees index.html contains zero emoji characters', () => {
+    const hasEmoji = emojiRegex.test(html);
+    assert.equal(hasEmoji, false, 'index.html must not contain tacky emojis');
+  });
+
+  it('verifies all theme display names in renderer.js are clean and professional', async () => {
+    const { THEMES } = await import('../js/renderer.js');
+    for (const [key, theme] of Object.entries(THEMES)) {
+      assert.equal(emojiRegex.test(theme.name), false, `Theme ${key} name must not contain emojis`);
+    }
+  });
+
+  it('verifies getTypeBadge and getTypeEmoji return clean shortcode tags', async () => {
+    const { getTypeBadge, getTypeEmoji } = await import('../js/ui/waypoints-panel.js');
+    const { WAYPOINT_CONFIG } = await import('../js/renderer.js');
+
+    for (const [type, cfg] of Object.entries(WAYPOINT_CONFIG)) {
+      const badge = getTypeBadge(type);
+      const compat = getTypeEmoji(type);
+      assert.equal(badge, cfg.shortCode, `Badge for ${type} should equal shortCode ${cfg.shortCode}`);
+      assert.equal(compat, cfg.shortCode, `getTypeEmoji compatibility alias should return shortCode`);
+      assert.equal(emojiRegex.test(badge), false, `Shortcode ${badge} must not contain emojis`);
+    }
+  });
+
+  it('renders waypoint list with shortcode badges rather than raw emojis', async () => {
+    const { createStore } = await import('../js/store.js');
+    const { renderWaypointsList } = await import('../js/ui/waypoints-panel.js');
+
+    const fakeListEl = { innerHTML: '', style: {} };
+    const fakeEmptyHint = { style: {} };
+    const fakeCountBadge = { textContent: '' };
+
+    const origDoc = globalThis.document;
+    globalThis.document = {
+      ...origDoc,
+      getElementById: (id) => {
+        if (id === 'wpt-list') return fakeListEl;
+        if (id === 'wpt-empty-hint') return fakeEmptyHint;
+        if (id === 'wpt-count-badge') return fakeCountBadge;
+        return null;
+      }
+    };
+
+    try {
+      const store = createStore();
+      store.addWaypoint(12000, 'feed', 'Feed Station 1');
+      store.addWaypoint(25000, 'water', 'Water Refill');
+
+      renderWaypointsList(store);
+
+      assert.ok(fakeListEl.innerHTML.includes('FEED'), 'Waypoint badge should display FEED');
+      assert.ok(fakeListEl.innerHTML.includes('H2O'), 'Waypoint badge should display H2O');
+      assert.equal(emojiRegex.test(fakeListEl.innerHTML), false, 'Rendered waypoints HTML must contain zero emojis');
+    } finally {
+      globalThis.document = origDoc;
     }
   });
 });

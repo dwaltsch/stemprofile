@@ -32,10 +32,16 @@
     <!-- Mode Switcher: Profile vs Fueling Decal -->
     <div class="view-switch-group" id="view-switch-group">
       <button type="button" class="view-switch-btn active" data-view="elevation" id="btn-view-elevation" title="Elevation Profile Sticker">
-        <span>🏔️ Profile</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 18l6-9 4 5 4-7 4 11H3z"></path>
+        </svg>
+        <span>Elevation</span>
       </button>
       <button type="button" class="view-switch-btn" data-view="fueling" id="btn-view-fueling" title="Top Tube Fueling Decal">
-        <span>⚡ Fueling</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+        </svg>
+        <span>Fueling</span>
       </button>
     </div>
 
@@ -125,7 +131,7 @@
     </div>
   </header>
 
-  <!-- Mobile Segmented Navigation Tab Strip (Visible <= 900px) -->
+  <!-- Mobile Segmented Navigation Tab Strip (Visible <= 960px) -->
   <nav class="mobile-tab-nav" id="mobile-tab-nav" aria-label="Workstation Mobile Views">
     <button type="button" class="mobile-tab-btn active" data-tab="preview">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -244,26 +250,25 @@
       <div class="tool-section">
         <div class="section-label">Sticker Style</div>
         <div class="control-group">
-          <div class="field-grid">
-            <div class="field">
-              <label class="field-label" for="select-theme">Sticker Theme</label>
-              <select id="select-theme">
-                <option value="white" selected>Print White (Standard)</option>
-                <option value="prism">🌈 Velo Spectrum (Color Pop)</option>
-                <option value="giro">🌸 Giro Rosa (Gazzetta Pink)</option>
-                <option value="tour">🟡 Tour de France (L'Étape Gold)</option>
-                <option value="gravel">🌲 Gravel Brevet (Expedition Sand)</option>
-                <option value="dark">Dark Cockpit (Matte Slate)</option>
-                <option value="neon">⚡ Cyberpunk Neon (OLED Black)</option>
-              </select>
-            </div>
-            <div class="field">
-              <label class="field-label" for="select-units">Units</label>
-              <select id="select-units">
-                <option value="metric" selected>Metric (km / m)</option>
-                <option value="imperial">Imperial (mi / ft)</option>
-              </select>
-            </div>
+          <div class="field">
+            <label class="field-label" for="select-theme">Sticker Theme</label>
+            <select id="select-theme">
+              <option value="white" selected>Print White (Standard)</option>
+              <option value="prism">Velo Spectrum (Color Pop)</option>
+              <option value="giro">Giro Rosa (Gazzetta Pink)</option>
+              <option value="tour">Tour de France (L'Étape Gold)</option>
+              <option value="gravel">Gravel Brevet (Expedition Sand)</option>
+              <option value="dark">Dark Cockpit (Matte Slate)</option>
+              <option value="neon">Cyberpunk Neon (OLED Black)</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="select-units">Units</label>
+            <select id="select-units">
+              <option value="metric" selected>Metric (km / m)</option>
+              <option value="imperial">Imperial (mi / ft)</option>
+            </select>
           </div>
 
           <div class="field">
@@ -467,15 +472,15 @@
               <div class="field">
                 <label class="field-label" for="select-wpt-type">Type</label>
                 <select id="select-wpt-type">
-                  <option value="feed" selected>🍽️ Feed Zone</option>
-                  <option value="water">💧 Water / H2O</option>
-                  <option value="food">🥪 Food / Fuel</option>
-                  <option value="sprint">🟢 Sprint (S)</option>
-                  <option value="summit">⛰️ Summit</option>
-                  <option value="caution">⚠️ Caution</option>
-                  <option value="mech">🔧 Tech / Mech</option>
-                  <option value="checkpoint">🏁 Checkpoint</option>
-                  <option value="custom">📍 Custom Pin</option>
+                  <option value="feed" selected>Feed Zone (FEED)</option>
+                  <option value="water">Water Station (H2O)</option>
+                  <option value="food">Fuel &amp; Nutrition (GEL)</option>
+                  <option value="sprint">Intermediate Sprint (SPR)</option>
+                  <option value="summit">Climb Summit (KOM)</option>
+                  <option value="caution">Technical Caution (WARN)</option>
+                  <option value="mech">Mechanical Support (TECH)</option>
+                  <option value="checkpoint">Timing Checkpoint (CP)</option>
+                  <option value="custom">Custom Waypoint (PIN)</option>
                 </select>
               </div>
               <div class="field">
@@ -622,46 +627,51 @@
           <div class="fuel-defaults-panel" id="fuel-defaults-drawer" style="display:none;">
             <div class="defaults-drawer-header">
               <span class="defaults-drawer-title">Product Defaults (Carbs &amp; Fluid)</span>
-              <button type="button" class="btn-close-defaults" id="btn-close-fuel-defaults" title="Close defaults">✕</button>
+              <button type="button" class="btn-close-defaults" id="btn-close-fuel-defaults" title="Close defaults" aria-label="Close defaults">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
             </div>
             <div class="defaults-grid">
               <div class="default-input-item">
-                <label for="def-gel-carbs">⚡ Gel</label>
+                <label for="def-gel-carbs">Energy Gel</label>
                 <div class="input-with-unit mini-unit">
                   <input type="number" id="def-gel-carbs" min="15" max="60" step="1" value="25">
                   <span class="unit-tag">g</span>
                 </div>
               </div>
               <div class="default-input-item">
-                <label for="def-bottle-carbs">🍾 Bottle Mix</label>
+                <label for="def-bottle-carbs">Drink Mix</label>
                 <div class="input-with-unit mini-unit">
                   <input type="number" id="def-bottle-carbs" min="20" max="120" step="5" value="40">
                   <span class="unit-tag">g</span>
                 </div>
               </div>
               <div class="default-input-item">
-                <label for="def-bottle-fluid">💧 Bottle Vol</label>
+                <label for="def-bottle-fluid">Bottle Vol</label>
                 <div class="input-with-unit mini-unit">
                   <input type="number" id="def-bottle-fluid" min="250" max="1000" step="50" value="500">
                   <span class="unit-tag">ml</span>
                 </div>
               </div>
               <div class="default-input-item">
-                <label for="def-bar-carbs">🍫 Bar</label>
+                <label for="def-bar-carbs">Energy Bar</label>
                 <div class="input-with-unit mini-unit">
                   <input type="number" id="def-bar-carbs" min="15" max="80" step="1" value="35">
                   <span class="unit-tag">g</span>
                 </div>
               </div>
               <div class="default-input-item">
-                <label for="def-hc-carbs">⚡⚡ HC Gel</label>
+                <label for="def-hc-carbs">High-Carb Gel</label>
                 <div class="input-with-unit mini-unit">
                   <input type="number" id="def-hc-carbs" min="25" max="80" step="5" value="40">
                   <span class="unit-tag">g</span>
                 </div>
               </div>
               <div class="default-input-item">
-                <label for="def-caff-carbs">☕ Caff Gel</label>
+                <label for="def-caff-carbs">Caffeine Gel</label>
                 <div class="input-with-unit mini-unit">
                   <input type="number" id="def-caff-carbs" min="15" max="60" step="5" value="30">
                   <span class="unit-tag">g</span>
@@ -752,9 +762,9 @@
             <label class="field-label">Sticker Content</label>
             <div class="segmented-pill-group" id="print-type-pill-group">
               <button type="button" class="pill-opt active" data-sticker-type="active">Active View</button>
-              <button type="button" class="pill-opt" data-sticker-type="elevation">🏔️ Topo</button>
-              <button type="button" class="pill-opt" data-sticker-type="fueling">⚡ Fuel</button>
-              <button type="button" class="pill-opt" data-sticker-type="both">🔀 Both</button>
+              <button type="button" class="pill-opt" data-sticker-type="elevation">Profile</button>
+              <button type="button" class="pill-opt" data-sticker-type="fueling">Fueling</button>
+              <button type="button" class="pill-opt" data-sticker-type="both">Both Decals</button>
             </div>
           </div>
 
@@ -773,8 +783,8 @@
           <div class="print-section">
             <label class="field-label">Print Theme Palette</label>
             <div class="segmented-pill-group" id="print-theme-pill-group">
-              <button type="button" class="pill-opt active" data-theme-mode="theme">🎨 Active Theme</button>
-              <button type="button" class="pill-opt" data-theme-mode="white">📄 Ink-Saver White</button>
+              <button type="button" class="pill-opt active" data-theme-mode="theme">Active Theme</button>
+              <button type="button" class="pill-opt" data-theme-mode="white">Ink-Saver White</button>
             </div>
           </div>
 
@@ -825,7 +835,13 @@
 
           <!-- Scale Calibration Notice Tip -->
           <div class="print-tip-box">
-            <div class="print-tip-icon">💡</div>
+            <div class="print-tip-icon" aria-hidden="true">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+              </svg>
+            </div>
             <div class="print-tip-text">
               <strong>100% Exact Scale Guarantee:</strong> In your browser's print dialog, ensure <strong>Scale is set to 100% / Actual Size</strong> (disable "Fit to Page") and check <strong>Background Graphics</strong>.
             </div>

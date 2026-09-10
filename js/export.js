@@ -328,7 +328,7 @@ export function generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks,
   // Instructions footer
   const instructionsHtml = `
     <div class="print-sheet-footer-note" style="margin-top:2mm; font-size:6pt; color:#94a3b8; text-align:center; font-family:sans-serif;">
-      ⚠️ In browser print dialog: Set <strong>Scale: 100% (Actual Size)</strong> · Disable "Fit to page" · Check "Background graphics"
+      Print Calibration: Set <strong>Scale: 100% (Actual Size)</strong> · Disable "Fit to page" · Check "Background graphics"
     </div>
   `;
 

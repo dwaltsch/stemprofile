@@ -156,7 +156,7 @@ export const THEMES = {
     z4: '#f43f5e'             // Ultraviolet Hot Pink (>12%)
   },
   'prism': {
-    name: '🌈 Velo Spectrum (Color Pop)',
+    name: 'Velo Spectrum (Color Pop)',
     bg: '#ffffff',
     text: '#0f172a',          // Crisp deep black/slate for maximum outdoor readability
     textMuted: '#475569',     // Slate 600

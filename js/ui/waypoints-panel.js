@@ -11,23 +11,24 @@ import { getUnitFactors, getUnitLabels } from '../units.js';
 import { showToast } from './toast.js';
 
 /**
- * Returns descriptive category emoji for waypoint type.
+ * Returns technical shortcode badge for waypoint type.
  *
  * @param {string} type - Waypoint type
- * @returns {string} Emoji string
+ * @returns {string} Shortcode string
+ */
+export function getTypeBadge(type) {
+  const cfg = WAYPOINT_CONFIG[type] || WAYPOINT_CONFIG['feed'];
+  return cfg.shortCode || 'WPT';
+}
+
+/**
+ * Backward-compatible badge accessor for waypoint type.
+ *
+ * @param {string} type - Waypoint type
+ * @returns {string} Shortcode string
  */
 export function getTypeEmoji(type) {
-  switch (type) {
-    case 'water': return '💧';
-    case 'food': return '🥪';
-    case 'feed': return '🍽️';
-    case 'sprint': return '🟢';
-    case 'summit': return '⛰️';
-    case 'caution': return '⚠️';
-    case 'mech': return '🔧';
-    case 'checkpoint': return '🏁';
-    default: return '📍';
-  }
+  return getTypeBadge(type);
 }
 
 /**
