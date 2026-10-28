@@ -1,9 +1,15 @@
 {
   "name": "toptube (Sandboxed)",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:20-bookworm",
+  "runArgs": [
+    "--cpus=4",
+    "--memory=6g",
+    "--pids-limit=512"
+  ],
   "mounts": [
-    // Inherit active Antigravity session from host Mac
-    "source=${localEnv:HOME}/.gemini,target=/home/node/.gemini,type=bind"
+    // Shared authentication: Antigravity config and shared keyrings
+    "source=${localEnv:HOME}/.gemini,target=/home/node/.gemini,type=bind",
+    "source=${localEnv:HOME}/.local/share/keyrings,target=/home/node/.local/share/keyrings,type=bind"
   ],
   "remoteEnv": {
     "GEMINI_API_KEY": "${localEnv:GEMINI_API_KEY}"
