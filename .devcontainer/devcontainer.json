@@ -1,0 +1,25 @@
+{
+  "name": "toptube (Sandboxed)",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20-bookworm",
+  "containerEnv": {
+    "PATH": "${containerEnv:PATH}:/home/node/.local/bin"
+  },
+  "mounts": [
+    // Inherit active Antigravity session from host Mac
+    "source=${localEnv:HOME}/.gemini,target=/home/node/.gemini,type=bind"
+  ],
+  "remoteEnv": {
+    "GEMINI_API_KEY": "${localEnv:GEMINI_API_KEY}"
+  },
+  "postCreateCommand": "bash .devcontainer/setup-sandbox.sh",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      },
+      "extensions": [
+        "dbaeumer.vscode-eslint"
+      ]
+    }
+  }
+}
