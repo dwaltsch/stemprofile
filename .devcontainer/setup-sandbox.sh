@@ -3,6 +3,11 @@ set -e
 
 echo "==> Setting up Sandboxed DevContainer for toptube..."
 
+export PATH="${HOME}/.local/bin:${PATH}"
+if ! grep -q '.local/bin' "${HOME}/.bashrc" 2>/dev/null; then
+  echo 'export PATH="${HOME}/.local/bin:${PATH}"' >> "${HOME}/.bashrc"
+fi
+
 # 1. Install AGY (Antigravity CLI) if not present
 if ! command -v agy &> /dev/null; then
   echo "==> Installing Antigravity CLI (agy)..."
