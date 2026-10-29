@@ -111,9 +111,20 @@ export function formatGrade(gradePct, decimals = 1, prefix = '') {
  * @property {number} [dist] - Cumulative distance in meters
  */
 
+/** Plausible elevation range on Earth in meters (Dead Sea shore to above Everest). */
+export const ELEVATION_RANGE_M = [-500, 9000];
+
 /**
  * Standardizes coordinate input into uniform {lat, lon, ele} objects.
  * Handles array tuples [lat, lon, ele], objects {lat, lon, ele}, or synthetic distance coords {dist, ele}.
+ *
+ * Input from files and shared links is untrusted, so:
+ * - entries that are not arrays / objects (null, strings, ...) are skipped
+ * - points with non-finite or out-of-range latitude / longitude (or a negative
+ *   / non-finite synthetic distance) are dropped
+ * - non-finite or physically implausible elevations are filled from the nearest
+ *   valid elevation (previous one, or the first valid one for a leading gap);
+ *   with no valid elevation at all, 0 is used
  *
  * @param {Array<Object|Array<number>>} rawCoords - Raw coordinates in any supported format
  * @returns {NormalizedCoordinate[]} Normalized coordinates
@@ -121,29 +132,55 @@ export function formatGrade(gradePct, decimals = 1, prefix = '') {
 export function normalizeCoordinates(rawCoords) {
   if (!rawCoords || !Array.isArray(rawCoords)) return [];
 
-  return rawCoords.map(c => {
+  const [minEle, maxEle] = ELEVATION_RANGE_M;
+  const validEle = e => Number.isFinite(e) && e >= minEle && e <= maxEle;
+  const out = [];
+
+  for (const c of rawCoords) {
+    let pt = null;
     if (Array.isArray(c)) {
-      return {
-        lat: Number(c[0]) || 0,
-        lon: Number(c[1]) || 0,
-        ele: c[2] !== undefined ? Number(c[2]) : 0
-      };
-    }
-    if (c && typeof c === 'object') {
+      pt = { lat: Number(c[0]), lon: Number(c[1]), ele: c[2] !== undefined ? Number(c[2]) : NaN };
+    } else if (c && typeof c === 'object') {
       if (c.dist !== undefined) {
-        return {
-          dist: Number(c.dist) || 0,
-          lat: c.lat !== undefined ? Number(c.lat) : (Number(c.dist) / 111319.5),
+        const dist = Number(c.dist);
+        if (!Number.isFinite(dist) || dist < 0) continue;
+        pt = {
+          dist,
+          lat: c.lat !== undefined ? Number(c.lat) : (dist / 111319.5),
           lon: c.lon !== undefined ? Number(c.lon) : 0,
-          ele: c.ele !== undefined ? Number(c.ele) : (c.smoothEle !== undefined ? Number(c.smoothEle) : 0)
+          ele: c.ele !== undefined ? Number(c.ele) : (c.smoothEle !== undefined ? Number(c.smoothEle) : NaN)
         };
+        // Synthetic distance coords carry placeholder lat/lon; only require them to be finite
+        if (!Number.isFinite(pt.lat) || !Number.isFinite(pt.lon)) continue;
+        out.push(pt);
+        continue;
       }
-      return {
-        lat: Number(c.lat) || 0,
-        lon: Number(c.lon) || 0,
-        ele: c.ele !== undefined ? Number(c.ele) : 0
-      };
+      pt = { lat: Number(c.lat), lon: Number(c.lon), ele: c.ele !== undefined ? Number(c.ele) : NaN };
     }
-    return { lat: 0, lon: 0, ele: 0 };
-  });
+    if (!pt || !Number.isFinite(pt.lat) || !Number.isFinite(pt.lon)) continue;
+    if (Math.abs(pt.lat) > 90 || Math.abs(pt.lon) > 180) continue;
+    out.push(pt);
+  }
+
+  // Fill missing / implausible elevations from neighbours
+  const firstValid = out.find(p => validEle(p.ele));
+  let lastEle = firstValid ? firstValid.ele : 0;
+  for (const p of out) {
+    if (validEle(p.ele)) lastEle = p.ele;
+    else p.ele = lastEle;
+  }
+  return out;
+}
+
+/**
+ * Whether normalized coordinates describe a route with length: at least two
+ * points at different positions (or synthetic distances).
+ *
+ * @param {NormalizedCoordinate[]} coords - Normalized coordinates
+ * @returns {boolean}
+ */
+export function hasRouteLength(coords) {
+  if (!Array.isArray(coords) || coords.length < 2) return false;
+  const first = coords[0];
+  return coords.some(c => c.lat !== first.lat || c.lon !== first.lon || (c.dist !== undefined && c.dist !== first.dist));
 }

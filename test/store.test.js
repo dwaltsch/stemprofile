@@ -93,17 +93,18 @@ describe('Store Module: State & Lifecycle', () => {
     assert.deepEqual(store.getState().settings.customPositions, {});
   });
 
-  it('handles empty or single point tracks by resetting computed state', () => {
+  it('rejects empty, single point and zero-length tracks without touching the loaded route', () => {
     const store = createStore();
-    store.setTrack({ title: 'Empty Track', coords: [] });
-    let state = store.getState();
-    assert.equal(state.points.length, 0);
-    assert.equal(state.stats, null);
+    assert.throws(() => store.setTrack({ title: 'Empty Track', coords: [] }), /two distinct GPS points/);
+    assert.equal(store.getState().points.length, 0);
+    assert.equal(store.getState().stats, null);
 
-    store.setTrack({ title: 'Single Point Track', coords: [{ lat: 45.0, lon: 6.0, ele: 100 }] });
-    state = store.getState();
-    assert.equal(state.points.length, 0);
-    assert.equal(state.stats, null);
+    store.setTrack({ title: 'Good', coords: [{ lat: 45.0, lon: 6.0, ele: 100 }, { lat: 45.01, lon: 6.0, ele: 120 }] });
+    const before = store.getState().points;
+    assert.throws(() => store.setTrack({ title: 'Single Point Track', coords: [{ lat: 45.0, lon: 6.0, ele: 100 }] }));
+    assert.throws(() => store.setTrack({ title: 'Same Point', coords: [{ lat: 45, lon: 6, ele: 1 }, { lat: 45, lon: 6, ele: 2 }] }));
+    assert.equal(store.getState().points, before);
+    assert.equal(store.getState().settings.title, 'Good');
   });
 
   it('restores state from valid payload and rejects invalid payload', () => {

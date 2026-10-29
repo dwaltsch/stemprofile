@@ -8,7 +8,12 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import './helpers/dom-shim.js';
 import { createStore } from '../js/store.js';
+import { renderFuelingSVG } from '../js/fueling-renderer.js';
+import { renderClimbDetailStackSVG } from '../js/renderer/climb-detail.js';
+import { parseRouteFile } from '../js/parser.js';
+import { normalizeCoordinates } from '../js/units.js';
 import { renderProfileSVG } from '../js/renderer.js';
 import { generatePrintSheetMarkup, MAX_PRINT_CELLS } from '../js/export.js';
 import { buildSpatialBlocks, MAX_SPATIAL_BLOCKS } from '../js/signal.js';
@@ -135,5 +140,65 @@ describe('Robustness: Share Link Size Limits', () => {
     assert.deepEqual(out.coords[0], coords[0]);
     assert.deepEqual(out.coords[out.coords.length - 1], coords[coords.length - 1]);
     assert.equal(out.waypoints.length, MAX_SHARED_WAYPOINTS);
+  });
+});
+
+/** Loads coords into a fresh store and renders every sticker kind. */
+function loadAndRenderAll(coords) {
+  const store = createStore();
+  store.setTrack({ title: 't', coords });
+  const s = store.getState();
+  const out = renderProfileSVG(s) + renderFuelingSVG(s) + renderClimbDetailStackSVG(s).svg;
+  return { state: s, out };
+}
+
+const straight = (n, ele) => Array.from({ length: n }, (_, i) => ({ lat: 45 + i * 0.001, lon: 6, ele: ele(i) }));
+
+describe('Robustness: Invalid Coordinates', () => {
+  it('rejects a route whose points are all identical', () => {
+    assert.throws(() => loadAndRenderAll(Array.from({ length: 50 }, () => ({ lat: 45, lon: 6, ele: 500 }))), /distinct/);
+  });
+
+  it('fills NaN, Infinity and text elevations instead of leaking NaN', () => {
+    const { out, state } = loadAndRenderAll(straight(100, i => (i % 3 ? NaN : (i % 2 ? Infinity : 500))));
+    assert.ok(!/NaN|Infinity/.test(out));
+    assert.ok(state.points.every(p => Number.isFinite(p.smoothEle)));
+    const strings = loadAndRenderAll(straight(100, () => 'abc'));
+    assert.ok(!/NaN/.test(strings.out));
+  });
+
+  it('fills physically impossible elevations from neighbours', () => {
+    const coords = normalizeCoordinates([[45, 6, 1e7], [45.001, 6, 400], [45.002, 6, -1e9], [45.003, 6, 420]]);
+    assert.deepEqual(coords.map(c => c.ele), [400, 400, 400, 420]);
+  });
+
+  it('skips null entries instead of placing them at 0,0', () => {
+    const coords = normalizeCoordinates([null, { lat: 45, lon: 6, ele: 1 }, undefined, 'x', [45.01, 6, 2]]);
+    assert.equal(coords.length, 2);
+    const { state } = loadAndRenderAll([null, { lat: 45, lon: 6, ele: 1 }, undefined, { lat: 45.01, lon: 6, ele: 2 }, { lat: 45.02, lon: 6, ele: 3 }]);
+    assert.ok(state.stats.totalDist < 5000, `distance ${state.stats.totalDist}`);
+  });
+
+  it('drops out-of-range latitude / longitude', () => {
+    assert.equal(normalizeCoordinates([[500, 6, 1], [45, 900, 1], [45, 6, 1], [-91, 0, 1]]).length, 1);
+    assert.throws(() => loadAndRenderAll(Array.from({ length: 100 }, (_, i) => ({ lat: 500 + i, lon: 900, ele: 500 }))));
+  });
+
+  it('GPX: <ele>1e400</ele> does not produce Infinity', () => {
+    const gpx = '<?xml version="1.0"?><gpx><trk><trkseg>' +
+      '<trkpt lat="45" lon="6"><ele>100</ele></trkpt><trkpt lat="45.01" lon="6"><ele>1e400</ele></trkpt>' +
+      '<trkpt lat="45.02" lon="6"><ele>120</ele></trkpt></trkseg></trk></gpx>';
+    const { coords } = parseRouteFile(gpx, 'a.gpx');
+    const { out } = loadAndRenderAll(coords);
+    assert.ok(!/NaN|Infinity/.test(out));
+  });
+
+  it('shared links with garbage coordinates are rejected or cleaned', async () => {
+    const bad = await deserializeHashToState(await legacyLink({ t: 'x', coords: ['a', { lat: 'x' }, [1], [45, 6, 1], [45.1, 6, 2]] }));
+    const store = createStore();
+    assert.equal(store.loadPayload(bad), true);
+    assert.equal(store.getState().rawCoords.length, 2, 'only the two complete points remain ([1] has no longitude)');
+    const allSame = await deserializeHashToState(await legacyLink({ t: 'x', coords: [[45, 6, 1], [45, 6, 1]] }));
+    assert.equal(createStore().loadPayload(allSame), false);
   });
 });

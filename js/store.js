@@ -11,7 +11,7 @@
 import { processTrackSignal, matchWaypointsToTrack } from './signal.js';
 import { DEFAULT_SETTINGS, sanitizePayload, clampSettings } from './share.js';
 import { getRecommendedBlockPresets } from './layout.js';
-import { normalizeCoordinates } from './units.js';
+import { normalizeCoordinates, hasRouteLength } from './units.js';
 import {
   DEFAULT_FUELING_CONFIG,
   DEFAULT_FUEL_PRODUCT_DEFAULTS,
@@ -313,9 +313,14 @@ export function createStore(initialSettings = {}) {
      * Ingests a new GPS track dataset, executes signal processing, and updates state.
      *
      * @param {Object} payload - { title, coords, rawWaypoints }
+     * @throws {Error} When the coordinates do not describe a route with length (state is left unchanged)
      */
     setTrack({ title, coords, rawWaypoints = [] }) {
-      state.rawCoords = normalizeCoordinates(coords);
+      const normalized = normalizeCoordinates(coords);
+      if (!hasRouteLength(normalized)) {
+        throw new Error('Route needs at least two distinct GPS points with valid coordinates.');
+      }
+      state.rawCoords = normalized;
       state.rawWaypoints = rawWaypoints || [];
       if (title !== undefined) {
         state.settings.title = title;
@@ -462,9 +467,11 @@ export function createStore(initialSettings = {}) {
      */
     loadPayload(rawPayload) {
       const payload = sanitizePayload(rawPayload);
-      if (!payload || payload.coords.length < 2) return false;
+      if (!payload) return false;
+      const normalized = normalizeCoordinates(payload.coords);
+      if (!hasRouteLength(normalized)) return false;
 
-      state.rawCoords = normalizeCoordinates(payload.coords);
+      state.rawCoords = normalized;
       state.rawWaypoints = [];
       state.waypoints = payload.waypoints || [];
 
