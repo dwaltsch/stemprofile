@@ -186,6 +186,11 @@ toptube/
 Run any local static web server in the repository root:
 
 ```bash
+# With just (https://just.systems): serve, test, stamp, check
+just serve          # http://localhost:8000
+just check          # what CI runs: asset stamps current + both test runners
+just stamp          # after editing js/ or css/: refresh cache-busting hashes in index.html
+
 # Using Python 3
 python3 -m http.server 8000
 
