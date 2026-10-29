@@ -18,6 +18,7 @@
 import { getInterpolatedEle } from './signal.js';
 import { computeClimbBadgeLayout, calculateLeaderLineAnchor, computeBlockPctLayout } from './layout.js';
 import { getUnitFactors, getUnitLabels, formatElevation } from './units.js';
+import { escapeXml } from './escape.js';
 
 // Re-export layout computation for backward compatibility
 export { computeClimbBadgeLayout, computeBlockPctLayout } from './layout.js';
@@ -280,16 +281,7 @@ function renderWaypointGlyph(type, textColor = '#ffffff') {
   }
 }
 
-/**
- * Escapes unsafe characters for XML/SVG text embedding.
- *
- * @param {string} s - Input text string
- * @returns {string} Sanitized XML-safe string
- */
-export function escapeXml(s) {
-  const map = { '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' };
-  return (s || '').replace(/[<>&'"]/g, c => map[c] || c);
-}
+export { escapeXml };
 
 /**
  * Main vector SVG rendering pipeline for elevation stickers.
@@ -693,7 +685,7 @@ export function renderProfileSVG(
         textMarkup = `
           <g transform="translate(${tagX.toFixed(2)}, ${tagY.toFixed(2)})">
             <rect width="${tagW.toFixed(2)}" height="2.6" rx="0.5" fill="${theme.badgeBg}" stroke="${theme.badgeStroke}" stroke-width="0.3"/>
-            <text x="${(tagW / 2).toFixed(2)}" y="1.85" fill="${theme.badgeText}" font-size="1.5" font-weight="800" font-family="monospace, sans-serif" text-anchor="middle">${tagText}</text>
+            <text x="${(tagW / 2).toFixed(2)}" y="1.85" fill="${theme.badgeText}" font-size="1.5" font-weight="800" font-family="monospace, sans-serif" text-anchor="middle">${escapeXml(tagText)}</text>
           </g>
         `;
       }

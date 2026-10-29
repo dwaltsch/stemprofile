@@ -18,3 +18,4 @@ import './renderer.test.js';
 import './fueling.test.js';
 import './export.test.js';
 import './app.test.js';
+import './escape.test.js';

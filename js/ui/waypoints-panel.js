@@ -64,7 +64,7 @@ export function renderWaypointsList(store) {
     const disabledClass = w.enabled === false ? 'disabled' : '';
 
     html += `
-      <div class="wpt-item ${disabledClass}" data-id="${w.id}">
+      <div class="wpt-item ${disabledClass}" data-id="${escapeXml(w.id)}">
         <div class="wpt-info">
           <div class="wpt-icon-badge" style="background:${typeCfg.color}; color:${typeCfg.textColor};">
             ${getTypeEmoji(w.type)}

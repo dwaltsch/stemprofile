@@ -9,7 +9,7 @@
  */
 
 import { processTrackSignal, matchWaypointsToTrack } from './signal.js';
-import { DEFAULT_SETTINGS } from './share.js';
+import { DEFAULT_SETTINGS, sanitizePayload } from './share.js';
 import { getRecommendedBlockPresets } from './layout.js';
 import { normalizeCoordinates } from './units.js';
 import {
@@ -326,8 +326,9 @@ export function createStore(initialSettings = {}) {
      *
      * @param {Object} payload - { title, coords, settings, waypoints }
      */
-    loadPayload(payload) {
-      if (!payload || !payload.coords || payload.coords.length < 2) return false;
+    loadPayload(rawPayload) {
+      const payload = sanitizePayload(rawPayload);
+      if (!payload || payload.coords.length < 2) return false;
 
       state.rawCoords = normalizeCoordinates(payload.coords);
       state.rawWaypoints = [];

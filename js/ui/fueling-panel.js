@@ -21,20 +21,7 @@ import {
 } from '../fueling.js';
 import { getUnitFactors, getUnitLabels } from '../units.js';
 import { showToast } from './toast.js';
-
-/**
- * Escapes XML/HTML text.
- * @param {string} str
- * @returns {string}
- */
-function escapeHtml(str) {
-  if (typeof str !== 'string') return '';
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+import { escapeHtml } from '../escape.js';
 
 /**
  * Renders the fueling cues list and hourly intake meter.
@@ -173,7 +160,7 @@ export function renderFuelingPanel(store) {
       hazardMarkup = `
         <div class="fuel-hazard-chip ${badgeClass}" title="${hazardTitle}">
           <span>${badgeText}</span>
-          <button type="button" class="btn-snap-flat" data-action="snap-flat" data-id="${item.id}" title="Snap to nearest safe flat corridor">
+          <button type="button" class="btn-snap-flat" data-action="snap-flat" data-id="${escapeHtml(item.id)}" title="Snap to nearest safe flat corridor">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
             <span>Snap</span>
           </button>
@@ -187,7 +174,7 @@ export function renderFuelingPanel(store) {
     } else {
       indexBadgeMarkup = `
         <div class="fuel-dist-badge" title="Click to edit kilometer">
-          <input type="number" class="fuel-dist-input" data-action="edit-dist" data-id="${item.id}" value="${distU}" step="0.5" min="0" max="1000" draggable="false">
+          <input type="number" class="fuel-dist-input" data-action="edit-dist" data-id="${escapeHtml(item.id)}" value="${distU}" step="0.5" min="0" max="1000" draggable="false">
           <span class="fuel-dist-unit">${distUnit}</span>
         </div>
       `;
@@ -218,7 +205,7 @@ export function renderFuelingPanel(store) {
     const isWater = typeKey.includes('water') || typeKey.includes('h2o');
 
     html += `
-      <div class="fuel-item-card" data-id="${item.id}" data-index="${index}">
+      <div class="fuel-item-card" data-id="${escapeHtml(item.id)}" data-index="${index}">
         <div class="fuel-card-handle" draggable="true" title="Drag to reorder item">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="9" cy="6" r="1.5"></circle>
@@ -234,7 +221,7 @@ export function renderFuelingPanel(store) {
           <div class="fuel-card-meta-row">
             <div class="fuel-card-meta-left">
               ${indexBadgeMarkup}
-              <select class="fuel-type-select ${badgeClass}" data-action="edit-type" data-id="${item.id}" title="Product type (Click to change)" draggable="false">
+              <select class="fuel-type-select ${badgeClass}" data-action="edit-type" data-id="${escapeHtml(item.id)}" title="Product type (Click to change)" draggable="false">
                 <option value="gel" ${isGel ? 'selected' : ''}>GEL</option>
                 <option value="bottle_mix" ${isMix ? 'selected' : ''}>MIX</option>
                 <option value="bar" ${isBar ? 'selected' : ''}>BAR</option>
@@ -246,10 +233,10 @@ export function renderFuelingPanel(store) {
             </div>
             <div class="fuel-card-meta-right">
               <div class="fuel-carbs-pill" title="Click to edit carbs (g)">
-                <input type="number" class="fuel-carbs-input" data-action="edit-carbs" data-id="${item.id}" value="${item.carbsG || 0}" min="0" max="140" step="5" draggable="false">
+                <input type="number" class="fuel-carbs-input" data-action="edit-carbs" data-id="${escapeHtml(item.id)}" value="${item.carbsG || 0}" min="0" max="140" step="5" draggable="false">
                 <span>g</span>
               </div>
-              <button type="button" class="fuel-del-btn" data-action="delete" data-id="${item.id}" title="Remove item">
+              <button type="button" class="fuel-del-btn" data-action="delete" data-id="${escapeHtml(item.id)}" title="Remove item">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="3 6 5 6 21 6"></polyline>
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -259,7 +246,7 @@ export function renderFuelingPanel(store) {
           </div>
 
           <div class="fuel-card-name-row">
-            <input type="text" class="fuel-name-input" data-action="edit-name" data-id="${item.id}" value="${escapeHtml(item.name || '')}" placeholder="Item name (e.g. Maurten Gel 100)" maxlength="40" draggable="false" title="Click to edit name" autocomplete="off" spellcheck="false">
+            <input type="text" class="fuel-name-input" data-action="edit-name" data-id="${escapeHtml(item.id)}" value="${escapeHtml(item.name || '')}" placeholder="Item name (e.g. Maurten Gel 100)" maxlength="40" draggable="false" title="Click to edit name" autocomplete="off" spellcheck="false">
           </div>
 
           ${hazardMarkup ? `<div class="fuel-card-hazard-row">${hazardMarkup}</div>` : ''}

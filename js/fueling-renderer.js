@@ -17,22 +17,7 @@
 import { THEMES } from './renderer.js';
 import { getUnitFactors, getUnitLabels } from './units.js';
 import { calculateHourlyIntake } from './fueling.js';
-
-/**
- * Escapes XML/SVG special characters to prevent markup injection.
- *
- * @param {string} str - Raw string
- * @returns {string} XML-safe string
- */
-function escapeXml(str) {
-  if (typeof str !== 'string') return '';
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
+import { escapeXml } from './escape.js';
 
 export const CUE_BADGES = {
   gel: { code: 'GEL', bg: '#fef3c7', color: '#b45309', border: '#f59e0b' },
@@ -282,7 +267,7 @@ export function renderFuelingSVG(state, options = {}) {
       const distBadgeBg = themeName === 'white' || themeName === 'prism' ? '#e2e8f0' : 'rgba(255,255,255,0.10)';
 
       rowsMarkup += `
-        <g class="fuel-item-row" data-id="${item.id}" transform="translate(${colX.toFixed(2)}, ${cellY.toFixed(2)})">
+        <g class="fuel-item-row" data-id="${escapeXml(item.id)}" transform="translate(${colX.toFixed(2)}, ${cellY.toFixed(2)})">
           <title>${name} (${carbs})</title>
           <rect width="${colW.toFixed(2)}" height="${(rowH - 0.3).toFixed(2)}" rx="0.6" fill="${bgFill}" />
           

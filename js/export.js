@@ -15,6 +15,7 @@
 import { renderProfileSVG, THEMES } from './renderer.js';
 import { renderFuelingSVG } from './fueling-renderer.js';
 import { getUnitLabels, getUnitFactors } from './units.js';
+import { escapeHtml } from './escape.js';
 
 /**
  * Standard default print configuration dictionary.
@@ -351,19 +352,6 @@ export function generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks,
     stickerW: W,
     stickerH: H
   };
-}
-
-/**
- * Escapes HTML characters.
- * @private
- */
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 /**
