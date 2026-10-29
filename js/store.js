@@ -17,9 +17,9 @@ import {
   DEFAULT_FUEL_PRODUCT_DEFAULTS,
   generateDefaultFuelPlan,
   generateFuelId,
-  distToElapsedSeconds,
   formatElapsedSeconds,
-  detectTerrainHazard
+  detectTerrainHazard,
+  getStatePacing
 } from './fueling.js';
 
 /**
@@ -106,6 +106,24 @@ export function createStore(initialSettings = {}) {
     }
   }
 
+  /** Elapsed seconds at a route distance under the active pacing model. */
+  function fuelTimeAt(distM) {
+    return Math.round(getStatePacing(state).timeAt(distM));
+  }
+
+  /** Recomputes elapsed time and terrain hazard for every fuel item. */
+  function retimeFuelItems() {
+    state.fueling.items.forEach(it => {
+      it.timeSec = fuelTimeAt(it.distM);
+      it.timeStr = formatElapsedSeconds(it.timeSec);
+      const hazard = detectTerrainHazard(state.points, it.distM, state.climbs, state.fueling);
+      it.grade = hazard.grade;
+      it.isHazard = hazard.isHazard;
+      it.hazardType = hazard.type;
+      it.hazardMessage = hazard.message;
+    });
+  }
+
   function reprocess(isNewGPX = false) {
     if (!state.rawCoords || state.rawCoords.length < 2) {
       state.points = [];
@@ -152,6 +170,7 @@ export function createStore(initialSettings = {}) {
           ...DEFAULT_FUELING_CONFIG,
           ...saved
         };
+        retimeFuelItems();
       } else {
         state.fueling.items = generateDefaultFuelPlan({
           points: state.points,
@@ -223,6 +242,7 @@ export function createStore(initialSettings = {}) {
 
       if (needsReprocess && state.rawCoords.length >= 2) {
         reprocess(false);
+        retimeFuelItems();
       }
 
       notify('settings:updated');
@@ -383,8 +403,7 @@ export function createStore(initialSettings = {}) {
      */
     addFuelItem(itemData) {
       const distM = Math.max(0, itemData.distM || 0);
-      const avgSpeed = state.fueling.avgSpeedKmh || 25;
-      const timeSec = distToElapsedSeconds(distM, avgSpeed);
+      const timeSec = fuelTimeAt(distM);
       const hazard = detectTerrainHazard(state.points, distM, state.climbs, state.fueling);
       const defs = state.fueling.productDefaults || DEFAULT_FUEL_PRODUCT_DEFAULTS;
 
@@ -443,9 +462,8 @@ export function createStore(initialSettings = {}) {
       Object.assign(it, partial);
 
       if (partial.distM !== undefined) {
-        const avgSpeed = state.fueling.avgSpeedKmh || 25;
         it.distM = Math.max(0, Math.round(partial.distM));
-        it.timeSec = distToElapsedSeconds(it.distM, avgSpeed);
+        it.timeSec = fuelTimeAt(it.distM);
         it.timeStr = formatElapsedSeconds(it.timeSec);
         const hazard = detectTerrainHazard(state.points, it.distM, state.climbs, state.fueling);
         it.grade = hazard.grade;
@@ -496,16 +514,7 @@ export function createStore(initialSettings = {}) {
         ...partialSettings
       };
 
-      const avgSpeed = state.fueling.avgSpeedKmh || 25;
-      state.fueling.items.forEach(it => {
-        it.timeSec = distToElapsedSeconds(it.distM, avgSpeed);
-        it.timeStr = formatElapsedSeconds(it.timeSec);
-        const hazard = detectTerrainHazard(state.points, it.distM, state.climbs, state.fueling);
-        it.grade = hazard.grade;
-        it.isHazard = hazard.isHazard;
-        it.hazardType = hazard.type;
-        it.hazardMessage = hazard.message;
-      });
+      retimeFuelItems();
 
       saveFuelingPlan();
       notify('fueling:updated');

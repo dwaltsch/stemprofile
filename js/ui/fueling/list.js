@@ -4,7 +4,7 @@
  * @module ui/fueling/list
  */
 
-import { DEFAULT_FUEL_PRODUCT_DEFAULTS, calculateHourlyIntake } from '../../fueling.js';
+import { DEFAULT_FUEL_PRODUCT_DEFAULTS, calculateHourlyIntake, getStatePacing } from '../../fueling.js';
 import { bindDragAndDrop } from './drag-sort.js';
 import { escapeHtml } from '../../escape.js';
 import { getUnitFactors, getUnitLabels } from '../../units.js';
@@ -40,7 +40,7 @@ export function renderFuelingPanel(store) {
   const targetCarbs = fState.targetCarbsPerHour || 75;
 
   // 1. Calculate & Render Hourly Carb Distribution
-  const intake = calculateHourlyIntake(items, stats.totalDist, avgSpeed);
+  const intake = calculateHourlyIntake(items, stats.totalDist, avgSpeed, getStatePacing(state));
 
   if (summaryTotalCarbs) summaryTotalCarbs.textContent = `${intake.totalCarbsG}g`;
   if (summaryRate) summaryRate.textContent = `${intake.avgCarbsPerHour}g/h`;
@@ -57,6 +57,23 @@ export function renderFuelingPanel(store) {
   }
   if (inputAvgSpeed && document.activeElement !== inputAvgSpeed) {
     inputAvgSpeed.value = avgSpeed;
+  }
+
+  // 1a. Pacing model toggle & modelled speed readout
+  const pacing = getStatePacing(state);
+  document.querySelectorAll('#fuel-pacing-pill-group .pill-opt').forEach(p => {
+    p.classList.toggle('active', p.dataset.pacing === pacing.mode);
+  });
+  const pacingHint = document.getElementById('fuel-pacing-hint');
+  if (pacingHint) {
+    if (pacing.mode === 'terrain' && stats.totalDist > 0) {
+      const v = g => Math.round(pacing.speedKmhAtGrade(g));
+      pacingHint.textContent = `Modelled: flat ${v(0)} · 4% ${v(4)} · 8% ${v(8)} · descents ≤ ${v(-6)} km/h`;
+      pacingHint.title = `Steady ~${Math.round(pacing.powerW)} W for an 82 kg rider + bike, calibrated to ${avgSpeed} km/h overall`;
+    } else {
+      pacingHint.textContent = pacing.mode === 'constant' ? `Constant ${avgSpeed} km/h on every gradient` : '';
+      pacingHint.title = '';
+    }
   }
 
   // 1b. Sync Product Defaults Drawer Inputs & Quick-Add Badge Labels

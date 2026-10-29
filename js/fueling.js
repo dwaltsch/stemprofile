@@ -16,3 +16,4 @@ export * from './fueling/presets.js';
 export * from './fueling/terrain.js';
 export * from './fueling/timing.js';
 export * from './fueling/plan.js';
+export * from './fueling/pacing.js';

@@ -51,6 +51,15 @@ export function initFuelingPanel(store) {
     });
   }
 
+  // 2b. Pacing Model Toggle (Terrain vs Constant)
+  document.querySelectorAll('#fuel-pacing-pill-group .pill-opt').forEach(pill => {
+    pill.addEventListener('click', () => {
+      const pacingMode = pill.dataset.pacing === 'constant' ? 'constant' : 'terrain';
+      store.updateFuelSettings({ pacingMode });
+      showToast(pacingMode === 'terrain' ? 'Gradient-aware pacing: cue times follow climbs & descents' : 'Constant-speed pacing', 'info');
+    });
+  });
+
   // 3. Display Mode Toggle (KM vs Time)
   modePills.forEach(pill => {
     pill.addEventListener('click', () => {

@@ -16,7 +16,7 @@
 
 import { THEMES } from './renderer.js';
 import { getUnitFactors, getUnitLabels } from './units.js';
-import { calculateHourlyIntake } from './fueling.js';
+import { calculateHourlyIntake, getStatePacing } from './fueling.js';
 import { escapeXml } from './escape.js';
 
 export const CUE_BADGES = {
@@ -92,7 +92,7 @@ export function renderFuelingSVG(state, options = {}) {
   const targetCarbs = fuelingState.targetCarbsPerHour || 75;
   const avgSpeed = fuelingState.avgSpeedKmh || 25;
 
-  const intakeStats = calculateHourlyIntake(items, stats.totalDist, avgSpeed);
+  const intakeStats = calculateHourlyIntake(items, stats.totalDist, avgSpeed, getStatePacing(state));
 
   // 1. Margins & Bounded Content Area
   const padLeft = 1.6;

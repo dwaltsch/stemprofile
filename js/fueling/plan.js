@@ -7,6 +7,7 @@
 import { DEFAULT_FUELING_CONFIG, DEFAULT_FUEL_PRODUCT_DEFAULTS, FUEL_PRESETS, generateFuelId } from './presets.js';
 import { detectTerrainHazard, findNearestSafeWindow } from './terrain.js';
 import { distToElapsedSeconds, formatElapsedSeconds } from './timing.js';
+import { buildPacing } from './pacing.js';
 
 /**
  * Automatically generates a recommended "Pro Default" fueling strategy:
@@ -15,6 +16,8 @@ import { distToElapsedSeconds, formatElapsedSeconds } from './timing.js';
  * - Places solid foods in the first third of the race on flat terrain
  * - Times caffeine/high-carb gels 10-15 mins (1.5-3km) before major categorized climbs
  * - Avoids steep climbs (>8.5%) and descents (<-5%) except on long sustained climbs (>5km)
+ * - Spaces cadence feeds by elapsed time from the pacing model, so feeds land closer
+ *   together (in km) on slow climbs and further apart on fast flats
  *
  * @param {Object} params
  * @param {Array<Object>} params.points - Route points
@@ -34,6 +37,8 @@ export function generateDefaultFuelPlan({ points, stats, climbs = [], waypoints 
   const targetCarbsPerHour = Math.max(30, Math.min(130, cfg.targetCarbsPerHour || 75));
   const avgSpeedKmh = Math.max(10, Math.min(60, cfg.avgSpeedKmh || 25));
   const totalDistM = stats.totalDist;
+  const pacing = buildPacing(points, { ...cfg, avgSpeedKmh });
+  const tAt = distM => pacing.timeAt(distM);
 
   const items = [];
 
@@ -145,21 +150,26 @@ export function generateDefaultFuelPlan({ points, stats, climbs = [], waypoints 
   // 3. Dynamic Carb Cadence Feeding
   items.sort((a, b) => a.distM - b.distM);
 
-  const distPerHourM = avgSpeedKmh * 1000;
+  // Intervals are in elapsed seconds; the old 6 km / 5.5 km floors become their
+  // equivalent durations at the average speed. With constant pacing this is
+  // exactly the previous distance-based spacing.
+  const avgMs = avgSpeedKmh / 3.6;
+  const minIntervalSec = 6000 / avgMs;
   const targetFeedsPerHour = targetCarbsPerHour / 32;
-  const nominalIntervalHours = 1 / targetFeedsPerHour;
-  const nominalIntervalM = Math.max(6000, nominalIntervalHours * distPerHourM);
-  const minSpacingM = Math.max(5500, nominalIntervalM * 0.70);
+  const nominalIntervalSec = Math.max(minIntervalSec, (1 / targetFeedsPerHour) * 3600);
+  const minSpacingSec = Math.max(5500 / avgMs, nominalIntervalSec * 0.70);
+  const feedIntervalSec = carbsG => Math.max(minIntervalSec, (carbsG / targetCarbsPerHour) * 3600);
+  const advance = (fromM, sec) => pacing.distAt(tAt(fromM) + sec);
 
-  let curM = nominalIntervalM;
+  let curM = pacing.distAt(nominalIntervalSec);
   let cadenceStep = 0;
 
   while (curM < totalDistM - 3500) {
     // Check if an existing item (aid station or pre-climb gel) is nearby
-    const nearbyItem = items.find(it => Math.abs(it.distM - curM) < minSpacingM);
+    const curSec = tAt(curM);
+    const nearbyItem = items.find(it => Math.abs(tAt(it.distM) - curSec) < minSpacingSec);
     if (nearbyItem) {
-      const nextIntervalM = Math.max(6000, (((nearbyItem.carbsG || 30) / targetCarbsPerHour) * distPerHourM));
-      curM = nearbyItem.distM + nextIntervalM;
+      curM = advance(nearbyItem.distM, feedIntervalSec(nearbyItem.carbsG || 30));
       continue;
     }
 
@@ -170,7 +180,8 @@ export function generateDefaultFuelPlan({ points, stats, climbs = [], waypoints 
       safeTargetM = findNearestSafeWindow(points, curM, 2000, 'backward');
     }
 
-    const conflict = items.some(it => Math.abs(it.distM - safeTargetM) < (minSpacingM * 0.75));
+    const safeSec = tAt(safeTargetM);
+    const conflict = items.some(it => Math.abs(tAt(it.distM) - safeSec) < (minSpacingSec * 0.75));
     let itemCarbs = prod.gelCarbs || 25;
 
     if (!conflict) {
@@ -218,8 +229,7 @@ export function generateDefaultFuelPlan({ points, stats, climbs = [], waypoints 
       }
     }
 
-    const nextGapM = Math.max(6000, ((itemCarbs / targetCarbsPerHour) * distPerHourM));
-    curM = safeTargetM + nextGapM;
+    curM = advance(safeTargetM, feedIntervalSec(itemCarbs));
   }
 
   // Sort chronologically by distance
@@ -234,7 +244,7 @@ export function generateDefaultFuelPlan({ points, stats, climbs = [], waypoints 
       const priorStations = items.filter(it => it.isAidStation && it.distM < item.distM).length;
       stopSec = priorStations * (stopMinutesPerStation * 60);
     }
-    const timeSec = distToElapsedSeconds(item.distM, avgSpeedKmh, stopSec);
+    const timeSec = Math.round(tAt(item.distM) + stopSec);
     const hazard = detectTerrainHazard(points, item.distM, climbs, cfg);
     return {
       ...item,
@@ -254,11 +264,14 @@ export function generateDefaultFuelPlan({ points, stats, climbs = [], waypoints 
  * @param {Array<Object>} items - Fuel items
  * @param {number} totalDistM - Total track distance in meters
  * @param {number} avgSpeedKmh - Average speed in km/h
+ * @param {import('./pacing.js').Pacing} [pacing] - Pacing model; defaults to constant speed
  * @returns {{ hours: Array<{hour: number, carbsG: number, fluidMl: number, itemsCount: number}>, totalCarbsG: number, avgCarbsPerHour: number, totalFluidMl: number }}
  */
-export function calculateHourlyIntake(items = [], totalDistM = 0, avgSpeedKmh = 25) {
+export function calculateHourlyIntake(items = [], totalDistM = 0, avgSpeedKmh = 25, pacing = null) {
   const safeSpeed = Math.max(5, avgSpeedKmh || 25);
-  const totalHours = Math.max(1, Math.ceil((totalDistM / 1000) / safeSpeed));
+  const timeAt = pacing ? pacing.timeAt : distM => distToElapsedSeconds(distM, safeSpeed);
+  const durationHours = pacing ? pacing.totalSec / 3600 : (totalDistM / 1000) / safeSpeed;
+  const totalHours = Math.max(1, Math.ceil(durationHours));
   const hours = [];
 
   for (let h = 1; h <= totalHours; h++) {
@@ -274,7 +287,7 @@ export function calculateHourlyIntake(items = [], totalDistM = 0, avgSpeedKmh = 
   let totalFluidMl = 0;
 
   for (const it of items) {
-    const sec = distToElapsedSeconds(it.distM, safeSpeed);
+    const sec = timeAt(it.distM);
     const hIdx = Math.min(totalHours - 1, Math.floor(sec / 3600));
     const carbs = it.carbsG || 0;
     const fluid = it.fluidMl || 0;
@@ -287,7 +300,6 @@ export function calculateHourlyIntake(items = [], totalDistM = 0, avgSpeedKmh = 
     totalFluidMl += fluid;
   }
 
-  const durationHours = (totalDistM / 1000) / safeSpeed;
   const avgCarbsPerHour = durationHours > 0 ? Math.round(totalCarbsG / durationHours) : 0;
 
   return {

@@ -57,6 +57,10 @@ Inspired by Grand Tour roadbooks (Tour de France, Giro d'Italia, Vuelta a Españ
 - **Download PNG (300 DPI)**: High-resolution raster export ($px = \frac{\text{mm}}{25.4} \times 300\text{ DPI}$) for label printers.
 - **Copy SVG**: Instant one-click clipboard copy.
 
+### 6. Gradient-Aware Pacing
+- Fuel cue times come from a cycling power model (`P = v·m·g·(sin θ + Crr·cos θ) + ½·ρ·CdA·v³`) calibrated so the overall moving average still equals your **Avg Speed** — time shifts from descents to climbs instead of assuming one constant speed.
+- Cadence feeds are spaced by elapsed time, so they land closer together (in km) on slow climbs; the hourly carb meter and elapsed-time cues use the same model. Switch **Pacing → Constant** for the old behaviour.
+
 ---
 
 ## Signal Processing & Mathematical Pipeline
@@ -129,7 +133,7 @@ toptube/
 │   ├── renderer.js     # renderProfileSVG: composes the sticker layers
 │   ├── renderer/       # themes.js · waypoints-config.js · profile-layers.js
 │   ├── fueling.js      # Fueling strategy API
-│   ├── fueling/        # presets.js · terrain.js · timing.js · plan.js
+│   ├── fueling/        # presets.js · terrain.js · timing.js · pacing.js (power model) · plan.js
 │   ├── fueling-renderer.js # Vertical fueling cue sheet SVG
 │   ├── export.js       # Export & print API
 │   ├── export/         # config.js · print-sheet.js · download.js (SVG / 300 DPI PNG)

@@ -8,6 +8,7 @@
  */
 
 import { getUnitFactors, getUnitLabels, formatElevation } from '../units.js';
+import { getStatePacing } from '../fueling.js';
 
 /**
  * Refreshes stats strip values and export button enabled state.
@@ -58,8 +59,7 @@ export function updateStatsStrip(state) {
     // Fueling mode telemetry stats
     const fuelItems = (state.fueling && state.fueling.items) ? state.fueling.items.filter(it => it.enabled !== false) : [];
     const totalCarbs = fuelItems.reduce((acc, it) => acc + (it.carbsG || 0), 0);
-    const avgSpeed = (state.fueling && state.fueling.avgSpeedKmh) || 25;
-    const totalHours = (stats && stats.totalDist > 0) ? (stats.totalDist / 1000) / avgSpeed : 0;
+    const totalHours = (stats && stats.totalDist > 0) ? getStatePacing(state).totalSec / 3600 : 0;
     const avgCarbsPerHour = totalHours > 0 ? Math.round(totalCarbs / totalHours) : 0;
     const durHrs = Math.floor(totalHours);
     const durMin = Math.round((totalHours - durHrs) * 60);

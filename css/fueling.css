@@ -688,6 +688,7 @@
 /* Controls Bar (Target, Speed, Defaults) */
 .fuel-controls-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: 0.4rem;
   margin-bottom: 0.6rem;
@@ -700,7 +701,8 @@
   gap: 0.2rem;
 }
 
-.fuel-control-field label {
+.fuel-control-field label,
+.fuel-control-label {
   font-size: 0.68rem;
   font-weight: 700;
   color: var(--text-secondary, #64748b);
@@ -974,6 +976,14 @@
   padding: 0.5rem 0;
 }
 
+/* Gradient-aware pacing readout under the controls bar */
+.fuel-pacing-hint {
+  font-size: 0.66rem;
+  color: var(--text-dim, #94a3b8);
+  margin: -0.35rem 0 0.6rem;
+  font-variant-numeric: tabular-nums;
+}
 
-
-
+.fuel-pacing-hint:empty {
+  display: none;
+}
