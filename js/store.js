@@ -35,6 +35,10 @@ import {
  * @property {function(string, { x: number, y: number }): void} setCustomPosition - Saves custom drag position
  * @property {function(): void} resetCustomPositions - Resets custom drag positions
  * @property {function(Object): boolean} loadPayload - Restores payload state
+ * @property {function(): boolean} undo - Reverts the last user edit
+ * @property {function(): boolean} redo - Re-applies the last undone edit
+ * @property {function(): boolean} canUndo - Whether undo is available
+ * @property {function(): boolean} canRedo - Whether redo is available
  */
 
 /**
@@ -67,6 +71,67 @@ export function createStore(initialSettings = {}) {
   };
 
   const listeners = new Set();
+
+  // Undo / redo history of user-editable state (settings, waypoints, fueling plan).
+  // Track data is not part of history: loading a route starts a fresh history.
+  const HISTORY_LIMIT = 100;
+  const HISTORY_MERGE_MS = 800;
+  let undoStack = [];
+  let redoStack = [];
+  let lastGroup = null;
+  let lastGroupAt = 0;
+
+  function snapshot() {
+    return JSON.parse(JSON.stringify({
+      settings: state.settings,
+      waypoints: state.waypoints,
+      fueling: state.fueling
+    }));
+  }
+
+  /**
+   * Records the current state as an undo step before a mutation.
+   * Consecutive mutations with the same group key within HISTORY_MERGE_MS
+   * (typing a title, dragging a slider) collapse into a single step.
+   *
+   * @param {string|null} [group=null] - Merge key; null always records a new step
+   */
+  function checkpoint(group = null) {
+    const now = Date.now();
+    if (group !== null && group === lastGroup && now - lastGroupAt < HISTORY_MERGE_MS) {
+      lastGroupAt = now;
+      return;
+    }
+    undoStack.push(snapshot());
+    if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
+    redoStack = [];
+    lastGroup = group;
+    lastGroupAt = now;
+  }
+
+  function clearHistory() {
+    undoStack = [];
+    redoStack = [];
+    lastGroup = null;
+  }
+
+  function restoreSnapshot(snap) {
+    const needsReprocess = snap.settings.smoothingWindow !== state.settings.smoothingWindow ||
+      snap.settings.blockSizeM !== state.settings.blockSizeM;
+    state.settings = snap.settings;
+    state.waypoints = snap.waypoints;
+    state.fueling = snap.fueling;
+    if (needsReprocess && state.rawCoords.length >= 2) {
+      reprocess(false);
+      retimeFuelItems();
+    }
+    lastGroup = null;
+    saveFuelingPlan();
+  }
+
+  function settingsDiffer(partial) {
+    return Object.keys(partial).some(k => JSON.stringify(state.settings[k]) !== JSON.stringify(partial[k]));
+  }
 
   function notify(event = 'state:changed') {
     for (const listener of listeners) {
@@ -207,6 +272,42 @@ export function createStore(initialSettings = {}) {
     },
 
     /**
+     * Reverts the last edit to settings, waypoints or the fueling plan.
+     *
+     * @returns {boolean} Whether a step was undone
+     */
+    undo() {
+      if (undoStack.length === 0) return false;
+      redoStack.push(snapshot());
+      restoreSnapshot(undoStack.pop());
+      notify('history:restored');
+      return true;
+    },
+
+    /**
+     * Re-applies the last undone edit.
+     *
+     * @returns {boolean} Whether a step was redone
+     */
+    redo() {
+      if (redoStack.length === 0) return false;
+      undoStack.push(snapshot());
+      restoreSnapshot(redoStack.pop());
+      notify('history:restored');
+      return true;
+    },
+
+    /** @returns {boolean} Whether there is an edit to undo */
+    canUndo() {
+      return undoStack.length > 0;
+    },
+
+    /** @returns {boolean} Whether there is an undone edit to redo */
+    canRedo() {
+      return redoStack.length > 0;
+    },
+
+    /**
      * Ingests a new GPS track dataset, executes signal processing, and updates state.
      *
      * @param {Object} payload - { title, coords, rawWaypoints }
@@ -218,6 +319,7 @@ export function createStore(initialSettings = {}) {
         state.settings.title = title;
       }
       reprocess(true);
+      clearHistory();
       notify('track:loaded');
     },
 
@@ -228,6 +330,9 @@ export function createStore(initialSettings = {}) {
      * @param {boolean} [forceReprocess=false] - Whether to re-run smoothing and block discretization
      */
     updateSettings(partialSettings, forceReprocess = false) {
+      if (settingsDiffer(partialSettings)) {
+        checkpoint('settings:' + Object.keys(partialSettings).sort().join(','));
+      }
       const prevSmoothing = state.settings.smoothingWindow;
       const prevBlockSize = state.settings.blockSizeM;
 
@@ -261,6 +366,7 @@ export function createStore(initialSettings = {}) {
         ? crypto.randomUUID().slice(0, 8)
         : `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       const id = `wpt-${uniqueSuffix}`;
+      checkpoint();
       const wpt = {
         id,
         distM: Math.max(0, distM),
@@ -280,6 +386,7 @@ export function createStore(initialSettings = {}) {
      * @param {string} id - Waypoint ID
      */
     removeWaypoint(id) {
+      checkpoint();
       state.waypoints = state.waypoints.filter(w => w.id !== id);
       notify('waypoints:updated');
     },
@@ -292,6 +399,7 @@ export function createStore(initialSettings = {}) {
     toggleWaypoint(id) {
       const wpt = state.waypoints.find(w => w.id === id);
       if (wpt) {
+        checkpoint();
         wpt.enabled = !wpt.enabled;
         notify('waypoints:updated');
       }
@@ -303,6 +411,7 @@ export function createStore(initialSettings = {}) {
      * @param {string|number} climbId - ID of climb
      */
     toggleClimbVisibility(climbId) {
+      checkpoint();
       if (!state.settings.hiddenClimbIds) {
         state.settings.hiddenClimbIds = [];
       }
@@ -323,6 +432,7 @@ export function createStore(initialSettings = {}) {
      * @param {{ x: number, y: number }} pos - SVG millimeter coordinates
      */
     setCustomPosition(dragId, pos) {
+      checkpoint();
       if (!state.settings.customPositions) {
         state.settings.customPositions = {};
       }
@@ -337,6 +447,7 @@ export function createStore(initialSettings = {}) {
      * Resets all custom dragged badge coordinates to auto-calculated layout.
      */
     resetCustomPositions() {
+      checkpoint();
       state.settings.customPositions = {};
       notify('positions:reset');
     },
@@ -365,6 +476,7 @@ export function createStore(initialSettings = {}) {
       }
 
       reprocess(false);
+      clearHistory();
       notify('payload:loaded');
       return true;
     },
@@ -402,6 +514,7 @@ export function createStore(initialSettings = {}) {
      * @returns {Object} Created item
      */
     addFuelItem(itemData) {
+      checkpoint();
       const distM = Math.max(0, itemData.distM || 0);
       const timeSec = fuelTimeAt(distM);
       const hazard = detectTerrainHazard(state.points, distM, state.climbs, state.fueling);
@@ -458,6 +571,7 @@ export function createStore(initialSettings = {}) {
     updateFuelItem(id, partial) {
       const it = state.fueling.items.find(item => item.id === id);
       if (!it) return;
+      checkpoint(`fuel:${id}:${Object.keys(partial).sort().join(',')}`);
 
       Object.assign(it, partial);
 
@@ -483,6 +597,7 @@ export function createStore(initialSettings = {}) {
      * @param {string} id
      */
     removeFuelItem(id) {
+      checkpoint();
       state.fueling.items = state.fueling.items.filter(item => item.id !== id);
       state.fueling.customized = true;
       saveFuelingPlan();
@@ -497,6 +612,7 @@ export function createStore(initialSettings = {}) {
     reorderFuelItems(startIndex, endIndex) {
       const items = state.fueling.items;
       if (startIndex < 0 || startIndex >= items.length || endIndex < 0 || endIndex >= items.length) return;
+      if (startIndex !== endIndex) checkpoint();
       const [removed] = items.splice(startIndex, 1);
       items.splice(endIndex, 0, removed);
       state.fueling.customized = true;
@@ -509,6 +625,8 @@ export function createStore(initialSettings = {}) {
      * @param {Object} partialSettings
      */
     updateFuelSettings(partialSettings) {
+      const changed = Object.keys(partialSettings).some(k => JSON.stringify(state.fueling[k]) !== JSON.stringify(partialSettings[k]));
+      if (changed) checkpoint('fuelcfg:' + Object.keys(partialSettings).sort().join(','));
       state.fueling = {
         ...state.fueling,
         ...partialSettings
@@ -526,6 +644,7 @@ export function createStore(initialSettings = {}) {
      * @param {boolean} [applyToExisting=false]
      */
     updateProductDefaults(newDefaults, applyToExisting = false) {
+      checkpoint(`fueldefs:${Object.keys(newDefaults).sort().join(',')}:${applyToExisting}`);
       state.fueling.productDefaults = {
         ...(state.fueling.productDefaults || DEFAULT_FUEL_PRODUCT_DEFAULTS),
         ...newDefaults
@@ -554,6 +673,7 @@ export function createStore(initialSettings = {}) {
      */
     regenerateFuelPlan() {
       if (state.points.length < 2 || !state.stats) return;
+      checkpoint();
       state.fueling.items = generateDefaultFuelPlan({
         points: state.points,
         stats: state.stats,

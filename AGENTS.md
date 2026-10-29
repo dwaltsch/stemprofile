@@ -40,5 +40,6 @@ These rules apply unconditionally across this repository.
   - `test/share-compat.test.js`: Frozen share links in `test/fixtures/` must keep decoding — never regenerate them; add a new fixture when the format changes.
   - `test/ui-modules.test.js`: UI modules exercised against a stub DOM (`test/helpers/stub-document.js`).
   - `test/pacing.test.js`: Power-equation speed model, average-speed calibration, time-based fuel spacing.
+  - `test/history.test.js`: Undo / redo snapshots, edit merging, history resets.
 - **Keep Tests Updated:** When introducing new algorithms, formulas, or formats, add corresponding test cases to `test/`.
 

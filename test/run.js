@@ -22,3 +22,4 @@ import './escape.test.js';
 import './share-compat.test.js';
 import './ui-modules.test.js';
 import './pacing.test.js';
+import './history.test.js';

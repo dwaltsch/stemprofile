@@ -12,7 +12,7 @@ import { installStubDocument } from './helpers/stub-document.js';
 import { createStore } from '../js/store.js';
 import { renderPreview, syncViewMode } from '../js/ui/workbench.js';
 import { updateStatsStrip } from '../js/ui/stats-strip.js';
-import { initActions } from '../js/ui/actions.js';
+import { initActions, syncHistoryButtons } from '../js/ui/actions.js';
 import { setMobileTab, initMobileTabs } from '../js/ui/mobile-tabs.js';
 
 const coords = [];
@@ -67,5 +67,33 @@ describe('UI Modules: Workbench, Stats Strip, Actions, Mobile Tabs', () => {
 
     setMobileTab(store, 'fueling');
     assert.equal(store.getState().activeView, 'fueling');
+  });
+
+  it('syncs undo/redo buttons and handles keyboard shortcuts outside text fields', () => {
+    const store = createStore();
+    store.setTrack({ title: 'Smoke Route', coords });
+    initActions(store);
+
+    syncHistoryButtons(store);
+    assert.equal(dom.elements.get('btn-undo').disabled, true);
+
+    store.updateSettings({ theme: 'dark' });
+    syncHistoryButtons(store);
+    assert.equal(dom.elements.get('btn-undo').disabled, false);
+
+    let prevented = false;
+    const key = (k, extra = {}) => ({ key: k, metaKey: true, ctrlKey: false, altKey: false, shiftKey: false, target: { tagName: 'BODY' }, preventDefault() { prevented = true; }, ...extra });
+
+    // Text inputs keep native undo
+    dom.dispatchWindow('keydown', key('z', { target: { tagName: 'INPUT', type: 'text' } }));
+    assert.equal(store.getState().settings.theme, 'dark');
+    assert.equal(prevented, false);
+
+    dom.dispatchWindow('keydown', key('z'));
+    assert.equal(store.getState().settings.theme, 'white');
+    assert.equal(prevented, true);
+
+    dom.dispatchWindow('keydown', key('z', { shiftKey: true }));
+    assert.equal(store.getState().settings.theme, 'dark');
   });
 });

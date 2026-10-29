@@ -38,7 +38,7 @@ function createStubElement(id = '') {
 }
 
 /**
- * Installs stub globals and returns { elements, restore }.
+ * Installs stub globals and returns { elements, dispatchWindow, restore }.
  * `elements` maps element id -> stub so tests can assert on rendered output.
  */
 export function installStubDocument() {
@@ -57,10 +57,18 @@ export function installStubDocument() {
     documentElement: { style: { setProperty() {} } },
     body: createStubElement('body')
   };
-  globalThis.window = { addEventListener() {}, innerWidth: 1280 };
+  const windowListeners = {};
+  globalThis.window = {
+    innerWidth: 1280,
+    addEventListener(type, fn) { (windowListeners[type] ||= []).push(fn); }
+  };
 
   return {
     elements,
+    /** Dispatches a synthetic event object to window listeners of `type`. */
+    dispatchWindow(type, event) {
+      for (const fn of windowListeners[type] || []) fn(event);
+    },
     restore() {
       if (prev.document === undefined) delete globalThis.document; else globalThis.document = prev.document;
       if (prev.window === undefined) delete globalThis.window; else globalThis.window = prev.window;

@@ -61,6 +61,9 @@ Inspired by Grand Tour roadbooks (Tour de France, Giro d'Italia, Vuelta a Españ
 - Fuel cue times come from a cycling power model (`P = v·m·g·(sin θ + Crr·cos θ) + ½·ρ·CdA·v³`) calibrated so the overall moving average still equals your **Avg Speed** — time shifts from descents to climbs instead of assuming one constant speed.
 - Cadence feeds are spaced by elapsed time, so they land closer together (in km) on slow climbs; the hourly carb meter and elapsed-time cues use the same model. Switch **Pacing → Constant** for the old behaviour.
 
+### 7. Undo / Redo
+- Header buttons and **⌘Z / ⇧⌘Z** (Ctrl+Z / Ctrl+Y) undo edits to settings, waypoints, label positions and the fueling plan. Rapid edits (typing, sliders) merge into one step; text fields keep their native undo.
+
 ---
 
 ## Signal Processing & Mathematical Pipeline

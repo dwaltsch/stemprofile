@@ -211,7 +211,50 @@ export function initActions(store) {
     });
   }
 
+  // Undo / Redo (header buttons + keyboard). Text fields keep their native undo.
+  const btnUndo = document.getElementById('btn-undo');
+  const btnRedo = document.getElementById('btn-redo');
+  if (btnUndo) btnUndo.addEventListener('click', () => store.undo());
+  if (btnRedo) btnRedo.addEventListener('click', () => store.redo());
+
+  window.addEventListener('keydown', e => {
+    if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
+    const key = e.key.toLowerCase();
+    if (key !== 'z' && key !== 'y') return;
+    if (isTextEditingTarget(e.target)) return;
+    e.preventDefault();
+    if (key === 'y' || e.shiftKey) store.redo();
+    else store.undo();
+  });
+
   window.addEventListener('beforeprint', () => {
     updatePrintMatrix(store.getState(), null, null, null, null, null, getActivePrintConfig());
   });
+}
+
+/**
+ * Whether a keyboard event target is a text field whose native undo should win.
+ *
+ * @param {EventTarget|null} target
+ * @returns {boolean}
+ */
+function isTextEditingTarget(target) {
+  if (!target || !target.tagName) return false;
+  const tag = target.tagName.toLowerCase();
+  if (tag === 'textarea' || target.isContentEditable) return true;
+  if (tag !== 'input') return false;
+  const type = (target.type || 'text').toLowerCase();
+  return ['text', 'search', 'number', 'email', 'url', 'tel', 'password'].includes(type);
+}
+
+/**
+ * Enables / disables the header undo and redo buttons from store history.
+ *
+ * @param {Object} store - Application store
+ */
+export function syncHistoryButtons(store) {
+  const btnUndo = document.getElementById('btn-undo');
+  const btnRedo = document.getElementById('btn-redo');
+  if (btnUndo) btnUndo.disabled = !store.canUndo();
+  if (btnRedo) btnRedo.disabled = !store.canRedo();
 }

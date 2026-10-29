@@ -24,7 +24,7 @@ import { showToast } from './ui/toast.js';
 import { initPrintModal, updatePrintModalPreview, getActivePrintConfig } from './ui/print-modal.js';
 import { renderPreview, syncViewMode } from './ui/workbench.js';
 import { updateStatsStrip } from './ui/stats-strip.js';
-import { initActions } from './ui/actions.js';
+import { initActions, syncHistoryButtons } from './ui/actions.js';
 import { setMobileTab as setMobileTabView, initMobileTabs } from './ui/mobile-tabs.js';
 
 // Backward compatibility exports
@@ -71,6 +71,7 @@ export function updateUI(event) {
   renderPreview(state);
   updateStatsStrip(state);
   syncViewMode(state);
+  syncHistoryButtons(store);
 
   // Sync Left Sidebar dimension inputs & presets to active mode
   if (panels.has('controls')) syncFormControls(state);
