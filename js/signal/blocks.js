@@ -6,6 +6,9 @@
 
 import { getInterpolatedEle } from './geo.js';
 
+/** Upper bound on block columns per profile, whatever the requested block size. */
+export const MAX_SPATIAL_BLOCKS = 2000;
+
 /**
  * Discretizes continuous route elevation into uniform spatial block columns (e.g. 2.5km, 1.0km, 500m).
  * Mimics Grand Tour roadbook elevation profiles with exact column average gradients.
@@ -16,9 +19,11 @@ import { getInterpolatedEle } from './geo.js';
  * @returns {SpatialBlock[]} Array of discretized block segments
  */
 export function buildSpatialBlocks(points, totalDist, blockSizeM = 1000) {
-  const numBlockSizeM = parseFloat(blockSizeM);
-  if (!points || points.length < 2 || totalDist <= 0) return [];
-  if (isNaN(numBlockSizeM) || numBlockSizeM <= 0) return []; // 0 = continuous mode
+  const requestedM = parseFloat(blockSizeM);
+  if (!points || points.length < 2 || !(totalDist > 0)) return [];
+  if (isNaN(requestedM) || requestedM <= 0) return []; // 0 = continuous mode
+  // Hard cap on column count: beyond this, columns are sub-millimetre and only cost render time
+  const numBlockSizeM = Math.max(requestedM, totalDist / MAX_SPATIAL_BLOCKS);
 
   const numBlocks = Math.max(1, Math.ceil(totalDist / numBlockSizeM));
   const blocks = [];

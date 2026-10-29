@@ -122,6 +122,9 @@ export function generateCalibrationRulerSVG(widthMm = 140) {
   `.trim();
 }
 
+/** Upper bound on sticker cells in one print sheet. */
+export const MAX_PRINT_CELLS = 64;
+
 /**
  * Builds complete print sheet DOM & SVG markup with precision crop marks,
  * calibration ruler, header metadata, and multiple sticker cells.
@@ -156,7 +159,8 @@ export function generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks,
   const detailClimbs = getDetailClimbs(p);
   const isClimbSheet = detailClimbs.length > 0 && (stickerType === 'climbs' ||
     ((stickerType === 'active' || !stickerType) && p.activeView !== 'fueling' && p.climbDetail));
-  const count = isClimbSheet ? detailClimbs.length * copies : copies;
+  // Hard cap so no combination of copies x climbs can build an unbounded sheet
+  const count = Math.min(MAX_PRINT_CELLS, isClimbSheet ? detailClimbs.length * copies : copies);
   const W = isSheetFueling ? (p.settings.fuelingWidthMm || 35) : (p.settings.widthMm || 110);
   const H = isSheetFueling ? (p.settings.fuelingHeightMm || 115) : (p.settings.heightMm || 35);
   const radius = p.settings.radiusMm || 0;

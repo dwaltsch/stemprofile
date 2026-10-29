@@ -9,7 +9,7 @@
  */
 
 import { processTrackSignal, matchWaypointsToTrack } from './signal.js';
-import { DEFAULT_SETTINGS, sanitizePayload } from './share.js';
+import { DEFAULT_SETTINGS, sanitizePayload, clampSettings } from './share.js';
 import { getRecommendedBlockPresets } from './layout.js';
 import { normalizeCoordinates } from './units.js';
 import {
@@ -331,7 +331,8 @@ export function createStore(initialSettings = {}) {
      * @param {Object} partialSettings - Key-value dictionary of settings to update
      * @param {boolean} [forceReprocess=false] - Whether to re-run smoothing and block discretization
      */
-    updateSettings(partialSettings, forceReprocess = false) {
+    updateSettings(rawPartialSettings, forceReprocess = false) {
+      const partialSettings = clampSettings(rawPartialSettings);
       if (settingsDiffer(partialSettings)) {
         checkpoint('settings:' + Object.keys(partialSettings).sort().join(','));
       }

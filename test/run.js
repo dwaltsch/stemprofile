@@ -24,3 +24,4 @@ import './ui-modules.test.js';
 import './pacing.test.js';
 import './history.test.js';
 import './climb-detail.test.js';
+import './robustness.test.js';

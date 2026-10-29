@@ -4,7 +4,7 @@
  * @module share/payload
  */
 
-import { DEFAULT_SETTINGS, THEME_NAMES, WPT_TYPE_NAMES } from './constants.js';
+import { DEFAULT_SETTINGS, THEME_NAMES, WPT_TYPE_NAMES, clampSettings } from './constants.js';
 import { base64UrlToUint8 } from './compression.js';
 import { decodePolyline3D } from './polyline.js';
 import { deserializeBinaryState } from './binary.js';
@@ -129,9 +129,10 @@ export function sanitizePayload(payload) {
   for (const [key, def] of Object.entries(DEFAULT_SETTINGS)) {
     const val = raw[key];
     if (val === undefined) continue;
-    if (typeof def === 'number' && Number.isFinite(val) && val >= 0) settings[key] = val;
+    if (typeof def === 'number' && Number.isFinite(val)) settings[key] = val;
     else if (typeof def === 'boolean' && typeof val === 'boolean') settings[key] = val;
   }
+  Object.assign(settings, clampSettings(settings));
   if (THEME_NAMES.includes(raw.theme)) settings.theme = raw.theme;
   if (UNIT_NAMES.includes(raw.units)) settings.units = raw.units;
   if (typeof raw.title === 'string') settings.title = raw.title.slice(0, 120);
