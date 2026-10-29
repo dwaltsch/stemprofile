@@ -19,6 +19,7 @@ import { normalizeCoordinates } from '../js/units.js';
 import { MAX_TRACK_POINTS, MAX_IMPORTED_WAYPOINTS, MAX_TITLE_CHARS, MAX_LABEL_CHARS, MAX_FILE_BYTES } from '../js/limits.js';
 import { handleRouteFile } from '../js/ui/dropzone.js';
 import { installStubDocument } from './helpers/stub-document.js';
+import { savePlan, loadPlan, PLAN_INDEX_KEY, MAX_SAVED_PLANS } from '../js/plan-storage.js';
 import { renderProfileSVG } from '../js/renderer.js';
 import { generatePrintSheetMarkup, MAX_PRINT_CELLS } from '../js/export.js';
 import { buildSpatialBlocks, MAX_SPATIAL_BLOCKS, dropPositionSpikes } from '../js/signal.js';
@@ -468,5 +469,86 @@ describe('Robustness: Malformed Files & Hostile Payloads', () => {
     createStore().loadPayload(payload);
     assert.equal(({}).polluted, undefined);
     assert.equal(({}).isAdmin, undefined);
+  });
+});
+
+/** In-memory Storage with an optional byte quota (throws like browsers when full). */
+function memoryStorage(quotaChars = Infinity) {
+  const map = new Map();
+  const used = () => [...map].reduce((n, [k, v]) => n + k.length + v.length, 0);
+  return {
+    map,
+    get length() { return map.size; },
+    key: i => [...map.keys()][i] ?? null,
+    getItem: k => (map.has(k) ? map.get(k) : null),
+    removeItem: k => { map.delete(k); },
+    setItem(k, v) {
+      const prev = map.get(k);
+      map.set(k, String(v));
+      if (used() > quotaChars) {
+        if (prev === undefined) map.delete(k); else map.set(k, prev);
+        throw new Error('QuotaExceededError');
+      }
+    }
+  };
+}
+
+describe('Robustness: Plan Storage Bounds', () => {
+  it('keeps only the most recently used MAX_SAVED_PLANS plans', () => {
+    const storage = memoryStorage();
+    for (let i = 0; i < 25; i++) savePlan(`stemprofile_fuel_r${i}`, { items: [i] }, storage);
+    const index = JSON.parse(storage.getItem(PLAN_INDEX_KEY));
+    assert.equal(index.length, MAX_SAVED_PLANS);
+    assert.equal(index[0], 'stemprofile_fuel_r24');
+    assert.equal(storage.getItem('stemprofile_fuel_r0'), null, 'oldest plan evicted');
+    assert.ok(storage.getItem('stemprofile_fuel_r5'));
+  });
+
+  it('loading a plan marks it recently used', () => {
+    const storage = memoryStorage();
+    for (let i = 0; i < 3; i++) savePlan(`stemprofile_fuel_r${i}`, { i }, storage);
+    assert.deepEqual(loadPlan('stemprofile_fuel_r0', storage), { i: 0 });
+    assert.equal(JSON.parse(storage.getItem(PLAN_INDEX_KEY))[0], 'stemprofile_fuel_r0');
+  });
+
+  it('evicts old plans and retries when storage is full', () => {
+    const storage = memoryStorage(600);
+    for (let i = 0; i < 4; i++) assert.equal(savePlan(`stemprofile_fuel_r${i}`, { pad: 'x'.repeat(100) }, storage), true);
+    assert.equal(savePlan('stemprofile_fuel_big', { pad: 'y'.repeat(250) }, storage), true);
+    assert.ok(storage.getItem('stemprofile_fuel_big'));
+    assert.equal(storage.getItem('stemprofile_fuel_r0'), null, 'least recently used plan made room');
+  });
+
+  it('gives up cleanly when a single plan cannot fit', () => {
+    assert.equal(savePlan('stemprofile_fuel_huge', { pad: 'z'.repeat(5000) }, memoryStorage(100)), false);
+  });
+
+  it('adopts plans saved before the index existed', () => {
+    const storage = memoryStorage();
+    storage.setItem('stemprofile_fuel_old_1000', '{"items":[]}');
+    savePlan('stemprofile_fuel_new_2000', { items: [] }, storage);
+    assert.deepEqual(JSON.parse(storage.getItem(PLAN_INDEX_KEY)), ['stemprofile_fuel_new_2000', 'stemprofile_fuel_old_1000']);
+  });
+});
+
+describe('Robustness: Concurrent Loads', () => {
+  it('applies only the most recently opened file when reads finish out of order', () => {
+    const dom = installStubDocument();
+    const prevReader = globalThis.FileReader;
+    const readers = [];
+    globalThis.FileReader = class { constructor() { readers.push(this); } readAsText() {} readAsArrayBuffer() {} };
+    const gpx = name => `<?xml version="1.0"?><gpx><metadata><name>${name}</name></metadata><trk><trkseg>` +
+      '<trkpt lat="45" lon="6"><ele>1</ele></trkpt><trkpt lat="45.01" lon="6"><ele>2</ele></trkpt></trkseg></trk></gpx>';
+    try {
+      const store = createStore();
+      handleRouteFile({ name: 'first.gpx', size: 100 }, store);
+      handleRouteFile({ name: 'second.gpx', size: 100 }, store);
+      readers[1].onload({ target: { result: gpx('Second') } });
+      readers[0].onload({ target: { result: gpx('First') } }); // slow, stale read finishes last
+      assert.equal(store.getState().settings.title, 'Second');
+    } finally {
+      globalThis.FileReader = prevReader;
+      dom.restore();
+    }
   });
 });

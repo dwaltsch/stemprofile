@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- Content Security Policy: only same-origin scripts, no plugins / forms / base rewriting.
        Inline styles stay allowed (templates use style attributes); blob:/data: images are needed for PNG export. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-R/Md/TtLdyc/a19MLboqwoV0lfLvgW2gp1r1Cj1ziMM='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-Hm3B5/vqXryltlcZB1O208uFzvfo2xSPEoqgNZm8o5E='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <title>StemProfile — Pro Elevation Sticker Studio</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -932,7 +932,7 @@
   <script type="importmap">
 {
   "imports": {
-    "./js/app.js": "./js/app.js?v=147b5ab7d9",
+    "./js/app.js": "./js/app.js?v=1b7cef671f",
     "./js/escape.js": "./js/escape.js?v=6ce228fc6d",
     "./js/export.js": "./js/export.js?v=2b0a1c68ef",
     "./js/export/config.js": "./js/export/config.js?v=0f275ceb00",
@@ -948,11 +948,13 @@
     "./js/fueling/timing.js": "./js/fueling/timing.js?v=08548e0ff0",
     "./js/layout.js": "./js/layout.js?v=1d36503d27",
     "./js/limits.js": "./js/limits.js?v=eac50ff42f",
+    "./js/load-guard.js": "./js/load-guard.js?v=07a6ce2829",
     "./js/parser.js": "./js/parser.js?v=b65c84f4af",
     "./js/parsers/fit.js": "./js/parsers/fit.js?v=b38baa408e",
     "./js/parsers/gpx.js": "./js/parsers/gpx.js?v=c9c01c3d11",
     "./js/parsers/tcx.js": "./js/parsers/tcx.js?v=c5450cdef3",
     "./js/parsers/xml-utils.js": "./js/parsers/xml-utils.js?v=089c018a89",
+    "./js/plan-storage.js": "./js/plan-storage.js?v=db606cd6b5",
     "./js/renderer.js": "./js/renderer.js?v=6338c5c370",
     "./js/renderer/climb-detail.js": "./js/renderer/climb-detail.js?v=f72c799efd",
     "./js/renderer/profile-layers.js": "./js/renderer/profile-layers.js?v=f764e9f2cc",
@@ -971,12 +973,12 @@
     "./js/signal/despike.js": "./js/signal/despike.js?v=38e3bf5fd4",
     "./js/signal/geo.js": "./js/signal/geo.js?v=3c9d9ea410",
     "./js/signal/waypoint-match.js": "./js/signal/waypoint-match.js?v=eb1d402509",
-    "./js/store.js": "./js/store.js?v=0d46ea576f",
+    "./js/store.js": "./js/store.js?v=a0d6840786",
     "./js/ui/actions.js": "./js/ui/actions.js?v=a3fe733c2e",
     "./js/ui/climbs-panel.js": "./js/ui/climbs-panel.js?v=b665856f51",
     "./js/ui/controls.js": "./js/ui/controls.js?v=c83f206500",
     "./js/ui/drag-engine.js": "./js/ui/drag-engine.js?v=e453071300",
-    "./js/ui/dropzone.js": "./js/ui/dropzone.js?v=7187e4d8a5",
+    "./js/ui/dropzone.js": "./js/ui/dropzone.js?v=a73602d05a",
     "./js/ui/error-boundary.js": "./js/ui/error-boundary.js?v=342d6b4ae3",
     "./js/ui/fueling-panel.js": "./js/ui/fueling-panel.js?v=d15b632109",
     "./js/ui/fueling/drag-sort.js": "./js/ui/fueling/drag-sort.js?v=4a101d8627",
@@ -994,6 +996,6 @@
 }
   </script>
   <!-- /asset-stamp:importmap -->
-  <script type="module" src="js/app.js?v=147b5ab7d9"></script>
+  <script type="module" src="js/app.js?v=1b7cef671f"></script>
 </body>
 </html>

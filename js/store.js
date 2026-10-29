@@ -10,6 +10,7 @@
 
 import { processTrackSignal, matchWaypointsToTrack, dropPositionSpikes } from './signal.js';
 import { DEFAULT_SETTINGS, sanitizePayload, clampSettings, downsampleCoords } from './share.js';
+import { PLAN_KEY_PREFIX, savePlan, loadPlan } from './plan-storage.js';
 import { MAX_TRACK_POINTS, MAX_IMPORTED_WAYPOINTS, MAX_TITLE_CHARS, MAX_LABEL_CHARS, clampText } from './limits.js';
 import { getRecommendedBlockPresets } from './layout.js';
 import { normalizeCoordinates, hasRouteLength } from './units.js';
@@ -151,28 +152,15 @@ export function createStore(initialSettings = {}) {
     if (!state.stats) return null;
     const title = state.settings.title || 'route';
     const dist = Math.round(state.stats.totalDist);
-    return `stemprofile_fuel_${title}_${dist}`;
+    return `${PLAN_KEY_PREFIX}${title}_${dist}`;
   }
 
   function saveFuelingPlan() {
-    try {
-      if (typeof localStorage === 'undefined') return;
-      const key = getStorageKey();
-      if (!key) return;
-      localStorage.setItem(key, JSON.stringify(state.fueling));
-    } catch (_) {}
+    savePlan(getStorageKey(), state.fueling);
   }
 
   function loadSavedFuelingPlan() {
-    try {
-      if (typeof localStorage === 'undefined') return null;
-      const key = getStorageKey();
-      if (!key) return null;
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : null;
-    } catch (_) {
-      return null;
-    }
+    return loadPlan(getStorageKey());
   }
 
   /** Elapsed seconds at a route distance under the active pacing model. */

@@ -9,6 +9,7 @@
 import { parseRouteFile, getSupportedExtensions, isBinaryExtension } from '../parser.js';
 import { showToast } from './toast.js';
 import { MAX_FILE_BYTES, MAX_TRACK_POINTS, MAX_IMPORTED_WAYPOINTS } from '../limits.js';
+import { beginLoad, isLatestLoad } from '../load-guard.js';
 
 /**
  * Parses and ingests a route file into the store.
@@ -35,8 +36,11 @@ export function handleRouteFile(file, store) {
 
   const isBinary = isBinaryExtension(file.name);
   const reader = new FileReader();
+  const loadToken = beginLoad();
 
   reader.onload = function(evt) {
+    // A newer file or share link was opened while this one was being read
+    if (!isLatestLoad(loadToken)) return;
     try {
       const { title, coords, rawWaypoints } = parseRouteFile(evt.target.result, file.name);
       const stageTitle = title || file.name.replace(/\.[^.]+$/i, '');

@@ -27,6 +27,7 @@ import { updateStatsStrip } from './ui/stats-strip.js';
 import { initActions, syncHistoryButtons } from './ui/actions.js';
 import { setMobileTab as setMobileTabView, initMobileTabs } from './ui/mobile-tabs.js';
 import { runSection, installGlobalErrorHandlers } from './ui/error-boundary.js';
+import { beginLoad, isLatestLoad } from './load-guard.js';
 
 // Backward compatibility exports
 export { store };
@@ -100,7 +101,10 @@ export async function loadFromUrlHash(hashStr) {
   const b64 = extractHashPayload(hashStr);
   if (!b64 || b64.length < 5) return false;
 
+  const loadToken = beginLoad();
   const payload = await decompressPayload(b64);
+  // A newer file or link was opened while this link was decoding
+  if (!isLatestLoad(loadToken)) return false;
   if (!payload || !payload.coords || payload.coords.length < 2) {
     showToast('Invalid or incomplete shared link.', 'warning');
     return false;
