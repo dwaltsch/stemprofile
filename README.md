@@ -52,7 +52,7 @@ Inspired by Grand Tour roadbooks (Tour de France, Giro d'Italia, Vuelta a Españ
 ### 5. Multi-Format Export Pipelines
 - **Print Studio & Sheet Setup (`@media print`)**: Interactive WYSIWYG print modal with exact millimeter scaling, precision corner crop marks (L-ticks for straightedge/razor cutting), 50mm scale calibration check ruler, multi-sticker sheet layout (1, 2, 4, 6, 8 copies), paper size selection (A4 / US Letter), and print theme controls.
 - **Print Sheet Vector SVG & 300 DPI PNG Download**: Export entire multi-sticker sheets formatted for print shops and label cutters.
-- **Share Link (URL Hash for GitHub Pages)**: Compresses route coordinates, telemetry, waypoints, and custom badge positions via `CompressionStream('gzip')` into a shareable URL hash (`#stage=...`) without needing a backend server or database.
+- **Share Link (URL Hash for GitHub Pages)**: Packs the elevation profile (distance & elevation only, no GPS positions), settings, waypoint cues and badge preferences into a compact binary payload, compressed via `CompressionStream` into a URL hash (`#stage=...`), with no backend server or database. Links are not guaranteed to survive app updates while the project is in active development.
 - **Download SVG**: Pure vector `.svg` export for plotters and vinyl cutters.
 - **Download PNG (300 DPI)**: High-resolution raster export ($px = \frac{\text{mm}}{25.4} \times 300\text{ DPI}$) for label printers.
 - **Copy SVG**: Instant one-click clipboard copy.
@@ -159,7 +159,7 @@ toptube/
 │   ├── export.js       # Export & print API
 │   ├── export/         # config.js · print-sheet.js · download.js (SVG / 300 DPI PNG)
 │   ├── share.js        # URL hash sharing API (serialize / deserialize / copy link)
-│   ├── share/          # constants.js · binary.js (protocol v3) · payload.js · compression.js · polyline.js · simplify.js
+│   ├── share/          # constants.js · binary.js (protocol v3) · payload.js · compression.js · simplify.js
 │   └── ui/             # Focused UI component controllers
 │       ├── workbench.js      # Center preview & elevation / fueling view-mode chrome
 │       ├── stats-strip.js    # Route stats, status pill & export button states
@@ -175,7 +175,7 @@ toptube/
 │       ├── tooltip.js        # Instantaneous hover telemetry tracking
 │       ├── theme.js          # Light / dark mode persistence
 │       └── toast.js          # Non-blocking notification toasts
-├── test/               # node:test suites; fixtures/ holds frozen share links for compatibility tests
+├── test/               # node:test suites (robustness.test.js replays hostile inputs)
 └── README.md           # Architecture & user documentation
 ```
 

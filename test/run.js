@@ -24,7 +24,6 @@ const SUITES = [
   './export.test.js',
   './app.test.js',
   './escape.test.js',
-  './share-compat.test.js',
   './ui-modules.test.js',
   './pacing.test.js',
   './history.test.js',

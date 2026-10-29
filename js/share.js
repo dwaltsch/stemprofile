@@ -19,7 +19,6 @@ import { decompressPayload } from './share/payload.js';
 import { serializeBinaryState } from './share/binary.js';
 
 export * from './share/constants.js';
-export * from './share/polyline.js';
 export * from './share/simplify.js';
 export * from './share/binary.js';
 export * from './share/compression.js';

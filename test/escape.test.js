@@ -11,7 +11,7 @@ import { escapeXml, escapeHtml } from '../js/escape.js';
 import { renderProfileSVG } from '../js/renderer.js';
 import { renderFuelingSVG } from '../js/fueling-renderer.js';
 import { processTrackSignal } from '../js/signal.js';
-import { DEFAULT_SETTINGS, sanitizePayload, normalizePayload } from '../js/share.js';
+import { DEFAULT_SETTINGS, sanitizePayload } from '../js/share.js';
 import { createStore } from '../js/store.js';
 
 const EVIL = `<img src=x onerror="alert('x')">&`;
@@ -103,15 +103,15 @@ describe('Share Module: sanitizePayload', () => {
     assert.equal(sanitizePayload({ coords: 'nope' }), null);
   });
 
-  it('is applied by store.loadPayload for legacy JSON links', () => {
-    const legacy = normalizePayload({
-      t: 'Legacy',
+  it('is applied by store.loadPayload to any decoded payload', () => {
+    const hostile = {
+      title: 'Legacy',
       coords: [[45, 6, 500], [45.05, 6.05, 900]],
-      s: { theme: 'dark', widthMm: '1"/><script>' },
-      w: [{ id: '"><b>', distM: 300, type: 'feed', label: 'Feed' }]
-    });
+      settings: { theme: 'dark', widthMm: '1"/><script>' },
+      waypoints: [{ id: '"><b>', distM: 300, type: 'feed', label: 'Feed' }]
+    };
     const store = createStore();
-    assert.equal(store.loadPayload(legacy), true);
+    assert.equal(store.loadPayload(hostile), true);
     const state = store.getState();
     assert.equal(state.settings.theme, 'dark');
     assert.equal(state.settings.widthMm, DEFAULT_SETTINGS.widthMm);

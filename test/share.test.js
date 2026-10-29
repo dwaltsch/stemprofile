@@ -9,45 +9,15 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  encodePolyline3D,
-  decodePolyline3D,
   downsampleCoords,
   simplifyProfileCurve,
   serializeBinaryState,
   deserializeBinaryState,
   safeReadSlice,
-  normalizePayload,
   serializeStateToHash,
   deserializeHashToState,
   DEFAULT_SETTINGS
 } from '../js/share.js';
-
-describe('Share Module: 3D Polyline Delta Encoding', () => {
-  it('encodes and decodes 3D coordinates losslessly within resolution', () => {
-    const coords = [
-      [45.12345, 6.12345, 1250.5],
-      [45.12400, 6.12400, 1260.2],
-      [45.12550, 6.12550, 1310.0]
-    ];
-
-    const encoded = encodePolyline3D(coords);
-    assert.ok(typeof encoded === 'string' && encoded.length > 0);
-
-    const decoded = decodePolyline3D(encoded);
-    assert.equal(decoded.length, 3);
-
-    for (let i = 0; i < coords.length; i++) {
-      assert.ok(Math.abs(decoded[i][0] - coords[i][0]) < 0.00002, `Lat mismatch at ${i}`);
-      assert.ok(Math.abs(decoded[i][1] - coords[i][1]) < 0.00002, `Lon mismatch at ${i}`);
-      assert.ok(Math.abs(decoded[i][2] - coords[i][2]) < 0.2, `Ele mismatch at ${i}`);
-    }
-  });
-
-  it('handles empty or single coordinate arrays gracefully', () => {
-    assert.equal(encodePolyline3D([]), '');
-    assert.deepEqual(decodePolyline3D(''), []);
-  });
-});
 
 describe('Share Module: Boundary Validation Helper (safeReadSlice)', () => {
   it('safely slices bytes and clamps bounds', () => {

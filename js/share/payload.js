@@ -1,12 +1,11 @@
 /**
- * Share payload decoding: decompression, protocol detection, legacy JSON normalization and untrusted-input sanitization.
+ * Share payload decoding: bounded decompression, protocol (v3) detection and untrusted-input sanitization.
  *
  * @module share/payload
  */
 
 import { DEFAULT_SETTINGS, THEME_NAMES, WPT_TYPE_NAMES, clampSettings } from './constants.js';
 import { base64UrlToUint8 } from './compression.js';
-import { decodePolyline3D } from './polyline.js';
 import { deserializeBinaryState } from './binary.js';
 
 /** Longest share link payload accepted (real links are a few hundred to a few thousand chars). */
@@ -81,69 +80,15 @@ export async function decompressPayload(b64url) {
     const payloadData = decompressedBytes || bytes;
     if (!payloadData || payloadData.length === 0) return null;
 
-    // Check if Version 3 binary protocol
+    // Only the binary protocol (v3) is accepted; older JSON links are intentionally unsupported
     if (payloadData.length >= 8 && payloadData[0] === 3) {
       return deserializeBinaryState(payloadData);
     }
-
-    // Fallback: parse JSON v2 / legacy
-    try {
-      const jsonStr = new TextDecoder().decode(payloadData);
-      return normalizePayload(JSON.parse(jsonStr));
-    } catch (_) {
-      return null;
-    }
+    return null;
 
   } catch (_) {
     return null;
   }
-}
-
-/**
- * Normalizes a decoded JSON payload into the application state schema (backward compatibility).
- *
- * @param {Object} rawPayload - Raw JSON payload object { t, p, s, w }
- * @returns {Object|null} Normalized payload
- */
-export function normalizePayload(rawPayload) {
-  if (!rawPayload) return null;
-
-  let coords = [];
-  if (rawPayload.p) {
-    coords = decodePolyline3D(rawPayload.p);
-  } else if (Array.isArray(rawPayload.coords)) {
-    coords = rawPayload.coords;
-  }
-
-  if (coords.length < 2) return null;
-
-  const settings = {
-    ...DEFAULT_SETTINGS,
-    ...(rawPayload.s || rawPayload.settings || {})
-  };
-  if (rawPayload.s && rawPayload.s.hc && !rawPayload.s.hiddenClimbIds) {
-    settings.hiddenClimbIds = rawPayload.s.hc;
-  }
-
-  const waypoints = (rawPayload.w || rawPayload.waypoints || []).map((item, idx) => {
-    if (Array.isArray(item)) {
-      return {
-        id: `wpt-sh-${idx + 1}`,
-        distM: item[0] || 0,
-        type: item[1] || 'feed',
-        label: item[2] || '',
-        enabled: item[3] !== 0
-      };
-    }
-    return item;
-  });
-
-  return {
-    title: rawPayload.t || rawPayload.title || '',
-    coords,
-    settings,
-    waypoints
-  };
 }
 
 const SAFE_ID_RE = /^[\w-]{1,64}$/;

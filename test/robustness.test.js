@@ -33,12 +33,21 @@ import {
   MAX_LINK_CHARS,
   MAX_DECOMPRESSED_BYTES,
   MAX_SHARED_POINTS,
-  MAX_SHARED_WAYPOINTS
+  MAX_SHARED_WAYPOINTS,
+  serializeStateToHash
 } from '../js/share.js';
 
-/** Encodes a legacy JSON share payload into a #stage= hash. */
-async function legacyLink(payload) {
-  return '#stage=' + await compressPayload(new TextEncoder().encode(JSON.stringify(payload)));
+/**
+ * A decoded share payload as an attacker could shape it. store.loadPayload is the
+ * trust boundary for every link format, so hostile payloads are fed to it directly.
+ */
+function rawPayload({ t, coords, s, w }) {
+  return { title: t, coords, settings: s, waypoints: w };
+}
+
+/** Builds a real v3 share link for a loaded store state. */
+async function v3LinkFor(state) {
+  return serializeStateToHash(state);
 }
 
 const routeCoords = Array.from({ length: 2000 }, (_, i) => [45 + i * 0.001, 6, 500 + 300 * Math.sin(i / 100)]);
@@ -75,10 +84,9 @@ describe('Robustness: Setting Limits', () => {
     ['widthMm: 100000', { widthMm: 100000 }],
     ['smoothingWindow: 100000', { smoothingWindow: 100000 }]
   ]) {
-    it(`a shared link with ${name} loads and renders a bounded sticker and sheet`, async () => {
-      const payload = await deserializeHashToState(await legacyLink({ t: 'x', coords: routeCoords, s }));
+    it(`a shared payload with ${name} loads and renders a bounded sticker and sheet`, () => {
       const store = createStore();
-      assert.equal(store.loadPayload(payload), true);
+      assert.equal(store.loadPayload(rawPayload({ t: 'x', coords: routeCoords, s })), true);
       const state = store.getState();
       const svg = renderProfileSVG(state);
       const sheet = generatePrintSheetMarkup(state);
@@ -132,10 +140,26 @@ describe('Robustness: Share Link Size Limits', () => {
     assert.equal(await decompressPayload('A'.repeat(MAX_LINK_CHARS + 1)), null);
   });
 
-  it('still decodes normal links', async () => {
-    const payload = await deserializeHashToState(await legacyLink({ t: 'ok', coords: routeCoords }));
+  it('still decodes normal v3 links', async () => {
+    const source = createStore();
+    source.setTrack({ title: 'ok', coords: routeCoords });
+    const payload = await deserializeHashToState(await v3LinkFor(source.getState()));
     assert.equal(payload.title, 'ok');
-    assert.equal(payload.coords.length, routeCoords.length);
+    assert.equal(createStore().loadPayload(payload), true);
+  });
+
+  it('a crafted v3 link with blockSizeM: 1 still renders bounded', async () => {
+    const source = createStore();
+    source.setTrack({ title: 'x', coords: routeCoords });
+    const hostile = { ...source.getState(), settings: { ...source.getState().settings, blockSizeM: 1 } };
+    const store = createStore();
+    assert.equal(store.loadPayload(await deserializeHashToState(await v3LinkFor(hostile))), true);
+    assert.ok(store.getState().blocks.length <= MAX_SPATIAL_BLOCKS);
+  });
+
+  it('rejects old JSON-format links (only the v3 binary format is accepted)', async () => {
+    const json = new TextEncoder().encode(JSON.stringify({ t: 'x', coords: routeCoords }));
+    assert.equal(await deserializeHashToState('#stage=' + await compressPayload(json)), null);
   });
 
   it('thins oversized coordinate lists evenly and caps waypoints', () => {
@@ -199,13 +223,11 @@ describe('Robustness: Invalid Coordinates', () => {
     assert.ok(!/NaN|Infinity/.test(out));
   });
 
-  it('shared links with garbage coordinates are rejected or cleaned', async () => {
-    const bad = await deserializeHashToState(await legacyLink({ t: 'x', coords: ['a', { lat: 'x' }, [1], [45, 6, 1], [45.1, 6, 2]] }));
+  it('payloads with garbage coordinates are rejected or cleaned', () => {
     const store = createStore();
-    assert.equal(store.loadPayload(bad), true);
+    assert.equal(store.loadPayload(rawPayload({ t: 'x', coords: ['a', { lat: 'x' }, [1], [45, 6, 1], [45.1, 6, 2]] })), true);
     assert.equal(store.getState().rawCoords.length, 2, 'only the two complete points remain ([1] has no longitude)');
-    const allSame = await deserializeHashToState(await legacyLink({ t: 'x', coords: [[45, 6, 1], [45, 6, 1]] }));
-    assert.equal(createStore().loadPayload(allSame), false);
+    assert.equal(createStore().loadPayload(rawPayload({ t: 'x', coords: [[45, 6, 1], [45, 6, 1]] })), false);
   });
 });
 
@@ -463,10 +485,9 @@ describe('Robustness: Malformed Files & Hostile Payloads', () => {
     assert.equal(createStore().loadPayload(payload), false);
   });
 
-  it('legacy JSON links cannot pollute Object.prototype', async () => {
+  it('payloads with __proto__ keys cannot pollute Object.prototype', () => {
     const json = '{"t":"x","coords":[[45,6,1],[45.1,6,2]],"s":{"__proto__":{"polluted":1}},"w":[{"__proto__":{"isAdmin":1},"distM":5,"type":"feed"}]}';
-    const payload = await deserializeHashToState('#stage=' + await compressPayload(new TextEncoder().encode(json)));
-    createStore().loadPayload(payload);
+    createStore().loadPayload(rawPayload(JSON.parse(json)));
     assert.equal(({}).polluted, undefined);
     assert.equal(({}).isAdmin, undefined);
   });
@@ -550,5 +571,19 @@ describe('Robustness: Concurrent Loads', () => {
       globalThis.FileReader = prevReader;
       dom.restore();
     }
+  });
+});
+
+describe('Privacy: Share Links', () => {
+  it('v3 links carry distance and elevation only, never GPS positions', async () => {
+    const home = { lat: 47.36912, lon: 8.53842 };
+    const coords = Array.from({ length: 400 }, (_, i) => ({ lat: home.lat + i * 0.0005, lon: home.lon + i * 0.0003, ele: 400 + i }));
+    const store = createStore();
+    store.setTrack({ title: 'Home loop', coords });
+    store.addWaypoint(5000, 'feed', 'Cafe');
+    const payload = await deserializeHashToState(await serializeStateToHash(store.getState()));
+    assert.ok(payload.coords.every(c => c.lon === 0), 'longitude is never encoded');
+    assert.ok(payload.coords.every(c => Math.abs(c.lat - home.lat) > 1), 'latitude is a synthetic distance placeholder');
+    assert.ok(payload.waypoints.every(w => w.lat === undefined && w.lon === undefined), 'waypoints carry no positions');
   });
 });

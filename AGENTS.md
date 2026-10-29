@@ -36,11 +36,10 @@ These rules apply unconditionally across this repository.
 - **Zero External Dependencies:** Tests use Node's native `node:test` and `node:assert` standard library modules. Do NOT install heavy third-party testing frameworks or build tools (Jest, Vitest, Webpack, etc.) to keep the project 100% dependency-free and future-proof.
 - **Core Test Coverage:**
   - `test/signal.test.js`: Geodesy (Haversine), elevation smoothing, spatial discretization, UCI climb categorization.
-  - `test/share.test.js`: 3D polyline delta encoding, extrema/summit downsampling, gzip payload serialization.
+  - `test/share.test.js`: Extrema/summit downsampling, packed binary (v3) serialization and URL hash round-trips.
   - `test/parser.test.js`: GPX XML ingestion, elevation forward-filling, waypoint classification.
   - `test/renderer.test.js`: Physical dimension scaling, color themes, SVG markup structure.
   - `test/escape.test.js`: Markup escaping and shared-link payload sanitization (untrusted input).
-  - `test/share-compat.test.js`: Frozen share links in `test/fixtures/` must keep decoding — never regenerate them; add a new fixture when the format changes.
   - `test/ui-modules.test.js`: UI modules exercised against a stub DOM (`test/helpers/stub-document.js`).
   - `test/pacing.test.js`: Power-equation speed model, average-speed calibration, time-based fuel spacing.
   - `test/history.test.js`: Undo / redo snapshots, edit merging, history resets.
