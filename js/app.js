@@ -43,9 +43,27 @@ export function toggleClimbLabelVisibility(climbId) {
 }
 
 /**
- * Synchronizes the entire presentation layer with the current store state.
+ * Side panels that need re-rendering per store event. Events not listed here
+ * (track/payload loads, settings and view changes) refresh everything.
  */
-export function updateUI() {
+const ALL_PANELS = ['climbs', 'waypoints', 'fueling', 'controls'];
+const EVENT_PANELS = {
+  'positions:updated': [],
+  'positions:reset': [],
+  'climbs:visibility': ['climbs'],
+  'waypoints:updated': ['waypoints', 'fueling'],
+  'fueling:updated': ['fueling']
+};
+
+/**
+ * Synchronizes the presentation layer with the current store state.
+ * The preview SVG, stats and print matrix always refresh; side panels and form
+ * controls only refresh when the triggering event can affect them.
+ *
+ * @param {string} [event] - Store event name; omitted means full refresh
+ */
+export function updateUI(event) {
+  const panels = new Set(EVENT_PANELS[event] || ALL_PANELS);
   const state = store.getState();
   const cfg = state.settings;
   const stats = state.stats;
@@ -204,7 +222,7 @@ export function updateUI() {
   });
 
   // Sync Left Sidebar dimension inputs & presets to active mode
-  syncFormControls(state);
+  if (panels.has('controls')) syncFormControls(state);
 
   const stickerWrapper = document.getElementById('sticker-container');
   if (stickerWrapper && !stickerWrapper.classList.contains('zoom-actual')) {
@@ -212,9 +230,9 @@ export function updateUI() {
   }
 
   // 6. Update Panels & Overlays
-  renderClimbsTable(store);
-  renderWaypointsList(store);
-  renderFuelingPanel(store);
+  if (panels.has('climbs')) renderClimbsTable(store);
+  if (panels.has('waypoints')) renderWaypointsList(store);
+  if (panels.has('fueling')) renderFuelingPanel(store);
   updatePrintMatrix(state, null, null, null, null, null, getActivePrintConfig());
   if (!isFuelingView) {
     bindTooltipHover(store);
@@ -516,7 +534,7 @@ export function initApp() {
 
   // Reactive store subscription
   store.subscribe((state, event) => {
-    updateUI();
+    updateUI(event);
     const modal = document.getElementById('modal-print-studio');
     if (modal && modal.style.display === 'flex') {
       updatePrintModalPreview(store);
