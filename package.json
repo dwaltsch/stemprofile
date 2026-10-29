@@ -22,6 +22,6 @@
   },
   "homepage": "https://dwaltsch.github.io/toptube/",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   }
 }
