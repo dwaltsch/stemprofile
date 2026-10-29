@@ -8,16 +8,12 @@
  */
 
 import { store } from './store.js';
-import { renderProfileSVG } from './renderer.js';
-import { renderFuelingSVG } from './fueling-renderer.js';
-import { exportSVG, exportPNG, copySVG, updatePrintMatrix } from './export.js';
-import { copyShareableLink, decompressPayload } from './share.js';
-import { getUnitFactors, getUnitLabels, formatElevation } from './units.js';
-import { getRecommendedBlockPresets } from './layout.js';
+import { updatePrintMatrix } from './export.js';
+import { decompressPayload, extractHashPayload } from './share.js';
 
 // Modular UI Controllers
 import { initTheme } from './ui/theme.js';
-import { initDropzone, openRouteFilePicker } from './ui/dropzone.js';
+import { initDropzone } from './ui/dropzone.js';
 import { initControls, syncFormControls, updateBlockSizePills } from './ui/controls.js';
 import { initWaypointsPanel, renderWaypointsList } from './ui/waypoints-panel.js';
 import { renderClimbsTable } from './ui/climbs-panel.js';
@@ -25,7 +21,11 @@ import { initFuelingPanel, renderFuelingPanel } from './ui/fueling-panel.js';
 import { initDragEngine } from './ui/drag-engine.js';
 import { bindTooltipHover } from './ui/tooltip.js';
 import { showToast } from './ui/toast.js';
-import { initPrintModal, openPrintModal, updatePrintModalPreview, getActivePrintConfig } from './ui/print-modal.js';
+import { initPrintModal, updatePrintModalPreview, getActivePrintConfig } from './ui/print-modal.js';
+import { renderPreview, syncViewMode } from './ui/workbench.js';
+import { updateStatsStrip } from './ui/stats-strip.js';
+import { initActions } from './ui/actions.js';
+import { setMobileTab as setMobileTabView, initMobileTabs } from './ui/mobile-tabs.js';
 
 // Backward compatibility exports
 export { store };
@@ -65,171 +65,17 @@ const EVENT_PANELS = {
 export function updateUI(event) {
   const panels = new Set(EVENT_PANELS[event] || ALL_PANELS);
   const state = store.getState();
-  const cfg = state.settings;
-  const stats = state.stats;
-  const pts = state.points;
-  const hasData = pts.length >= 2 && stats !== null;
   const isFuelingView = state.activeView === 'fueling';
 
-  // 1. Render Vector Profile SVG Preview or Fueling SVG Preview
-  const svgHost = document.getElementById('svg-host');
-  if (svgHost) {
-    if (hasData) {
-      if (isFuelingView) {
-        svgHost.innerHTML = renderFuelingSVG(state);
-      } else {
-        svgHost.innerHTML = renderProfileSVG(state);
-      }
-    } else {
-      svgHost.innerHTML = `
-        <div class="empty-msg">
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="17 8 12 3 7 8"></polyline>
-            <line x1="12" y1="3" x2="12" y2="15"></line>
-          </svg>
-          <h3>No Route Loaded</h3>
-          <p>Tap to select a GPX, TCX, or FIT file (or drop on desktop)</p>
-          <button type="button" class="btn btn-secondary empty-browse-btn" id="btn-empty-browse" style="margin-top:0.35rem; cursor:pointer;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="17 8 12 3 7 8"></polyline>
-              <line x1="12" y1="3" x2="12" y2="15"></line>
-            </svg>
-            Choose Route File
-          </button>
-        </div>
-      `;
-    }
-  }
-
-  // 2. View Switcher & Right Panel View Sync
-  const btnViewElevation = document.getElementById('btn-view-elevation');
-  const btnViewFueling = document.getElementById('btn-view-fueling');
-  if (btnViewElevation) btnViewElevation.classList.toggle('active', !isFuelingView);
-  if (btnViewFueling) btnViewFueling.classList.toggle('active', isFuelingView);
-
-  const tabBtnCues = document.getElementById('tab-btn-cues');
-  const tabBtnFuel = document.getElementById('tab-btn-fuel');
-  if (tabBtnCues) tabBtnCues.classList.toggle('active', !isFuelingView);
-  if (tabBtnFuel) tabBtnFuel.classList.toggle('active', isFuelingView);
-
-  const panelCues = document.getElementById('panel-cues-content');
-  const panelFuel = document.getElementById('panel-fuel-content');
-  if (panelCues) panelCues.style.display = isFuelingView ? 'none' : 'block';
-  if (panelFuel) panelFuel.style.display = isFuelingView ? 'block' : 'none';
-
-  // 3. Buttons State
-  const buttons = ['btn-share-link', 'btn-copy-svg', 'btn-export-svg', 'btn-export-png', 'btn-print'];
-  buttons.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.disabled = !hasData;
-  });
-
-  // 4. Stats Strip & Header Route Status Pill
-  const { dFactor, eFactor } = getUnitFactors(cfg.units);
-  const { dist: distUnit, ele: eleUnit } = getUnitLabels(cfg.units);
-  const routeStatusText = document.getElementById('route-status-text');
-  const climbsCount = state.climbs ? state.climbs.length : 0;
-  const fuelCount = (state.fueling && state.fueling.items) ? state.fueling.items.length : 0;
-
-  const mobileClimbsCount = document.getElementById('mobile-climbs-count');
-  if (mobileClimbsCount) mobileClimbsCount.textContent = `${climbsCount}`;
-
-  const mobileFuelCount = document.getElementById('mobile-fuel-count');
-  if (mobileFuelCount) mobileFuelCount.textContent = `${fuelCount}`;
-
-  if (hasData) {
-    const distFormatted = `${(stats.totalDist * dFactor).toFixed(1)} ${distUnit}`;
-    const gainFormatted = formatElevation(stats.elevGain, cfg.units, true);
-    const maxGradeFormatted = `${stats.maxGrade.toFixed(1)}%`;
-
-    const statDist = document.getElementById('stat-dist');
-    const statGain = document.getElementById('stat-gain');
-    const statMaxGrade = document.getElementById('stat-max-grade');
-    const statClimbs = document.getElementById('stat-climbs');
-
-    if (statDist) statDist.textContent = distFormatted;
-    if (statGain) statGain.textContent = gainFormatted;
-    if (statMaxGrade) statMaxGrade.textContent = maxGradeFormatted;
-    if (statClimbs) statClimbs.textContent = `${climbsCount}`;
-
-    // Fueling mode telemetry stats
-    const fuelItems = (state.fueling && state.fueling.items) ? state.fueling.items.filter(it => it.enabled !== false) : [];
-    const totalCarbs = fuelItems.reduce((acc, it) => acc + (it.carbsG || 0), 0);
-    const avgSpeed = (state.fueling && state.fueling.avgSpeedKmh) || 25;
-    const totalHours = (stats && stats.totalDist > 0) ? (stats.totalDist / 1000) / avgSpeed : 0;
-    const avgCarbsPerHour = totalHours > 0 ? Math.round(totalCarbs / totalHours) : 0;
-    const durHrs = Math.floor(totalHours);
-    const durMin = Math.round((totalHours - durHrs) * 60);
-    const timeStr = `${durHrs}h ${durMin.toString().padStart(2, '0')}m`;
-
-    const statFuelDist = document.getElementById('stat-fuel-dist');
-    const statFuelTime = document.getElementById('stat-fuel-time');
-    const statFuelCarbs = document.getElementById('stat-fuel-carbs');
-    const statFuelRate = document.getElementById('stat-fuel-rate');
-
-    if (statFuelDist) statFuelDist.textContent = distFormatted;
-    if (statFuelTime) statFuelTime.textContent = timeStr;
-    if (statFuelCarbs) statFuelCarbs.textContent = `${totalCarbs}g CHO`;
-    if (statFuelRate) statFuelRate.textContent = `${avgCarbsPerHour}g/h`;
-
-    if (routeStatusText) {
-      const title = cfg.title || 'Active Track';
-      routeStatusText.textContent = `${title} · ${distFormatted} · ${gainFormatted}`;
-    }
-  } else {
-    ['stat-dist', 'stat-gain', 'stat-max-grade', 'stat-climbs', 'stat-fuel-dist', 'stat-fuel-time', 'stat-fuel-carbs', 'stat-fuel-rate'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = '--';
-    });
-    if (routeStatusText) {
-      routeStatusText.textContent = 'No track loaded';
-    }
-  }
-
-  // Toggle elevation vs fueling stat boxes in stats strip
-  const eleStatItems = document.querySelectorAll('.stat-item-elevation');
-  const fuelStatItems = document.querySelectorAll('.stat-item-fueling');
-  eleStatItems.forEach(el => { el.style.display = isFuelingView ? 'none' : 'flex'; });
-  fuelStatItems.forEach(el => { el.style.display = isFuelingView ? 'flex' : 'none'; });
-
-  // 5. Update Workbench Stage Sizing & Calipers
-  const previewStage = document.getElementById('preview-stage');
-  if (previewStage) {
-    previewStage.classList.toggle('mode-fueling', isFuelingView);
-  }
-
-  const stageSizeLabel = document.getElementById('stage-size-label');
-  if (stageSizeLabel) {
-    if (isFuelingView) {
-      const fw = cfg.fuelingWidthMm || 35;
-      const fh = cfg.fuelingHeightMm || 115;
-      stageSizeLabel.textContent = `${fw} × ${fh} mm (Top Tube)`;
-    } else {
-      stageSizeLabel.textContent = `${cfg.widthMm} × ${cfg.heightMm} mm`;
-    }
-  }
-
-  // Declutter Left Sidebar: Show/hide mode-specific sections
-  const elevationSections = document.querySelectorAll('.tool-section-elevation');
-  elevationSections.forEach(sec => {
-    sec.style.display = isFuelingView ? 'none' : 'flex';
-  });
-  const fuelingSections = document.querySelectorAll('.tool-section-fueling');
-  fuelingSections.forEach(sec => {
-    sec.style.display = isFuelingView ? 'flex' : 'none';
-  });
+  // 1. Preview, stats strip and view-mode chrome
+  renderPreview(state);
+  updateStatsStrip(state);
+  syncViewMode(state);
 
   // Sync Left Sidebar dimension inputs & presets to active mode
   if (panels.has('controls')) syncFormControls(state);
 
-  const stickerWrapper = document.getElementById('sticker-container');
-  if (stickerWrapper && !stickerWrapper.classList.contains('zoom-actual')) {
-    document.documentElement.style.setProperty('--stage-zoom-w', isFuelingView ? '260px' : '720px');
-  }
-
-  // 6. Update Panels & Overlays
+  // 2. Update Panels & Overlays
   if (panels.has('climbs')) renderClimbsTable(store);
   if (panels.has('waypoints')) renderWaypointsList(store);
   if (panels.has('fueling')) renderFuelingPanel(store);
@@ -248,20 +94,7 @@ export function updateUI(event) {
 export async function loadFromUrlHash(hashStr) {
   if (!hashStr) return false;
 
-  let raw = hashStr.trim().replace(/^[#?]/, '');
-  try {
-    raw = decodeURIComponent(raw);
-  } catch (_) {}
-
-  let b64 = raw;
-  if (raw.includes('stage=')) {
-    b64 = raw.split('stage=')[1].split('&')[0];
-  } else if (raw.includes('data=')) {
-    b64 = raw.split('data=')[1].split('&')[0];
-  } else if (raw.includes('route=')) {
-    b64 = raw.split('route=')[1].split('&')[0];
-  }
-
+  const b64 = extractHashPayload(hashStr);
   if (!b64 || b64.length < 5) return false;
 
   const payload = await decompressPayload(b64);
@@ -279,243 +112,12 @@ export async function loadFromUrlHash(hashStr) {
 }
 
 /**
- * Initializes workbench click interactions and export dialog buttons.
- */
-function initActions() {
-  const svgHost = document.getElementById('svg-host');
-
-  // Clicking SVG: if empty browse button clicked, open picker; if loaded pre-fills distance for waypoint form
-  if (svgHost) {
-    svgHost.addEventListener('click', e => {
-      const browseBtn = e.target.closest('.empty-browse-btn');
-      if (browseBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        openRouteFilePicker();
-        return;
-      }
-
-      const state = store.getState();
-      if (state.points.length < 2 || !state.stats) {
-        return;
-      }
-      const svg = document.getElementById('profile-svg-elem');
-      if (!svg) return;
-      const rect = svg.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const ratio = Math.max(0, Math.min(1, mouseX / rect.width));
-      const targetDistM = ratio * state.stats.totalDist;
-
-      const { dFactor } = getUnitFactors(state.settings.units);
-      const distVal = (targetDistM * dFactor).toFixed(1);
-
-      const distInput = document.getElementById('input-wpt-dist');
-      const labelInput = document.getElementById('input-wpt-label');
-      if (distInput) {
-        distInput.value = distVal;
-        if (labelInput) labelInput.focus();
-      }
-    });
-  }
-
-  // Clicking empty preview-stage opens file picker (ignores clicks on buttons, labels, and toolbars)
-  const previewStage = document.getElementById('preview-stage');
-  if (previewStage) {
-    previewStage.addEventListener('click', e => {
-      if (e.target.closest('button') || e.target.closest('label') || e.target.closest('.stage-header-toolbar') || e.target.closest('.segmented-pill-group')) return;
-      const state = store.getState();
-      if (state.points.length < 2 || !state.stats) {
-        openRouteFilePicker();
-      }
-    });
-  }
-
-  // Header Load GPX button click & keyboard accessibility
-  const btnLoadGpx = document.getElementById('btn-load-gpx');
-  if (btnLoadGpx) {
-    btnLoadGpx.addEventListener('click', e => {
-      e.preventDefault();
-      openRouteFilePicker();
-    });
-    btnLoadGpx.addEventListener('keydown', e => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        openRouteFilePicker();
-      }
-    });
-  }
-
-  // Stage Zoom Controls (Large / Max / 1:1 Actual)
-  const zoomBtns = document.querySelectorAll('#stage-zoom-controls .zoom-btn');
-  const stickerWrapper = document.getElementById('sticker-container');
-
-  zoomBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      zoomBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const zoom = btn.dataset.zoom;
-
-      if (zoom === 'actual') {
-        document.documentElement.style.setProperty('--stage-zoom-w', 'var(--sticker-w)');
-        if (stickerWrapper) stickerWrapper.classList.add('zoom-actual');
-      } else if (zoom === 'max') {
-        document.documentElement.style.setProperty('--stage-zoom-w', '880px');
-        if (stickerWrapper) stickerWrapper.classList.remove('zoom-actual');
-      } else {
-        // Large (Default view: ~720px)
-        document.documentElement.style.setProperty('--stage-zoom-w', '720px');
-        if (stickerWrapper) stickerWrapper.classList.remove('zoom-actual');
-      }
-    });
-  });
-
-  // Share Link Button (URL Hash for GitHub Pages)
-  const btnShareLink = document.getElementById('btn-share-link');
-  if (btnShareLink) {
-    btnShareLink.addEventListener('click', async () => {
-      try {
-        const orig = btnShareLink.innerHTML;
-        btnShareLink.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Link Copied!`;
-        await copyShareableLink(store.getState());
-        showToast('Share link copied to clipboard', 'success');
-        setTimeout(() => { btnShareLink.innerHTML = orig; }, 1800);
-      } catch (err) {
-        showToast('Failed to generate share link: ' + err.message, 'error');
-      }
-    });
-  }
-
-  // Reset Custom Dragged Labels Button
-  const btnResetLabels = document.getElementById('btn-reset-labels');
-  if (btnResetLabels) {
-    btnResetLabels.addEventListener('click', () => {
-      store.resetCustomPositions();
-      showToast('Reset label positions to auto layout', 'info');
-    });
-  }
-
-  // Export Buttons
-  const btnCopy = document.getElementById('btn-copy-svg');
-  if (btnCopy) {
-    btnCopy.addEventListener('click', () => {
-      copySVG(store.getState(), err => {
-        if (!err) {
-          const orig = btnCopy.innerHTML;
-          btnCopy.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!`;
-          showToast('SVG markup copied to clipboard', 'success');
-          setTimeout(() => { btnCopy.innerHTML = orig; }, 1400);
-        } else {
-          showToast('Failed to copy SVG: ' + err.message, 'error');
-        }
-      });
-    });
-  }
-
-  const btnExportSvg = document.getElementById('btn-export-svg');
-  if (btnExportSvg) {
-    btnExportSvg.addEventListener('click', () => {
-      exportSVG(store.getState());
-      showToast('Downloading SVG file...', 'info');
-    });
-  }
-
-  const btnExportPng = document.getElementById('btn-export-png');
-  if (btnExportPng) {
-    btnExportPng.addEventListener('click', () => {
-      showToast('Rendering 300 DPI PNG...', 'info');
-      exportPNG(store.getState(), err => {
-        if (err) showToast('PNG export failed: ' + err.message, 'error');
-      });
-    });
-  }
-
-  const btnPrint = document.getElementById('btn-print');
-  if (btnPrint) {
-    btnPrint.addEventListener('click', () => {
-      openPrintModal(store);
-    });
-  }
-
-  window.addEventListener('keydown', e => {
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'p') {
-      const modal = document.getElementById('modal-print-studio');
-      const isModalOpen = modal && modal.style.display === 'flex';
-      if (isModalOpen) {
-        updatePrintMatrix(store.getState(), null, null, null, null, null, getActivePrintConfig());
-        window.print();
-      } else {
-        e.preventDefault();
-        openPrintModal(store);
-      }
-    }
-  });
-
-  // View Switcher Buttons (Elevation vs Fueling)
-  const viewSwitchBtns = document.querySelectorAll('.view-switch-btn');
-  viewSwitchBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const view = btn.dataset.view;
-      store.setActiveView(view);
-    });
-  });
-
-  // Sidebar Tab Switcher Buttons
-  const tabBtnCues = document.getElementById('tab-btn-cues');
-  if (tabBtnCues) {
-    tabBtnCues.addEventListener('click', () => {
-      store.setActiveView('elevation');
-    });
-  }
-  const tabBtnFuel = document.getElementById('tab-btn-fuel');
-  if (tabBtnFuel) {
-    tabBtnFuel.addEventListener('click', () => {
-      store.setActiveView('fueling');
-    });
-  }
-
-  window.addEventListener('beforeprint', () => {
-    updatePrintMatrix(store.getState(), null, null, null, null, null, getActivePrintConfig());
-  });
-}
-
-/**
  * Toggles active mobile workstation tab ('preview' | 'design' | 'climbs' | 'fueling').
  *
  * @param {'preview'|'design'|'climbs'|'fueling'} tab - Active tab identifier
  */
 export function setMobileTab(tab) {
-  const tabBtns = document.querySelectorAll('.mobile-tab-btn');
-  const appLayout = document.getElementById('app-layout') || document.querySelector('.app-layout');
-  if (!appLayout) return;
-
-  tabBtns.forEach(btn => {
-    if (btn.dataset.tab === tab) {
-      btn.classList.add('active');
-    } else {
-      btn.classList.remove('active');
-    }
-  });
-
-  if (tab === 'fueling') {
-    store.setActiveView('fueling');
-  } else if (tab === 'climbs') {
-    store.setActiveView('elevation');
-  }
-
-  appLayout.setAttribute('data-mobile-tab', tab);
-}
-
-/**
- * Initializes listeners for the mobile segmented tab navigation strip.
- */
-function initMobileTabs() {
-  const tabBtns = document.querySelectorAll('.mobile-tab-btn');
-  tabBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const tab = btn.dataset.tab;
-      if (tab) setMobileTab(tab);
-    });
-  });
+  setMobileTabView(store, tab);
 }
 
 /**
@@ -529,8 +131,8 @@ export function initApp() {
   initFuelingPanel(store);
   initDragEngine(store);
   initPrintModal(store);
-  initActions();
-  initMobileTabs();
+  initActions(store);
+  initMobileTabs(store);
 
   // Reactive store subscription
   store.subscribe((state, event) => {

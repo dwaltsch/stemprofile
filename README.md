@@ -115,25 +115,42 @@ toptube/
 │   └── fueling.css     # Fueling mode & nutrition panel
 │                       # (linked in this order in index.html; order matters)
 ├── js/
-│   ├── app.js          # Application coordinator & bootstrapper
+│   ├── app.js          # Application coordinator & bootstrapper (store → UI wiring)
 │   ├── store.js        # Reactive application state store & event bus
-│   ├── parser.js       # Native DOMParser GPX XML ingestion & waypoint extractor
-│   ├── signal.js       # Haversine distance, 7-pt MA, spatial blocks, & climb detection
+│   ├── units.js        # Unit conversions & coordinate normalizers
+│   ├── escape.js       # Shared HTML/SVG escaping for untrusted strings
 │   ├── layout.js       # Multi-tier anti-collision solver & leader line geometry
-│   ├── renderer.js     # Vector SVG elevation profile generator
-│   ├── export.js       # 300 DPI canvas rasterizer, SVG download, print sheet
-│   ├── share.js        # Protocol v3 binary packing & URL hash sharing
-│   ├── units.js        # Geodesy unit conversions & coordinate normalizers
+│   │
+│   │   # Each entry module below re-exports its folder, so `import … from './share.js'` keeps working.
+│   ├── parser.js       # Route file parser registry (format sniffing & dispatch)
+│   ├── parsers/        # gpx.js · tcx.js · fit.js · xml-utils.js
+│   ├── signal.js       # processTrackSignal pipeline & shared JSDoc types
+│   ├── signal/         # geo.js · despike.js · blocks.js · climbs.js · waypoint-match.js
+│   ├── renderer.js     # renderProfileSVG: composes the sticker layers
+│   ├── renderer/       # themes.js · waypoints-config.js · profile-layers.js
+│   ├── fueling.js      # Fueling strategy API
+│   ├── fueling/        # presets.js · terrain.js · timing.js · plan.js
+│   ├── fueling-renderer.js # Vertical fueling cue sheet SVG
+│   ├── export.js       # Export & print API
+│   ├── export/         # config.js · print-sheet.js · download.js (SVG / 300 DPI PNG)
+│   ├── share.js        # URL hash sharing API (serialize / deserialize / copy link)
+│   ├── share/          # constants.js · binary.js (protocol v3) · payload.js · compression.js · polyline.js · simplify.js
 │   └── ui/             # Focused UI component controllers
+│       ├── workbench.js      # Center preview & elevation / fueling view-mode chrome
+│       ├── stats-strip.js    # Route stats, status pill & export button states
+│       ├── actions.js        # Header, stage, export & print button wiring
+│       ├── mobile-tabs.js    # Mobile segmented tab navigation
 │       ├── dropzone.js       # GPX drag & drop target & file parsing
 │       ├── controls.js       # Dimension inputs, presets, theme & units
 │       ├── print-modal.js    # Print Studio modal & WYSIWYG sheet preview
 │       ├── climbs-panel.js   # Climbs table & bi-directional highlighting
 │       ├── waypoints-panel.js # Tactical cues form & list
+│       ├── fueling-panel.js  # Fueling controls & presets (list in fueling/list.js, reorder in fueling/drag-sort.js)
 │       ├── drag-engine.js    # 60fps SVG pointer drag & leader lines
 │       ├── tooltip.js        # Instantaneous hover telemetry tracking
 │       ├── theme.js          # Light / dark mode persistence
 │       └── toast.js          # Non-blocking notification toasts
+├── test/               # node:test suites; fixtures/ holds frozen share links for compatibility tests
 └── README.md           # Architecture & user documentation
 ```
 

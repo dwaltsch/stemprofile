@@ -1,0 +1,217 @@
+/**
+ * Workbench Actions UI Module
+ *
+ * Wires header, stage and export buttons: file picker, click-to-place waypoints,
+ * zoom, share link, label reset, SVG/PNG export, print shortcuts and view switching.
+ *
+ * @module ui/actions
+ */
+
+import { openRouteFilePicker } from './dropzone.js';
+import { showToast } from './toast.js';
+import { openPrintModal, getActivePrintConfig } from './print-modal.js';
+import { copyShareableLink } from '../share.js';
+import { exportSVG, exportPNG, copySVG, updatePrintMatrix } from '../export.js';
+import { getUnitFactors } from '../units.js';
+
+/**
+ * Initializes workbench click interactions and export dialog buttons.
+ *
+ * @param {Object} store - Application store
+ */
+export function initActions(store) {
+  const svgHost = document.getElementById('svg-host');
+
+  // Clicking SVG: if empty browse button clicked, open picker; if loaded pre-fills distance for waypoint form
+  if (svgHost) {
+    svgHost.addEventListener('click', e => {
+      const browseBtn = e.target.closest('.empty-browse-btn');
+      if (browseBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        openRouteFilePicker();
+        return;
+      }
+
+      const state = store.getState();
+      if (state.points.length < 2 || !state.stats) {
+        return;
+      }
+      const svg = document.getElementById('profile-svg-elem');
+      if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const ratio = Math.max(0, Math.min(1, mouseX / rect.width));
+      const targetDistM = ratio * state.stats.totalDist;
+
+      const { dFactor } = getUnitFactors(state.settings.units);
+      const distVal = (targetDistM * dFactor).toFixed(1);
+
+      const distInput = document.getElementById('input-wpt-dist');
+      const labelInput = document.getElementById('input-wpt-label');
+      if (distInput) {
+        distInput.value = distVal;
+        if (labelInput) labelInput.focus();
+      }
+    });
+  }
+
+  // Clicking empty preview-stage opens file picker (ignores clicks on buttons, labels, and toolbars)
+  const previewStage = document.getElementById('preview-stage');
+  if (previewStage) {
+    previewStage.addEventListener('click', e => {
+      if (e.target.closest('button') || e.target.closest('label') || e.target.closest('.stage-header-toolbar') || e.target.closest('.segmented-pill-group')) return;
+      const state = store.getState();
+      if (state.points.length < 2 || !state.stats) {
+        openRouteFilePicker();
+      }
+    });
+  }
+
+  // Header Load GPX button click & keyboard accessibility
+  const btnLoadGpx = document.getElementById('btn-load-gpx');
+  if (btnLoadGpx) {
+    btnLoadGpx.addEventListener('click', e => {
+      e.preventDefault();
+      openRouteFilePicker();
+    });
+    btnLoadGpx.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openRouteFilePicker();
+      }
+    });
+  }
+
+  // Stage Zoom Controls (Large / Max / 1:1 Actual)
+  const zoomBtns = document.querySelectorAll('#stage-zoom-controls .zoom-btn');
+  const stickerWrapper = document.getElementById('sticker-container');
+
+  zoomBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      zoomBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const zoom = btn.dataset.zoom;
+
+      if (zoom === 'actual') {
+        document.documentElement.style.setProperty('--stage-zoom-w', 'var(--sticker-w)');
+        if (stickerWrapper) stickerWrapper.classList.add('zoom-actual');
+      } else if (zoom === 'max') {
+        document.documentElement.style.setProperty('--stage-zoom-w', '880px');
+        if (stickerWrapper) stickerWrapper.classList.remove('zoom-actual');
+      } else {
+        // Large (Default view: ~720px)
+        document.documentElement.style.setProperty('--stage-zoom-w', '720px');
+        if (stickerWrapper) stickerWrapper.classList.remove('zoom-actual');
+      }
+    });
+  });
+
+  // Share Link Button (URL Hash for GitHub Pages)
+  const btnShareLink = document.getElementById('btn-share-link');
+  if (btnShareLink) {
+    btnShareLink.addEventListener('click', async () => {
+      try {
+        const orig = btnShareLink.innerHTML;
+        btnShareLink.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Link Copied!`;
+        await copyShareableLink(store.getState());
+        showToast('Share link copied to clipboard', 'success');
+        setTimeout(() => { btnShareLink.innerHTML = orig; }, 1800);
+      } catch (err) {
+        showToast('Failed to generate share link: ' + err.message, 'error');
+      }
+    });
+  }
+
+  // Reset Custom Dragged Labels Button
+  const btnResetLabels = document.getElementById('btn-reset-labels');
+  if (btnResetLabels) {
+    btnResetLabels.addEventListener('click', () => {
+      store.resetCustomPositions();
+      showToast('Reset label positions to auto layout', 'info');
+    });
+  }
+
+  // Export Buttons
+  const btnCopy = document.getElementById('btn-copy-svg');
+  if (btnCopy) {
+    btnCopy.addEventListener('click', () => {
+      copySVG(store.getState(), err => {
+        if (!err) {
+          const orig = btnCopy.innerHTML;
+          btnCopy.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!`;
+          showToast('SVG markup copied to clipboard', 'success');
+          setTimeout(() => { btnCopy.innerHTML = orig; }, 1400);
+        } else {
+          showToast('Failed to copy SVG: ' + err.message, 'error');
+        }
+      });
+    });
+  }
+
+  const btnExportSvg = document.getElementById('btn-export-svg');
+  if (btnExportSvg) {
+    btnExportSvg.addEventListener('click', () => {
+      exportSVG(store.getState());
+      showToast('Downloading SVG file...', 'info');
+    });
+  }
+
+  const btnExportPng = document.getElementById('btn-export-png');
+  if (btnExportPng) {
+    btnExportPng.addEventListener('click', () => {
+      showToast('Rendering 300 DPI PNG...', 'info');
+      exportPNG(store.getState(), err => {
+        if (err) showToast('PNG export failed: ' + err.message, 'error');
+      });
+    });
+  }
+
+  const btnPrint = document.getElementById('btn-print');
+  if (btnPrint) {
+    btnPrint.addEventListener('click', () => {
+      openPrintModal(store);
+    });
+  }
+
+  window.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'p') {
+      const modal = document.getElementById('modal-print-studio');
+      const isModalOpen = modal && modal.style.display === 'flex';
+      if (isModalOpen) {
+        updatePrintMatrix(store.getState(), null, null, null, null, null, getActivePrintConfig());
+        window.print();
+      } else {
+        e.preventDefault();
+        openPrintModal(store);
+      }
+    }
+  });
+
+  // View Switcher Buttons (Elevation vs Fueling)
+  const viewSwitchBtns = document.querySelectorAll('.view-switch-btn');
+  viewSwitchBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const view = btn.dataset.view;
+      store.setActiveView(view);
+    });
+  });
+
+  // Sidebar Tab Switcher Buttons
+  const tabBtnCues = document.getElementById('tab-btn-cues');
+  if (tabBtnCues) {
+    tabBtnCues.addEventListener('click', () => {
+      store.setActiveView('elevation');
+    });
+  }
+  const tabBtnFuel = document.getElementById('tab-btn-fuel');
+  if (tabBtnFuel) {
+    tabBtnFuel.addEventListener('click', () => {
+      store.setActiveView('fueling');
+    });
+  }
+
+  window.addEventListener('beforeprint', () => {
+    updatePrintMatrix(store.getState(), null, null, null, null, null, getActivePrintConfig());
+  });
+}

@@ -36,5 +36,8 @@ These rules apply unconditionally across this repository.
   - `test/share.test.js`: 3D polyline delta encoding, extrema/summit downsampling, gzip payload serialization.
   - `test/parser.test.js`: GPX XML ingestion, elevation forward-filling, waypoint classification.
   - `test/renderer.test.js`: Physical dimension scaling, color themes, SVG markup structure.
+  - `test/escape.test.js`: Markup escaping and shared-link payload sanitization (untrusted input).
+  - `test/share-compat.test.js`: Frozen share links in `test/fixtures/` must keep decoding — never regenerate them; add a new fixture when the format changes.
+  - `test/ui-modules.test.js`: UI modules exercised against a stub DOM (`test/helpers/stub-document.js`).
 - **Keep Tests Updated:** When introducing new algorithms, formulas, or formats, add corresponding test cases to `test/`.
 

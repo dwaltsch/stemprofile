@@ -20,3 +20,4 @@ import './export.test.js';
 import './app.test.js';
 import './escape.test.js';
 import './share-compat.test.js';
+import './ui-modules.test.js';
