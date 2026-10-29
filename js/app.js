@@ -26,6 +26,7 @@ import { renderPreview, syncViewMode } from './ui/workbench.js';
 import { updateStatsStrip } from './ui/stats-strip.js';
 import { initActions, syncHistoryButtons } from './ui/actions.js';
 import { setMobileTab as setMobileTabView, initMobileTabs } from './ui/mobile-tabs.js';
+import { runSection, installGlobalErrorHandlers } from './ui/error-boundary.js';
 
 // Backward compatibility exports
 export { store };
@@ -67,22 +68,23 @@ export function updateUI(event) {
   const state = store.getState();
   const isFuelingView = state.activeView === 'fueling';
 
+  // Each section is isolated: one throwing renderer is reported and the rest still update
   // 1. Preview, stats strip and view-mode chrome
-  renderPreview(state);
-  updateStatsStrip(state);
-  syncViewMode(state);
-  syncHistoryButtons(store);
+  runSection('preview', () => renderPreview(state));
+  runSection('stats', () => updateStatsStrip(state));
+  runSection('view mode', () => syncViewMode(state));
+  runSection('history', () => syncHistoryButtons(store));
 
   // Sync Left Sidebar dimension inputs & presets to active mode
-  if (panels.has('controls')) syncFormControls(state);
+  if (panels.has('controls')) runSection('controls', () => syncFormControls(state));
 
   // 2. Update Panels & Overlays
-  if (panels.has('climbs')) renderClimbsTable(store);
-  if (panels.has('waypoints')) renderWaypointsList(store);
-  if (panels.has('fueling')) renderFuelingPanel(store);
-  updatePrintMatrix(state, null, null, null, null, null, getActivePrintConfig());
+  if (panels.has('climbs')) runSection('climbs panel', () => renderClimbsTable(store));
+  if (panels.has('waypoints')) runSection('waypoints panel', () => renderWaypointsList(store));
+  if (panels.has('fueling')) runSection('fueling panel', () => renderFuelingPanel(store));
+  runSection('print sheet', () => updatePrintMatrix(state, null, null, null, null, null, getActivePrintConfig()));
   if (!isFuelingView) {
-    bindTooltipHover(store);
+    runSection('tooltip', () => bindTooltipHover(store));
   }
 }
 
@@ -125,6 +127,7 @@ export function setMobileTab(tab) {
  * Initializes application modules and registers store subscriptions.
  */
 export function initApp() {
+  installGlobalErrorHandlers();
   initTheme(store);
   initDropzone(store);
   initControls(store);

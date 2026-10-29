@@ -14,6 +14,8 @@ import { renderPreview, syncViewMode } from '../js/ui/workbench.js';
 import { updateStatsStrip } from '../js/ui/stats-strip.js';
 import { initActions, syncHistoryButtons } from '../js/ui/actions.js';
 import { setMobileTab, initMobileTabs } from '../js/ui/mobile-tabs.js';
+import { runSection, reportError, installGlobalErrorHandlers, resetErrorReporting } from '../js/ui/error-boundary.js';
+import { updateUI, store as appStore } from '../js/app.js';
 
 const coords = [];
 for (let i = 0; i <= 120; i++) {
@@ -114,5 +116,60 @@ describe('UI Modules: Workbench, Stats Strip, Actions, Mobile Tabs', () => {
 
     dom.dispatchWindow('keydown', key('z', { shiftKey: true }));
     assert.equal(store.getState().settings.theme, 'dark');
+  });
+
+  it('isolates a failing section, reports it, and rate-limits error toasts', () => {
+    resetErrorReporting();
+    const origError = console.error;
+    const logged = [];
+    console.error = (...a) => logged.push(a);
+    let toasts = 0;
+    const origCreate = document.createElement;
+    document.createElement = tag => { if (tag === 'span') toasts++; return origCreate(tag); };
+    try {
+      assert.equal(runSection('boom', () => { throw new Error('kaput'); }), false);
+      assert.equal(runSection('fine', () => {}), true);
+      reportError('again', new Error('second'));
+      assert.equal(logged.length, 2, 'both errors logged');
+      assert.equal(toasts, 1, 'second toast suppressed by the cooldown');
+    } finally {
+      console.error = origError;
+      document.createElement = origCreate;
+      resetErrorReporting();
+    }
+  });
+
+  it('keeps updating later sections when the preview throws', () => {
+    appStore.setTrack({ title: 'Boundary', coords });
+    const host = dom.elements.get('svg-host') || document.getElementById('svg-host');
+    Object.defineProperty(host, 'innerHTML', { configurable: true, set() { throw new Error('render failed'); }, get() { return ''; } });
+    const origError = console.error;
+    console.error = () => {};
+    try {
+      document.getElementById('stat-dist').textContent = '';
+      assert.doesNotThrow(() => updateUI());
+      assert.match(document.getElementById('stat-dist').textContent, /km/, 'stats strip still updated');
+    } finally {
+      console.error = origError;
+      delete host.innerHTML;
+      host.innerHTML = '';
+      resetErrorReporting();
+    }
+  });
+
+  it('routes uncaught errors and rejections to the reporter', () => {
+    resetErrorReporting();
+    const origError = console.error;
+    const logged = [];
+    console.error = (...a) => logged.push(a[0]);
+    try {
+      installGlobalErrorHandlers(window);
+      dom.dispatchWindow('error', { error: new Error('x') });
+      dom.dispatchWindow('unhandledrejection', { reason: new Error('y') });
+      assert.deepEqual(logged, ['[uncaught]', '[async]']);
+    } finally {
+      console.error = origError;
+      resetErrorReporting();
+    }
   });
 });
