@@ -41,5 +41,6 @@ These rules apply unconditionally across this repository.
   - `test/ui-modules.test.js`: UI modules exercised against a stub DOM (`test/helpers/stub-document.js`).
   - `test/pacing.test.js`: Power-equation speed model, average-speed calibration, time-based fuel spacing.
   - `test/history.test.js`: Undo / redo snapshots, edit merging, history resets.
+  - `test/climb-detail.test.js`: Climb segmentation, climb detail stickers, stacked export and print sheets.
 - **Keep Tests Updated:** When introducing new algorithms, formulas, or formats, add corresponding test cases to `test/`.
 

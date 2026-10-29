@@ -64,6 +64,10 @@ Inspired by Grand Tour roadbooks (Tour de France, Giro d'Italia, Vuelta a Españ
 ### 7. Undo / Redo
 - Header buttons and **⌘Z / ⇧⌘Z** (Ctrl+Z / Ctrl+Y) undo edits to settings, waypoints, label positions and the fueling plan. Rapid edits (typing, sliders) merge into one step; text fields keep their native undo.
 
+### 8. Climb Detail Stickers
+- **Toggle "Climb Detail"** in the stage toolbar to replace the profile with one zoomed roadbook sticker per categorized climb (same physical size as the elevation sticker).
+- Each card shows auto-sized gradient segments (100 m–2 km, up to 20 per climb) with their %, km-to-summit, start & summit elevation, category, length, average/max gradient, gain and estimated climbing time. Summit waypoints name the climb.
+- Exports (SVG / PNG / copy) produce the whole set stacked; Print Studio prints each climb `copies` times ("Active View" in climb mode, or the **Climbs** sticker type). Hide a climb in the Climbs panel to drop it.
 ---
 
 ## Signal Processing & Mathematical Pipeline
@@ -134,7 +138,7 @@ toptube/
 │   ├── signal.js       # processTrackSignal pipeline & shared JSDoc types
 │   ├── signal/         # geo.js · despike.js · blocks.js · climbs.js · waypoint-match.js
 │   ├── renderer.js     # renderProfileSVG: composes the sticker layers
-│   ├── renderer/       # themes.js · waypoints-config.js · profile-layers.js
+│   ├── renderer/       # themes.js · waypoints-config.js · profile-layers.js · climb-detail.js
 │   ├── fueling.js      # Fueling strategy API
 │   ├── fueling/        # presets.js · terrain.js · timing.js · pacing.js (power model) · plan.js
 │   ├── fueling-renderer.js # Vertical fueling cue sheet SVG

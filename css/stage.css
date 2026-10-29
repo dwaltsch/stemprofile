@@ -185,6 +185,31 @@ main.stage-area {
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
+/* Climb Detail mode: stacked per-climb stickers */
+.climb-detail-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+#svg-host svg.climb-detail-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
+}
+
+[data-theme="dark"] #svg-host svg.climb-detail-svg {
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.zoom-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* Empty State */
 .empty-msg {
   display: flex;

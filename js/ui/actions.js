@@ -211,6 +211,20 @@ export function initActions(store) {
     });
   }
 
+  // Climb Detail mode toggle (elevation view)
+  const btnClimbDetail = document.getElementById('btn-climb-detail');
+  if (btnClimbDetail) {
+    btnClimbDetail.addEventListener('click', e => {
+      e.stopPropagation();
+      const enable = !store.getState().climbDetail;
+      store.setClimbDetail(enable);
+      if (enable) {
+        const n = (store.getState().climbs || []).length;
+        showToast(`Climb Detail: ${n} climb sticker${n === 1 ? '' : 's'} — hide climbs in the Climbs panel to drop them`, 'info', 3200);
+      }
+    });
+  }
+
   // Undo / Redo (header buttons + keyboard). Text fields keep their native undo.
   const btnUndo = document.getElementById('btn-undo');
   const btnRedo = document.getElementById('btn-redo');

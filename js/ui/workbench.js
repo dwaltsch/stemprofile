@@ -10,6 +10,7 @@
 
 import { renderProfileSVG } from '../renderer.js';
 import { renderFuelingSVG } from '../fueling-renderer.js';
+import { getDetailClimbs, renderClimbDetailSVG } from '../renderer/climb-detail.js';
 
 /**
  * Renders the active sticker preview (or empty-state prompt) into #svg-host.
@@ -27,6 +28,8 @@ export function renderPreview(state) {
     if (hasData) {
       if (isFuelingView) {
         svgHost.innerHTML = renderFuelingSVG(state);
+      } else if (state.climbDetail) {
+        svgHost.innerHTML = renderClimbDetailPreview(state);
       } else {
         svgHost.innerHTML = renderProfileSVG(state);
       }
@@ -91,6 +94,17 @@ export function syncViewMode(state) {
     previewStage.classList.toggle('mode-fueling', isFuelingView);
   }
 
+  const btnClimbDetail = document.getElementById('btn-climb-detail');
+  if (btnClimbDetail) {
+    const hasClimbs = (state.climbs || []).length > 0;
+    btnClimbDetail.classList.toggle('active', Boolean(state.climbDetail));
+    btnClimbDetail.setAttribute('aria-pressed', state.climbDetail ? 'true' : 'false');
+    btnClimbDetail.disabled = !hasClimbs && !state.climbDetail;
+    btnClimbDetail.style.display = isFuelingView ? 'none' : '';
+  }
+  const btnResetLabels = document.getElementById('btn-reset-labels');
+  if (btnResetLabels) btnResetLabels.style.display = (!isFuelingView && state.climbDetail) ? 'none' : '';
+
   const stageSizeLabel = document.getElementById('stage-size-label');
   if (stageSizeLabel) {
     if (isFuelingView) {
@@ -98,7 +112,8 @@ export function syncViewMode(state) {
       const fh = cfg.fuelingHeightMm || 115;
       stageSizeLabel.textContent = `${fw} × ${fh} mm (Top Tube)`;
     } else {
-      stageSizeLabel.textContent = `${cfg.widthMm} × ${cfg.heightMm} mm`;
+      const perClimb = state.climbDetail ? ' per climb' : '';
+      stageSizeLabel.textContent = `${cfg.widthMm} × ${cfg.heightMm} mm${perClimb}`;
     }
   }
 
@@ -116,4 +131,23 @@ export function syncViewMode(state) {
   if (stickerWrapper && !stickerWrapper.classList.contains('zoom-actual')) {
     document.documentElement.style.setProperty('--stage-zoom-w', isFuelingView ? '260px' : '720px');
   }
+}
+
+/**
+ * Stack of climb detail cards for the preview, or a hint when there are none.
+ *
+ * @param {Object} state - Store state
+ * @returns {string} HTML markup
+ */
+function renderClimbDetailPreview(state) {
+  const climbs = getDetailClimbs(state);
+  if (climbs.length === 0) {
+    return `
+      <div class="empty-msg">
+        <h3>No climbs to detail</h3>
+        <p>No categorized climbs were detected on this route, or all climb badges are hidden.</p>
+      </div>
+    `;
+  }
+  return `<div class="climb-detail-stack">${climbs.map((c, i) => renderClimbDetailSVG(state, c, { index: i })).join('')}</div>`;
 }

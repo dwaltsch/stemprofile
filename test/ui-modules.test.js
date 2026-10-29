@@ -69,6 +69,25 @@ describe('UI Modules: Workbench, Stats Strip, Actions, Mobile Tabs', () => {
     assert.equal(store.getState().activeView, 'fueling');
   });
 
+  it('renders climb detail cards and syncs the toggle button in climb mode', () => {
+    const store = createStore();
+    const hilly = [];
+    for (let i = 0; i <= 600; i++) hilly.push({ lat: 45 + i * 0.0009, lon: 6, ele: 400 + 900 * Math.max(0, Math.sin(i / 70)) });
+    store.setTrack({ title: 'Hilly', coords: hilly });
+
+    syncViewMode(store.getState());
+    const btn = dom.elements.get('btn-climb-detail');
+    assert.equal(btn.disabled, false);
+    assert.equal(btn.getAttribute('aria-pressed'), 'false');
+
+    store.setClimbDetail(true);
+    renderPreview(store.getState());
+    syncViewMode(store.getState());
+    assert.ok(dom.elements.get('svg-host').innerHTML.includes('climb-detail-stack'));
+    assert.equal(btn.getAttribute('aria-pressed'), 'true');
+    assert.match(dom.elements.get('stage-size-label').textContent, /per climb/);
+  });
+
   it('syncs undo/redo buttons and handles keyboard shortcuts outside text fields', () => {
     const store = createStore();
     store.setTrack({ title: 'Smoke Route', coords });

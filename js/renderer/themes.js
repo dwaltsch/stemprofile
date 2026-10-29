@@ -171,3 +171,16 @@ export function getClimbCategoryColor(category, theme) {
   if (cat.includes('3')) return theme.z2 || '#d97706';
   return theme.z1 || '#16a34a';
 }
+
+/**
+ * Resolves the sticker theme for a settings theme name. Print mode forces the
+ * ink-saver white palette; unknown names fall back to white.
+ *
+ * @param {string} themeName - Settings theme name
+ * @param {boolean} [isPrint=false] - Force print-optimized white theme
+ * @returns {{ themeKey: string, theme: RenderTheme }}
+ */
+export function resolveTheme(themeName, isPrint = false) {
+  const themeKey = isPrint ? 'white' : (THEMES[themeName] ? themeName : (themeName === 'dark' ? 'dark' : 'white'));
+  return { themeKey, theme: THEMES[themeKey] || THEMES['white'] };
+}

@@ -10,7 +10,7 @@
 export const DEFAULT_PRINT_CONFIG = {
   copies: 2,
   printTheme: 'theme', // 'theme' (active color palette) or 'white' (ink-saver)
-  stickerType: 'active', // 'active', 'elevation', 'fueling', 'both'
+  stickerType: 'active', // 'active', 'elevation', 'fueling', 'both', 'climbs'
   showCropMarks: true,
   showCutLines: true,
   showRuler: true,
@@ -44,6 +44,7 @@ export function resolveExportParams(pointsOrOptions, stats, climbs, blocks, wayp
       settings: pointsOrOptions.settings || {},
       fueling: pointsOrOptions.fueling || null,
       activeView: pointsOrOptions.activeView || 'elevation',
+      climbDetail: Boolean(pointsOrOptions.climbDetail),
       callback: typeof stats === 'function' ? stats : (pointsOrOptions.callback || null)
     };
   }

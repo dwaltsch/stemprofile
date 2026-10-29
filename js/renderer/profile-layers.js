@@ -5,7 +5,7 @@
  * @module renderer/profile-layers
  */
 
-import { THEMES, getClimbCategoryColor } from './themes.js';
+import { resolveTheme, getClimbCategoryColor } from './themes.js';
 import { WAYPOINT_CONFIG, renderWaypointGlyph } from './waypoints-config.js';
 import { calculateLeaderLineAnchor, computeBlockPctLayout, computeClimbBadgeLayout } from '../layout.js';
 import { escapeXml } from '../escape.js';
@@ -50,8 +50,7 @@ export function createProfileContext(points, stats, climbs, blocks, waypoints, s
   const W = settings.widthMm || 110;
   const H = settings.heightMm || 35;
   const radius = settings.radiusMm || 0;
-  const themeKey = isPrint ? 'white' : (THEMES[settings.theme] ? settings.theme : (settings.theme === 'dark' ? 'dark' : 'white'));
-  const theme = THEMES[themeKey] || THEMES['white'];
+  const { themeKey, theme } = resolveTheme(settings.theme, isPrint);
 
   const ctx = { points, stats, climbs, blocks, settings, theme, themeKey, W, H, radius };
   if (!points || points.length < 2 || !stats) return ctx;

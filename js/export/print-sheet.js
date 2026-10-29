@@ -9,6 +9,7 @@ import { escapeHtml } from '../escape.js';
 import { getUnitFactors, getUnitLabels } from '../units.js';
 import { renderFuelingSVG } from '../fueling-renderer.js';
 import { renderProfileSVG } from '../renderer.js';
+import { getDetailClimbs, renderClimbDetailSVG } from '../renderer/climb-detail.js';
 
 /**
  * Generates vector L-shaped corner crop marks and center registration ticks for a sticker cell.
@@ -146,10 +147,16 @@ export function generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks,
     ...popts
   };
 
-  const count = Math.max(1, parseInt(cfg.copies, 10) || 1);
+  const copies = Math.max(1, parseInt(cfg.copies, 10) || 1);
   const stickerType = cfg.stickerType || 'active';
   const isSheetFueling = (stickerType === 'fueling') ||
     ((stickerType === 'active' || !stickerType) && p.activeView === 'fueling');
+
+  // Climb detail sheets print every detail climb, each repeated `copies` times
+  const detailClimbs = getDetailClimbs(p);
+  const isClimbSheet = detailClimbs.length > 0 && (stickerType === 'climbs' ||
+    ((stickerType === 'active' || !stickerType) && p.activeView !== 'fueling' && p.climbDetail));
+  const count = isClimbSheet ? detailClimbs.length * copies : copies;
   const W = isSheetFueling ? (p.settings.fuelingWidthMm || 35) : (p.settings.widthMm || 110);
   const H = isSheetFueling ? (p.settings.fuelingHeightMm || 115) : (p.settings.heightMm || 35);
   const radius = p.settings.radiusMm || 0;
@@ -169,6 +176,14 @@ export function generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks,
 
   // Render individual sticker SVG
   const renderCellSvg = (cellIndex) => {
+    if (isClimbSheet) {
+      const climbIndex = Math.floor(cellIndex / copies);
+      return renderClimbDetailSVG(
+        { ...p, settings: { ...p.settings, theme: effectiveTheme } },
+        detailClimbs[climbIndex],
+        { index: climbIndex, isPrint: isPrintWhite }
+      );
+    }
     let isFuel = false;
     if (stickerType === 'fueling') {
       isFuel = true;

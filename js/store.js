@@ -39,6 +39,7 @@ import {
  * @property {function(): boolean} redo - Re-applies the last undone edit
  * @property {function(): boolean} canUndo - Whether undo is available
  * @property {function(): boolean} canRedo - Whether redo is available
+ * @property {function(boolean): void} setClimbDetail - Toggles climb detail mode
  */
 
 /**
@@ -57,6 +58,7 @@ export function createStore(initialSettings = {}) {
     blocks: [],
     waypoints: [],
     activeView: 'elevation',
+    climbDetail: false,
     fueling: {
       ...DEFAULT_FUELING_CONFIG,
       items: [],
@@ -498,6 +500,17 @@ export function createStore(initialSettings = {}) {
         state.activeView = view;
         notify('view:changed');
       }
+    },
+
+    /**
+     * Toggles climb detail mode: the elevation view shows one zoomed sticker per climb.
+     * A view preference like activeView, so it is not recorded in undo history.
+     *
+     * @param {boolean} enabled
+     */
+    setClimbDetail(enabled) {
+      state.climbDetail = Boolean(enabled);
+      notify('view:changed');
     },
 
     /**
