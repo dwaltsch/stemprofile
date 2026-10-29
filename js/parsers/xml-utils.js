@@ -107,3 +107,18 @@ export function getAttr(node, name) {
   if (direct !== null) return direct;
   return node.getAttribute(name.toLowerCase()) || node.getAttribute(name.toUpperCase());
 }
+
+/**
+ * Rejects XML documents that declare a DOCTYPE or entities. GPX / TCX exports
+ * never need them, and refusing them up front rules out entity-expansion
+ * ("billion laughs") and external-entity tricks regardless of browser parser.
+ *
+ * @param {string} xmlText - Raw XML document text
+ * @param {string} format - Format name for the error message (e.g. 'GPX')
+ * @throws {Error} When the document contains <!DOCTYPE or <!ENTITY
+ */
+export function assertNoDoctype(xmlText, format) {
+  if (typeof xmlText === 'string' && /<!\s*(DOCTYPE|ENTITY)/i.test(xmlText)) {
+    throw new Error(`${format} files with DOCTYPE or ENTITY declarations are not supported.`);
+  }
+}

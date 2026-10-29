@@ -4,7 +4,7 @@
  * @module parsers/tcx
  */
 
-import { findElementsByLocalNames, getFirstElementText, parseDecimal } from './xml-utils.js';
+import { findElementsByLocalNames, getFirstElementText, parseDecimal, assertNoDoctype } from './xml-utils.js';
 
 /**
  * Parses raw TCX XML string into structured coordinates and waypoints.
@@ -19,6 +19,7 @@ import { findElementsByLocalNames, getFirstElementText, parseDecimal } from './x
  * @throws {Error} When XML syntax is invalid or no trackpoints are found
  */
 export function parseTCX(xmlText) {
+  assertNoDoctype(xmlText, 'TCX');
   const domParser = new DOMParser();
   const xmlDoc = domParser.parseFromString(xmlText, "text/xml");
 

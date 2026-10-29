@@ -369,3 +369,22 @@ describe('Robustness: Saved Fuel Plans', () => {
     assert.equal(second.getState().fueling.customized, true);
   }));
 });
+
+describe('Robustness: XML Entity Attacks', () => {
+  const trk = '<trk><trkseg><trkpt lat="45" lon="6"><ele>1</ele></trkpt><trkpt lat="45.01" lon="6"><ele>2</ele></trkpt></trkseg></trk>';
+
+  it('rejects billion-laughs entity expansion in GPX', () => {
+    const lol = '<?xml version="1.0"?><!DOCTYPE gpx [<!ENTITY a "aaaaaaaaaa"><!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;">]>' +
+      `<gpx><metadata><name>&b;</name></metadata>${trk}</gpx>`;
+    assert.throws(() => parseRouteFile(lol, 'a.gpx'), /DOCTYPE or ENTITY/);
+  });
+
+  it('rejects external entities in TCX', () => {
+    const xxe = '<?xml version="1.0"?><!DOCTYPE x [<!ENTITY ext SYSTEM "file:///etc/passwd">]><TrainingCenterDatabase>&ext;</TrainingCenterDatabase>';
+    assert.throws(() => parseRouteFile(xxe, 'a.tcx'), /DOCTYPE or ENTITY/);
+  });
+
+  it('still parses ordinary GPX', () => {
+    assert.equal(parseRouteFile(`<?xml version="1.0"?><gpx>${trk}</gpx>`, 'a.gpx').coords.length, 2);
+  });
+});

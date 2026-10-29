@@ -4,7 +4,7 @@
  * @module parsers/gpx
  */
 
-import { findChildText, findElementsByLocalNames, getAttr, parseDecimal } from './xml-utils.js';
+import { findChildText, findElementsByLocalNames, getAttr, parseDecimal, assertNoDoctype } from './xml-utils.js';
 
 /**
  * Parses raw GPX XML string into structured coordinates and waypoints.
@@ -17,6 +17,7 @@ import { findChildText, findElementsByLocalNames, getAttr, parseDecimal } from '
  * @throws {Error} When XML syntax is invalid or no trackpoints are found
  */
 export function parseGPX(xmlText) {
+  assertNoDoctype(xmlText, 'GPX');
   const domParser = new DOMParser();
   const xmlDoc = domParser.parseFromString(xmlText, "text/xml");
 
