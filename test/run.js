@@ -29,7 +29,8 @@ const SUITES = [
   './pacing.test.js',
   './history.test.js',
   './climb-detail.test.js',
-  './robustness.test.js'
+  './robustness.test.js',
+  './assets.test.js'
 ];
 
 if (!process.env.NODE_TEST_CONTEXT) {

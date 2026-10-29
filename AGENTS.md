@@ -26,9 +26,12 @@ These rules apply unconditionally across this repository.
 ## 4. Automated Testing & Regression Prevention
 - **Mandatory Test Execution:** After modifying any JavaScript file in `js/`, run the test suite to ensure zero regressions:
   ```bash
-  node --test
-  # or
-  node test/run.js
+  node --test        # each suite in its own process
+  node test/run.js   # all suites in one process (catches leaked globals); run both before committing
+  ```
+- **Asset Stamping:** After changing any file in `js/` or `css/`, re-stamp `index.html` so browsers never mix cached and new files (and the CSP keeps matching the import map). `test/assets.test.js` fails until you do:
+  ```bash
+  node scripts/stamp-assets.mjs   # or: just stamp
   ```
 - **Zero External Dependencies:** Tests use Node's native `node:test` and `node:assert` standard library modules. Do NOT install heavy third-party testing frameworks or build tools (Jest, Vitest, Webpack, etc.) to keep the project 100% dependency-free and future-proof.
 - **Core Test Coverage:**
@@ -42,6 +45,7 @@ These rules apply unconditionally across this repository.
   - `test/pacing.test.js`: Power-equation speed model, average-speed calibration, time-based fuel spacing.
   - `test/history.test.js`: Undo / redo snapshots, edit merging, history resets.
   - `test/climb-detail.test.js`: Climb segmentation, climb detail stickers, stacked export and print sheets.
+  - `test/assets.test.js`: `index.html` asset version stamps, import map coverage and its CSP hash are current.
   - `test/robustness.test.js`: Hostile / broken input: crafted share links (setting clamps, compression bombs, size caps), invalid coordinates, GPS glitches, input size limits, corrupted saved plans, XML entity attacks, CSP compatibility. Add a case here for every new input path.
 - **Keep Tests Updated:** When introducing new algorithms, formulas, or formats, add corresponding test cases to `test/`.
 

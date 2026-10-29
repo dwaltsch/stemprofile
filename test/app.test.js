@@ -190,7 +190,7 @@ describe('App & UI Responsiveness: Viewport Layout & Overflow Prevention', () =>
   const htmlPath = path.resolve(__dirname, '../index.html');
   const html = fs.readFileSync(htmlPath, 'utf8');
   // Stylesheets are split per UI area; concatenate them in the order index.html links them.
-  const cssHrefs = [...html.matchAll(/<link rel="stylesheet" href="([^"]+\.css)">/g)].map(m => m[1]);
+  const cssHrefs = [...html.matchAll(/<link rel="stylesheet" href="([^"?]+\.css)(?:\?v=[^"]*)?">/g)].map(m => m[1]);
   const css = cssHrefs.map(href => fs.readFileSync(path.resolve(__dirname, '..', href), 'utf8')).join('\n');
 
   it('links stylesheets that all exist on disk', () => {

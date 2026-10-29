@@ -404,7 +404,9 @@ describe('Robustness: Content Security Policy', () => {
   });
 
   it('keeps the page compatible with script-src self (no inline scripts, handlers or eval)', () => {
-    assert.equal((html.match(/<script(?![^>]*\ssrc=)[^>]*>/g) || []).length, 0, 'no inline <script> blocks');
+    // The only inline script allowed is the generated import map, pinned by its CSP hash (see test/assets.test.js)
+    const inline = html.match(/<script(?![^>]*\ssrc=)[^>]*>/g) || [];
+    assert.deepEqual(inline, ['<script type="importmap">'], 'no inline <script> blocks except the import map');
     const jsFiles = [];
     const walk = dir => fs.readdirSync(dir, { withFileTypes: true }).forEach(e => {
       const p = path.join(dir, e.name);
