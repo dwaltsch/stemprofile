@@ -12,7 +12,18 @@ import { createStore } from '../js/store.js';
 import { renderProfileSVG } from '../js/renderer.js';
 import { generatePrintSheetMarkup, MAX_PRINT_CELLS } from '../js/export.js';
 import { buildSpatialBlocks, MAX_SPATIAL_BLOCKS } from '../js/signal.js';
-import { clampSettings, SETTING_LIMITS, compressPayload, deserializeHashToState } from '../js/share.js';
+import {
+  clampSettings,
+  SETTING_LIMITS,
+  compressPayload,
+  deserializeHashToState,
+  decompressPayload,
+  sanitizePayload,
+  MAX_LINK_CHARS,
+  MAX_DECOMPRESSED_BYTES,
+  MAX_SHARED_POINTS,
+  MAX_SHARED_WAYPOINTS
+} from '../js/share.js';
 
 /** Encodes a legacy JSON share payload into a #stage= hash. */
 async function legacyLink(payload) {
@@ -80,5 +91,49 @@ describe('Robustness: Render Hard Caps', () => {
     const store = createStore();
     store.setTrack({ title: 'x', coords: routeCoords });
     assert.equal(generatePrintSheetMarkup(store.getState(), { copies: 100000 }).count, MAX_PRINT_CELLS);
+  });
+});
+
+describe('Robustness: Share Link Size Limits', () => {
+  it('rejects a compression bomb without inflating it fully', async () => {
+    const bomb = await compressPayload(new Uint8Array(200 * 1024 * 1024));
+    // Count inflated bytes actually produced by wrapping DecompressionStream
+    const Original = globalThis.DecompressionStream;
+    let inflated = 0;
+    globalThis.DecompressionStream = class {
+      constructor(format) {
+        const inner = new Original(format);
+        this.writable = inner.writable;
+        this.readable = inner.readable.pipeThrough(new TransformStream({
+          transform(chunk, ctrl) { inflated += chunk.length; ctrl.enqueue(chunk); }
+        }));
+      }
+    };
+    try {
+      assert.equal(await decompressPayload(bomb), null);
+    } finally {
+      globalThis.DecompressionStream = Original;
+    }
+    assert.ok(inflated < MAX_DECOMPRESSED_BYTES + 1024 * 1024, `inflated ${inflated} bytes before stopping`);
+  });
+
+  it('rejects links longer than MAX_LINK_CHARS', async () => {
+    assert.equal(await decompressPayload('A'.repeat(MAX_LINK_CHARS + 1)), null);
+  });
+
+  it('still decodes normal links', async () => {
+    const payload = await deserializeHashToState(await legacyLink({ t: 'ok', coords: routeCoords }));
+    assert.equal(payload.title, 'ok');
+    assert.equal(payload.coords.length, routeCoords.length);
+  });
+
+  it('thins oversized coordinate lists evenly and caps waypoints', () => {
+    const coords = Array.from({ length: 500000 }, (_, i) => [45 + i * 1e-5, 6, 500]);
+    const waypoints = Array.from({ length: 5000 }, (_, i) => ({ distM: i, type: 'feed' }));
+    const out = sanitizePayload({ coords, waypoints });
+    assert.equal(out.coords.length, MAX_SHARED_POINTS);
+    assert.deepEqual(out.coords[0], coords[0]);
+    assert.deepEqual(out.coords[out.coords.length - 1], coords[coords.length - 1]);
+    assert.equal(out.waypoints.length, MAX_SHARED_WAYPOINTS);
   });
 });

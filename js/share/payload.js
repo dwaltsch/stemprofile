@@ -9,6 +9,49 @@ import { base64UrlToUint8 } from './compression.js';
 import { decodePolyline3D } from './polyline.js';
 import { deserializeBinaryState } from './binary.js';
 
+/** Longest share link payload accepted (real links are a few hundred to a few thousand chars). */
+export const MAX_LINK_CHARS = 1_000_000;
+/** Most bytes a share payload may inflate to; guards against compression bombs. */
+export const MAX_DECOMPRESSED_BYTES = 2 * 1024 * 1024;
+/** Most route points / waypoints a shared payload may carry; larger routes are evenly thinned. */
+export const MAX_SHARED_POINTS = 20000;
+export const MAX_SHARED_WAYPOINTS = 255;
+
+class PayloadTooLargeError extends Error {}
+
+/**
+ * Inflates bytes with a DecompressionStream, aborting as soon as the output
+ * exceeds maxBytes instead of buffering the whole result.
+ *
+ * @param {Uint8Array} bytes - Compressed input
+ * @param {'deflate-raw'|'gzip'} format - Compression format
+ * @param {number} maxBytes - Output size limit
+ * @returns {Promise<Uint8Array>} Inflated bytes
+ * @throws {PayloadTooLargeError} When the output exceeds maxBytes
+ */
+async function inflateCapped(bytes, format, maxBytes) {
+  const reader = new Blob([bytes]).stream().pipeThrough(new DecompressionStream(format)).getReader();
+  const chunks = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.length;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => {});
+      throw new PayloadTooLargeError(`Share payload inflates beyond ${maxBytes} bytes`);
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) {
+    out.set(c, offset);
+    offset += c.length;
+  }
+  return out;
+}
+
 /**
  * Decompresses a URL-safe Base64 string back into a JavaScript state object.
  *
@@ -16,29 +59,22 @@ import { deserializeBinaryState } from './binary.js';
  * @returns {Promise<Object|null>} Parsed and normalized JavaScript state
  */
 export async function decompressPayload(b64url) {
-  if (!b64url || typeof b64url !== 'string') return null;
+  if (!b64url || typeof b64url !== 'string' || b64url.length > MAX_LINK_CHARS) return null;
 
   try {
     const bytes = base64UrlToUint8(b64url);
     if (!bytes || bytes.length === 0) return null;
 
-    // 1. Try Decompressing with deflate-raw
+    // 1. Try deflate-raw, then gzip; a payload that inflates too far is rejected outright
     let decompressedBytes = null;
     if (typeof DecompressionStream !== 'undefined') {
-      try {
-        const stream = new Blob([bytes]).stream();
-        const decompressedStream = stream.pipeThrough(new DecompressionStream('deflate-raw'));
-        const response = await new Response(decompressedStream);
-        const buffer = await response.arrayBuffer();
-        decompressedBytes = new Uint8Array(buffer);
-      } catch (_) {
+      for (const format of ['deflate-raw', 'gzip']) {
         try {
-          const stream = new Blob([bytes]).stream();
-          const decompressedStream = stream.pipeThrough(new DecompressionStream('gzip'));
-          const response = await new Response(decompressedStream);
-          const buffer = await response.arrayBuffer();
-          decompressedBytes = new Uint8Array(buffer);
-        } catch (_) {}
+          decompressedBytes = await inflateCapped(bytes, format, MAX_DECOMPRESSED_BYTES);
+          break;
+        } catch (err) {
+          if (err instanceof PayloadTooLargeError) return null;
+        }
       }
     }
 
@@ -148,7 +184,7 @@ export function sanitizePayload(payload) {
     }
   }
 
-  const rawWpts = Array.isArray(payload.waypoints) ? payload.waypoints : [];
+  const rawWpts = (Array.isArray(payload.waypoints) ? payload.waypoints : []).slice(0, MAX_SHARED_WAYPOINTS);
   const waypoints = rawWpts
     .filter(w => w && typeof w === 'object' && Number.isFinite(w.distM))
     .map((w, idx) => ({
@@ -161,8 +197,21 @@ export function sanitizePayload(payload) {
 
   return {
     title: typeof payload.title === 'string' ? payload.title.slice(0, 120) : undefined,
-    coords: payload.coords,
+    coords: thinEvenly(payload.coords, MAX_SHARED_POINTS),
     settings,
     waypoints
   };
+}
+
+/**
+ * Keeps at most `max` items, evenly spaced, always including the first and last.
+ *
+ * @param {Array} items
+ * @param {number} max
+ * @returns {Array}
+ */
+function thinEvenly(items, max) {
+  if (items.length <= max) return items;
+  const step = (items.length - 1) / (max - 1);
+  return Array.from({ length: max }, (_, i) => items[Math.round(i * step)]);
 }
