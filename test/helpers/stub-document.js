@@ -42,7 +42,7 @@ function createStubElement(id = '') {
  * `elements` maps element id -> stub so tests can assert on rendered output.
  */
 export function installStubDocument() {
-  const prev = { document: globalThis.document, window: globalThis.window };
+  const prev = { document: globalThis.document, window: globalThis.window, raf: globalThis.requestAnimationFrame };
   const elements = new Map();
   const byId = id => {
     if (!elements.has(id)) elements.set(id, createStubElement(id));
@@ -57,6 +57,7 @@ export function installStubDocument() {
     documentElement: { style: { setProperty() {} } },
     body: createStubElement('body')
   };
+  globalThis.requestAnimationFrame = fn => setTimeout(fn, 0);
   const windowListeners = {};
   globalThis.window = {
     innerWidth: 1280,
@@ -72,6 +73,7 @@ export function installStubDocument() {
     restore() {
       if (prev.document === undefined) delete globalThis.document; else globalThis.document = prev.document;
       if (prev.window === undefined) delete globalThis.window; else globalThis.window = prev.window;
+      if (prev.raf === undefined) delete globalThis.requestAnimationFrame; else globalThis.requestAnimationFrame = prev.raf;
     }
   };
 }

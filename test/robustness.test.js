@@ -14,6 +14,9 @@ import { renderFuelingSVG } from '../js/fueling-renderer.js';
 import { renderClimbDetailStackSVG } from '../js/renderer/climb-detail.js';
 import { parseRouteFile } from '../js/parser.js';
 import { normalizeCoordinates } from '../js/units.js';
+import { MAX_TRACK_POINTS, MAX_IMPORTED_WAYPOINTS, MAX_TITLE_CHARS, MAX_LABEL_CHARS, MAX_FILE_BYTES } from '../js/limits.js';
+import { handleRouteFile } from '../js/ui/dropzone.js';
+import { installStubDocument } from './helpers/stub-document.js';
 import { renderProfileSVG } from '../js/renderer.js';
 import { generatePrintSheetMarkup, MAX_PRINT_CELLS } from '../js/export.js';
 import { buildSpatialBlocks, MAX_SPATIAL_BLOCKS, dropPositionSpikes } from '../js/signal.js';
@@ -237,5 +240,55 @@ describe('Robustness: GPS Position Glitches', () => {
     assert.deepEqual(dropPositionSpikes(coords), coords);
     const synthetic = Array.from({ length: 10 }, (_, i) => ({ dist: i * 1e6, lat: 0, lon: 0, ele: 1 }));
     assert.equal(dropPositionSpikes(synthetic), synthetic);
+  });
+});
+
+describe('Robustness: Input Size Limits', () => {
+  it('thins huge tracks to MAX_TRACK_POINTS keeping elevation extremes', () => {
+    const coords = Array.from({ length: 400000 }, (_, i) => ({ lat: 45 + i * 1e-5, lon: 6, ele: i === 123457 ? 2999 : 500 + 300 * Math.sin(i / 9000) }));
+    const t0 = Date.now();
+    const store = createStore();
+    store.setTrack({ title: 'big', coords });
+    assert.ok(Date.now() - t0 < 5000);
+    assert.equal(store.getState().rawCoords.length, MAX_TRACK_POINTS);
+    assert.ok(store.getState().rawCoords.some(c => c.ele === 2999), 'summit point survives thinning');
+  });
+
+  it('caps imported waypoints so matching stays fast', () => {
+    const coords = Array.from({ length: 50000 }, (_, i) => ({ lat: 45 + i * 2e-5, lon: 6, ele: 500 }));
+    const rawWaypoints = Array.from({ length: 10000 }, (_, i) => ({ lat: 45 + i * 1e-4, lon: 6, name: 'W' + i, sym: '', desc: '', typeStr: '' }));
+    const t0 = Date.now();
+    const store = createStore();
+    store.setTrack({ title: 'x', coords, rawWaypoints });
+    assert.ok(Date.now() - t0 < 3000, `took ${Date.now() - t0} ms`);
+    assert.ok(store.getState().waypoints.length <= MAX_IMPORTED_WAYPOINTS);
+  });
+
+  it('caps title and label lengths', () => {
+    const store = createStore();
+    store.setTrack({
+      title: 'T'.repeat(1e6),
+      coords: [[45, 6, 1], [45.01, 6, 2], [45.02, 6, 3]],
+      rawWaypoints: [{ lat: 45.01, lon: 6, name: 'N'.repeat(1e5), sym: '', desc: 'D'.repeat(1e5), typeStr: '' }]
+    });
+    assert.equal(store.getState().settings.title.length, MAX_TITLE_CHARS);
+    assert.ok(store.getState().rawWaypoints[0].name.length <= MAX_LABEL_CHARS);
+    store.updateSettings({ title: 'x'.repeat(5000) });
+    assert.equal(store.getState().settings.title.length, MAX_TITLE_CHARS);
+    assert.equal(store.addWaypoint(100, 'feed', 'L'.repeat(5000)).label.length, MAX_LABEL_CHARS);
+  });
+
+  it('refuses files above MAX_FILE_BYTES before reading them', () => {
+    const dom = installStubDocument();
+    const prevReader = globalThis.FileReader;
+    let read = false;
+    globalThis.FileReader = class { readAsText() { read = true; } readAsArrayBuffer() { read = true; } };
+    try {
+      handleRouteFile({ name: 'huge.gpx', size: MAX_FILE_BYTES + 1 }, createStore());
+    } finally {
+      globalThis.FileReader = prevReader;
+      dom.restore();
+    }
+    assert.equal(read, false);
   });
 });

@@ -8,6 +8,7 @@
 
 import { parseRouteFile, getSupportedExtensions, isBinaryExtension } from '../parser.js';
 import { showToast } from './toast.js';
+import { MAX_FILE_BYTES, MAX_TRACK_POINTS, MAX_IMPORTED_WAYPOINTS } from '../limits.js';
 
 /**
  * Parses and ingests a route file into the store.
@@ -27,6 +28,11 @@ export function handleRouteFile(file, store) {
     return;
   }
 
+  if (file.size > MAX_FILE_BYTES) {
+    showToast(`File is too large (${Math.round(file.size / 1048576)} MB). Route files up to ${MAX_FILE_BYTES / 1048576} MB are supported.`, 'error');
+    return;
+  }
+
   const isBinary = isBinaryExtension(file.name);
   const reader = new FileReader();
 
@@ -40,6 +46,10 @@ export function handleRouteFile(file, store) {
         rawWaypoints: rawWaypoints || []
       });
       showToast(`Loaded ${file.name} (${coords.length} points)`, 'success');
+      const trimmed = [];
+      if (coords.length > MAX_TRACK_POINTS) trimmed.push(`track simplified to ${MAX_TRACK_POINTS.toLocaleString()} points`);
+      if ((rawWaypoints || []).length > MAX_IMPORTED_WAYPOINTS) trimmed.push(`only the first ${MAX_IMPORTED_WAYPOINTS} waypoints imported`);
+      if (trimmed.length > 0) showToast(`Large file: ${trimmed.join('; ')}.`, 'warning', 4000);
     } catch (err) {
       showToast('Error parsing file: ' + err.message, 'error');
     } finally {

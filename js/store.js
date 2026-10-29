@@ -9,7 +9,8 @@
  */
 
 import { processTrackSignal, matchWaypointsToTrack, dropPositionSpikes } from './signal.js';
-import { DEFAULT_SETTINGS, sanitizePayload, clampSettings } from './share.js';
+import { DEFAULT_SETTINGS, sanitizePayload, clampSettings, downsampleCoords } from './share.js';
+import { MAX_TRACK_POINTS, MAX_IMPORTED_WAYPOINTS, MAX_TITLE_CHARS, MAX_LABEL_CHARS, clampText } from './limits.js';
 import { getRecommendedBlockPresets } from './layout.js';
 import { normalizeCoordinates, hasRouteLength } from './units.js';
 import {
@@ -316,14 +317,23 @@ export function createStore(initialSettings = {}) {
      * @throws {Error} When the coordinates do not describe a route with length (state is left unchanged)
      */
     setTrack({ title, coords, rawWaypoints = [] }) {
-      const normalized = dropPositionSpikes(normalizeCoordinates(coords));
+      let normalized = dropPositionSpikes(normalizeCoordinates(coords));
       if (!hasRouteLength(normalized)) {
         throw new Error('Route needs at least two distinct GPS points with valid coordinates.');
       }
+      if (normalized.length > MAX_TRACK_POINTS) {
+        normalized = normalizeCoordinates(downsampleCoords(normalized, MAX_TRACK_POINTS));
+      }
       state.rawCoords = normalized;
-      state.rawWaypoints = rawWaypoints || [];
+      state.rawWaypoints = (rawWaypoints || []).slice(0, MAX_IMPORTED_WAYPOINTS).map(w => ({
+        ...w,
+        name: clampText(w.name, MAX_LABEL_CHARS),
+        desc: clampText(w.desc, MAX_LABEL_CHARS),
+        sym: clampText(w.sym, MAX_LABEL_CHARS),
+        typeStr: clampText(w.typeStr, MAX_LABEL_CHARS)
+      }));
       if (title !== undefined) {
-        state.settings.title = title;
+        state.settings.title = clampText(title, MAX_TITLE_CHARS);
       }
       reprocess(true);
       clearHistory();
@@ -338,6 +348,7 @@ export function createStore(initialSettings = {}) {
      */
     updateSettings(rawPartialSettings, forceReprocess = false) {
       const partialSettings = clampSettings(rawPartialSettings);
+      if ('title' in partialSettings) partialSettings.title = clampText(partialSettings.title, MAX_TITLE_CHARS);
       if (settingsDiffer(partialSettings)) {
         checkpoint('settings:' + Object.keys(partialSettings).sort().join(','));
       }
@@ -379,7 +390,7 @@ export function createStore(initialSettings = {}) {
         id,
         distM: Math.max(0, distM),
         type,
-        label: (label || '').trim(),
+        label: clampText((label || '').trim(), MAX_LABEL_CHARS),
         enabled: true
       };
       state.waypoints.push(wpt);
@@ -563,7 +574,7 @@ export function createStore(initialSettings = {}) {
         distM: Math.round(distM),
         timeSec,
         timeStr: formatElapsedSeconds(timeSec),
-        name: (itemData.name || 'Fuel Item').trim(),
+        name: clampText((itemData.name || 'Fuel Item').trim(), MAX_LABEL_CHARS),
         type: itemData.type || 'gel',
         icon: itemData.icon || '⚡',
         carbsG: typeof itemData.carbsG === 'number' ? itemData.carbsG : defaultCarbs,
@@ -595,6 +606,7 @@ export function createStore(initialSettings = {}) {
       checkpoint(`fuel:${id}:${Object.keys(partial).sort().join(',')}`);
 
       Object.assign(it, partial);
+      if (partial.name !== undefined) it.name = clampText(partial.name, MAX_LABEL_CHARS);
 
       if (partial.distM !== undefined) {
         it.distM = Math.max(0, Math.round(partial.distM));
