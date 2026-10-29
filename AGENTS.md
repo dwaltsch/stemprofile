@@ -42,5 +42,6 @@ These rules apply unconditionally across this repository.
   - `test/pacing.test.js`: Power-equation speed model, average-speed calibration, time-based fuel spacing.
   - `test/history.test.js`: Undo / redo snapshots, edit merging, history resets.
   - `test/climb-detail.test.js`: Climb segmentation, climb detail stickers, stacked export and print sheets.
+  - `test/robustness.test.js`: Hostile / broken input: crafted share links (setting clamps, compression bombs, size caps), invalid coordinates, GPS glitches, input size limits, corrupted saved plans, XML entity attacks, CSP compatibility. Add a case here for every new input path.
 - **Keep Tests Updated:** When introducing new algorithms, formulas, or formats, add corresponding test cases to `test/`.
 

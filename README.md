@@ -70,6 +70,20 @@ Inspired by Grand Tour roadbooks (Tour de France, Giro d'Italia, Vuelta a Españ
 - Exports (SVG / PNG / copy) produce the whole set stacked; Print Studio prints each climb `copies` times ("Active View" in climb mode, or the **Climbs** sticker type). Hide a climb in the Climbs panel to drop it.
 ---
 
+## Security & Robustness
+
+Route files and share links are untrusted input. The app is static (no backend), so the goal is that nothing a file or link contains can run script, freeze the tab or corrupt the stickers:
+
+- **Escaping & CSP**: every user / file / link string is escaped before reaching HTML or SVG (`js/escape.js`), and a Content Security Policy only allows same-origin scripts.
+- **Share links**: payloads are inflated through a bounded reader (2 MB cap against compression bombs), links over 1M chars are refused, and decoded settings are type-checked and clamped (`clampSettings`); coordinates are capped at 20k points, waypoints at 255.
+- **Route files**: files over 50 MB are refused before reading; `DOCTYPE` / `ENTITY` declarations are rejected (no entity-expansion attacks); invalid or out-of-range coordinates are dropped, impossible elevations filled from neighbours, GPS teleport glitches removed, tracks over 100k points thinned, waypoints capped at 500 and titles / labels length-limited (`js/limits.js`).
+- **Render caps**: at most 2,000 profile columns and 64 print cells, whatever the settings.
+- **Saved fuel plans** from browser storage are validated field by field; broken entries fall back to a fresh plan.
+
+`test/robustness.test.js` replays the hostile inputs these defences were built against.
+
+---
+
 ## Signal Processing & Mathematical Pipeline
 
 ### 1. Cumulative Haversine Distance

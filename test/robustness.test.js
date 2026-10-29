@@ -418,3 +418,53 @@ describe('Robustness: Content Security Policy', () => {
     }
   });
 });
+
+describe('Robustness: Malformed Files & Hostile Payloads', () => {
+  /** Asserts parsing fails with a plain user-facing Error, not a crash (TypeError, RangeError, ...). */
+  function assertCleanError(fn) {
+    assert.throws(fn, err => err.constructor === Error && typeof err.message === 'string' && err.message.length > 0);
+  }
+
+  const fitHeader = dataSize => {
+    const b = new Uint8Array(14);
+    b.set([14, 0x10, 0, 0, dataSize & 0xff, (dataSize >> 8) & 0xff, (dataSize >> 16) & 0xff, (dataSize >>> 24) & 0xff, 0x2e, 0x46, 0x49, 0x54, 0, 0]);
+    return b;
+  };
+
+  it('GPX: non-XML, empty and coordinate-less files fail cleanly', () => {
+    assertCleanError(() => parseRouteFile('hello world', 'a.gpx'));
+    assertCleanError(() => parseRouteFile('', 'a.gpx'));
+    assertCleanError(() => parseRouteFile('<?xml version="1.0"?><gpx><trk><trkseg><trkpt lat="abc" lon="6"/></trkseg></trk></gpx>', 'a.gpx'));
+  });
+
+  it('FIT: random bytes, absurd data size and truncation fail cleanly', () => {
+    const random = new Uint8Array(4000);
+    for (let i = 0; i < random.length; i++) random[i] = (i * 7919) % 256;
+    random.set(fitHeader(3986));
+    assertCleanError(() => parseRouteFile(random.buffer, 'a.fit'));
+
+    const huge = new Uint8Array(64);
+    huge.set(fitHeader(0x7fffffff));
+    assertCleanError(() => parseRouteFile(huge.buffer, 'a.fit'));
+
+    const truncated = new Uint8Array(20);
+    truncated.set(fitHeader(6));
+    truncated.set([0x40, 0, 0, 20, 0, 9], 14);
+    assertCleanError(() => parseRouteFile(truncated.buffer, 'a.fit'));
+  });
+
+  it('v3 binary links with absurd varint deltas are rejected', async () => {
+    const huge = [0xff, 0xff, 0xff, 0xff, 0x0f];
+    const bytes = new Uint8Array([3, 0, 0, 0, 10, 0, 100, 3, ...huge, 2, ...huge, 2, 0, 0, 110, 35, 3, 232, 7, 0, 0]);
+    const payload = await deserializeHashToState('#stage=' + await compressPayload(bytes));
+    assert.equal(createStore().loadPayload(payload), false);
+  });
+
+  it('legacy JSON links cannot pollute Object.prototype', async () => {
+    const json = '{"t":"x","coords":[[45,6,1],[45.1,6,2]],"s":{"__proto__":{"polluted":1}},"w":[{"__proto__":{"isAdmin":1},"distM":5,"type":"feed"}]}';
+    const payload = await deserializeHashToState('#stage=' + await compressPayload(new TextEncoder().encode(json)));
+    createStore().loadPayload(payload);
+    assert.equal(({}).polluted, undefined);
+    assert.equal(({}).isAdmin, undefined);
+  });
+});
