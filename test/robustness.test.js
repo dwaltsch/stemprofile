@@ -292,3 +292,80 @@ describe('Robustness: Input Size Limits', () => {
     assert.equal(read, false);
   });
 });
+
+describe('Robustness: Saved Fuel Plans', () => {
+  const coords = Array.from({ length: 300 }, (_, i) => ({ lat: 45 + i * 0.0009, lon: 6, ele: 400 + 500 * Math.max(0, Math.sin(i / 40)) }));
+  let storage;
+  let prevDescriptor;
+
+  /** Installs an in-memory localStorage for the duration of fn. */
+  function withStorage(fn) {
+    storage = new Map();
+    prevDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: { getItem: k => (storage.has(k) ? storage.get(k) : null), setItem: (k, v) => storage.set(k, String(v)) }
+    });
+    try {
+      return fn();
+    } finally {
+      if (prevDescriptor) Object.defineProperty(globalThis, 'localStorage', prevDescriptor);
+      else delete globalThis.localStorage;
+    }
+  }
+
+  /** Loads the route once to learn its storage key, then overwrites the saved plan with `value`. */
+  function loadWithSavedPlan(value) {
+    createStore().setTrack({ title: 'Saved', coords });
+    const key = [...storage.keys()].find(k => k.startsWith('stemprofile_fuel_'));
+    storage.set(key, value);
+    const store = createStore();
+    store.setTrack({ title: 'Saved', coords });
+    return store.getState().fueling;
+  }
+
+  it('falls back to a fresh plan for structurally broken entries', () => withStorage(() => {
+    for (const bad of ['{"items":"abc"}', 'not json', '{"items":[]}', 'null', '{"items":[null, 5, "x"]}']) {
+      const fueling = loadWithSavedPlan(bad);
+      assert.ok(Array.isArray(fueling.items) && fueling.items.length > 0, `fresh plan for ${bad}`);
+      assert.equal(fueling.customized, false);
+    }
+  }));
+
+  it('cleans individual fields of a saved plan', () => withStorage(() => {
+    const fueling = loadWithSavedPlan(JSON.stringify({
+      customized: true,
+      avgSpeedKmh: 1e9,
+      pacingMode: '<script>',
+      productDefaults: { gelCarbs: 'lots', bottleFluidMl: -5 },
+      items: [
+        { id: '"><img src=x>', distM: 2000, type: '<b>', name: 'N'.repeat(1e5), carbsG: 1e9, fluidMl: NaN },
+        { id: 'ok-1', distM: NaN, type: 'gel' },
+        { id: 'ok-2', distM: 1e12, type: 'gel' }
+      ]
+    }));
+    assert.equal(fueling.items.length, 1);
+    const [it] = fueling.items;
+    assert.match(it.id, /^[\w-]+$/);
+    assert.equal(it.type, 'gel');
+    assert.equal(it.name.length, 100);
+    assert.equal(it.carbsG, 500);
+    assert.equal(it.fluidMl, 0);
+    assert.ok(Number.isFinite(it.timeSec), 'item is re-timed');
+    assert.equal(fueling.avgSpeedKmh, 60);
+    assert.equal(fueling.pacingMode, 'terrain');
+    assert.equal(fueling.productDefaults.gelCarbs, 25);
+    assert.equal(fueling.productDefaults.bottleFluidMl, 0);
+  }));
+
+  it('still restores a valid customized plan', () => withStorage(() => {
+    const first = createStore();
+    first.setTrack({ title: 'Saved', coords });
+    first.addFuelItem({ distM: 12345, type: 'bar', name: 'My Bar', carbsG: 33 });
+    const second = createStore();
+    second.setTrack({ title: 'Saved', coords });
+    const mine = second.getState().fueling.items.find(i => i.name === 'My Bar');
+    assert.ok(mine && mine.carbsG === 33 && mine.distM === 12345);
+    assert.equal(second.getState().fueling.customized, true);
+  }));
+});

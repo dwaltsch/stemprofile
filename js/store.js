@@ -20,7 +20,8 @@ import {
   generateFuelId,
   formatElapsedSeconds,
   detectTerrainHazard,
-  getStatePacing
+  getStatePacing,
+  sanitizeSavedFuelingPlan
 } from './fueling.js';
 
 /**
@@ -232,8 +233,8 @@ export function createStore(initialSettings = {}) {
     }
 
     if (isNewGPX && state.points.length >= 2) {
-      const saved = loadSavedFuelingPlan();
-      if (saved && saved.items && saved.items.length > 0) {
+      const saved = sanitizeSavedFuelingPlan(loadSavedFuelingPlan(), state.stats.totalDist);
+      if (saved) {
         state.fueling = {
           ...DEFAULT_FUELING_CONFIG,
           ...saved
