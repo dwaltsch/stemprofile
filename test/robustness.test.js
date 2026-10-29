@@ -16,7 +16,7 @@ import { renderFuelingSVG } from '../js/fueling-renderer.js';
 import { renderClimbDetailStackSVG } from '../js/renderer/climb-detail.js';
 import { parseRouteFile } from '../js/parser.js';
 import { normalizeCoordinates } from '../js/units.js';
-import { MAX_TRACK_POINTS, MAX_IMPORTED_WAYPOINTS, MAX_TITLE_CHARS, MAX_LABEL_CHARS, MAX_FILE_BYTES } from '../js/limits.js';
+import { MAX_ROUTE_KM, MAX_TRACK_POINTS, MAX_IMPORTED_WAYPOINTS, MAX_TITLE_CHARS, MAX_LABEL_CHARS, MAX_FILE_BYTES } from '../js/limits.js';
 import { handleRouteFile } from '../js/ui/dropzone.js';
 import { installStubDocument } from './helpers/stub-document.js';
 import { savePlan, loadPlan, PLAN_INDEX_KEY, MAX_SAVED_PLANS } from '../js/plan-storage.js';
@@ -34,7 +34,9 @@ import {
   MAX_DECOMPRESSED_BYTES,
   MAX_SHARED_POINTS,
   MAX_SHARED_WAYPOINTS,
-  serializeStateToHash
+  serializeStateToHash,
+  serializeBinaryState,
+  deserializeBinaryState
 } from '../js/share.js';
 
 /**
@@ -585,5 +587,68 @@ describe('Privacy: Share Links', () => {
     assert.ok(payload.coords.every(c => c.lon === 0), 'longitude is never encoded');
     assert.ok(payload.coords.every(c => Math.abs(c.lat - home.lat) > 1), 'latitude is a synthetic distance placeholder');
     assert.ok(payload.waypoints.every(w => w.lat === undefined && w.lon === undefined), 'waypoints carry no positions');
+  });
+});
+
+describe('Robustness: Fuzzer-Found Hangs (regressions)', () => {
+  // Mutated FIT file found by test/fuzz.test.js (FUZZ_SEED=1, FIT mutant #2246): a corrupted fix
+  // makes a 4,173 km route on which the fuel planner's cadence loop never advanced.
+  const FIT_2246 = [
+  'DiBACI0FAAAuRklUAABAAAAGAAEEIAcARnV6egAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABBAAATAAMABIUBBIUCAoQBAAAA',
+  'IERERASIEwE1XQAg33JEBDcUAWq6ACB5oUQE5RQBnxcBIBTQRASTFQHUdAEgrv5EBD8WAQnSASBJLUUE6hYBPi8CIONbRQSSFwFz',
+  'jAIgfopFBDgYAafpAiAYuUUE2xgB3EYHILLnRQR6GQERpAMgTRZGBBYaAUYBBCDnREYErRoBe14EIIJzRgRAGwGwuwQgHKJGBM4b',
+  'AeUYBSC30EYEVxwBGnYFIFH/RgTaHAFP0wUg7C1HBFcdAYQwBiCGXEcEzR0BuY0GICGLRwQ+HgHu6gYgu7lHBKceASNIByBW6EcE',
+  'CR8BWKUHIPAWSARkHwGMAgggikVIBLcfAcFfCCAldEgEAyAB9rwIIL+iSARGIAErGgkgWtFIBIEgAWB3CSD0/0gEtCABldQJII8u',
+  'SQTfIAHKMQogKV1JBAEhAf+OCiDEi0kEGiEBNOwKIF66SQQrIQFpSQsg+ehJBDMhAZ6mCyCTF0oEMyEB0wMMIC5GSgQpIQEIYQwg',
+  'yHRKBBchAT2+DCBjo0oE/CABcRsNIP3RSgTYIAGmeA0glwBLBKwgAdvVDSAyL0sEeCABEDMOIMxdSwQ7IAFFkA4gZ4xLBPcfAXrt',
+  'DiABu0sEqh8Br0oPIJzpSwRVHwHkpw8gNhhMBPkeARkFECDRRkwElh4BTmIQIGt1TAQrHgGDvxAgBqRMBLodAbgcESCg0kwEQh0B',
+  '7XkRIDsBTQTEHAEi1xEg1S9NBEAcAVY0EiBwXk0EtxsBi5ESIAqNTQQoGwHA7hIgpLtNBJQaAfVLEyA/6k0E/BkBKqkTINkYTgRg',
+  'GQFfBhQOdk4EHBgBycAUIKmkTgR2FwH+HRUgQ9NOBM0WATN7FSDeAU8EIhYBaNgVIHgwTwR2FQGdNRYgE19PBMgUAdKSFiCtjU8E',
+  'GhQBB/AWIEi8TwSIEwE7TRcg4upPBIgTAXCqFyB8GVAEiBMBpQcYIBdIUASIEwHaZBggsXZQBIgTAQ/CGCBMpVAEiBMBRB8ZIObT',
+  'UASIEwF5fBkggQJRBIgTAa7ZGSAbMVEEiBMB4zYaILZfUQSIEwEYlBogUI5RBIgTAU3xGiDrvFEEiBMBgk4bIIXrUQSIEwG3qxsg',
+  'IBpSBIgTAewIHCC6SFIEiBMBIGYcIFV3UgSIEwFVwxwg76VSBIgTAYogHSCJ1FIEiBMBv30dICQDUwSIEwH02h0gvjFTBIgTASk4',
+  'HiBZYFMEiBMBXpUeIPOOUwSIEwGT8h4gjr1TBIgTAchPHyAo7FMEiBMB/awfIMMaVASIEwEyCiAgXUlUBIgTAWdnICD4d1QEiBMB',
+  'nMQgIJKmVASIEwHRISEgLdVUBIgTAQZ/ISDHA1UEiBMBOtwhIGEyVQSIEwFvOSIg/GBVBIgTAaSWIiCWj1UEiBMB2fMiIDG+VQSI',
+  'EwEOUSMgy+xVBIgTAUOuIyBmG1YEiBMBeAskIABKVgSIEwGtaCQgm3hWBIgTAeLFJCA1p1YEiBMBFyMlINDVVgSIEwFMgCUgagRX',
+  'BIgTAYHdJSAFM1cEiBMBtjomIJ9hVwSIEwHrlyYgOpBXBIgTAR/1JiDUvlcEiBMBVFInIG7tVwSIEwGJrycgCRxYBIgTAb4MKCCj',
+  'SlgEiBMB82koID55WASIEwEoxygg2KdYBIgTAV0kKSBzOyogQmJZBIgTATGZKiDdkFkEiBMBZvYqIHe/WQSIEwGbUysgku5ZBIgT',
+  'QgAAIAAEAgSFAwSFBQEABhAHAlY0EiBwXk0EAVN1bW1pdAAAAAAAAAAAAAA='
+].join('');
+
+  it('fuel planning terminates on the corrupted FIT route', () => {
+    const buffer = Uint8Array.from(Buffer.from(FIT_2246, 'base64')).buffer;
+    const t0 = Date.now();
+    const { title, coords, rawWaypoints } = parseRouteFile(buffer, 'fuzz-2246.fit');
+    const store = createStore();
+    store.setTrack({ title, coords, rawWaypoints });
+    assert.ok(Date.now() - t0 < 2000, `took ${Date.now() - t0} ms`);
+    assert.ok(store.getState().fueling.items.length > 0);
+  });
+
+  it('v3 links with decreasing or out-of-range distances are rejected', () => {
+    const source = createStore();
+    source.setTrack({ title: '', coords: routeCoords });
+    const valid = serializeBinaryState(source.getState());
+    // Layout: [3, titleLen=0, totalD(3), startE(2), nPts, then (deltaD, deltaE) zigzag varints...]
+    const nPts = valid[7];
+    let off = 8;
+    const readVarint = () => { let r = 0, shift = 0, b; do { b = valid[off++]; r |= (b & 0x7f) << shift; shift += 7; } while (b & 0x80); return (r >>> 1) ^ -(r & 1); };
+    const deltas = [];
+    for (let i = 1; i < nPts; i++) deltas.push([readVarint(), readVarint()]);
+    const rest = valid.slice(off);
+    const varint = n => { let v = ((n << 1) ^ (n >> 31)) >>> 0; const out = []; while (v >= 0x80) { out.push((v & 0x7f) | 0x80); v >>>= 7; } out.push(v); return out; };
+    const rebuild = ds => new Uint8Array([...valid.slice(0, 8), ...ds.flatMap(([d, e]) => [...varint(d), ...varint(e)]), ...rest]);
+
+    assert.ok(deserializeBinaryState(rebuild(deltas)), 'untampered profile still decodes');
+    const backwards = deltas.map((d, i) => (i === 2 ? [-d[0], d[1]] : d));
+    assert.equal(deserializeBinaryState(rebuild(backwards)), null, 'distance going backwards');
+    const tooFar = deltas.map((d, i) => (i === 2 ? [0x3fffffff, d[1]] : d));
+    assert.equal(deserializeBinaryState(rebuild(tooFar)), null, 'distance beyond the 3-byte field');
+  });
+
+  it('rejects routes longer than MAX_ROUTE_KM', () => {
+    // Zigzag between two far-apart points: no single "glitch" to remove, but ~400,000 km in total
+    const coords = Array.from({ length: 40 }, (_, i) => (i % 2 ? { lat: 45, lon: 6, ele: 1 } : { lat: -45, lon: -174, ele: 1 }));
+    assert.throws(() => createStore().setTrack({ title: 'z', coords }), new RegExp(`longer than ${MAX_ROUTE_KM.toLocaleString('en')} km`));
   });
 });

@@ -11,9 +11,9 @@
 import { processTrackSignal, matchWaypointsToTrack, dropPositionSpikes } from './signal.js';
 import { DEFAULT_SETTINGS, sanitizePayload, clampSettings, downsampleCoords } from './share.js';
 import { PLAN_KEY_PREFIX, savePlan, loadPlan } from './plan-storage.js';
-import { MAX_TRACK_POINTS, MAX_IMPORTED_WAYPOINTS, MAX_TITLE_CHARS, MAX_LABEL_CHARS, clampText } from './limits.js';
+import { MAX_ROUTE_KM, MAX_TRACK_POINTS, MAX_IMPORTED_WAYPOINTS, MAX_TITLE_CHARS, MAX_LABEL_CHARS, clampText } from './limits.js';
 import { getRecommendedBlockPresets } from './layout.js';
-import { normalizeCoordinates, hasRouteLength } from './units.js';
+import { normalizeCoordinates, hasRouteLength, routeLengthM } from './units.js';
 import {
   DEFAULT_FUELING_CONFIG,
   DEFAULT_FUEL_PRODUCT_DEFAULTS,
@@ -310,6 +310,9 @@ export function createStore(initialSettings = {}) {
       if (!hasRouteLength(normalized)) {
         throw new Error('Route needs at least two distinct GPS points with valid coordinates.');
       }
+      if (routeLengthM(normalized) > MAX_ROUTE_KM * 1000) {
+        throw new Error(`Route is longer than ${MAX_ROUTE_KM.toLocaleString('en')} km; the file looks corrupted.`);
+      }
       if (normalized.length > MAX_TRACK_POINTS) {
         normalized = normalizeCoordinates(downsampleCoords(normalized, MAX_TRACK_POINTS));
       }
@@ -469,7 +472,7 @@ export function createStore(initialSettings = {}) {
       const payload = sanitizePayload(rawPayload);
       if (!payload) return false;
       const normalized = dropPositionSpikes(normalizeCoordinates(payload.coords));
-      if (!hasRouteLength(normalized)) return false;
+      if (!hasRouteLength(normalized) || routeLengthM(normalized) > MAX_ROUTE_KM * 1000) return false;
 
       state.rawCoords = normalized;
       state.rawWaypoints = [];

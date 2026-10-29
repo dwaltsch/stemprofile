@@ -30,3 +30,7 @@ check:
     node scripts/stamp-assets.mjs --check
     node --test
     node test/run.js
+
+# Deep fuzzing run, e.g. `just fuzz 20000 7` (iterations per format, seed)
+fuzz iterations="5000" seed="20261029":
+    FUZZ_ITERATIONS={{iterations}} FUZZ_SEED={{seed}} node --test test/fuzz.test.js

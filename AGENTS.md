@@ -44,6 +44,7 @@ These rules apply unconditionally across this repository.
   - `test/pacing.test.js`: Power-equation speed model, average-speed calibration, time-based fuel spacing.
   - `test/history.test.js`: Undo / redo snapshots, edit merging, history resets.
   - `test/climb-detail.test.js`: Climb segmentation, climb detail stickers, stacked export and print sheets.
+  - `test/fuzz.test.js`: Seeded mutation fuzzing of GPX / TCX / FIT / v3 links through parse, store and render (`just fuzz <n> <seed>` for deep runs). Turn every finding into a regression case in `test/robustness.test.js`.
   - `test/assets.test.js`: `index.html` asset version stamps, import map coverage and its CSP hash are current.
   - `test/robustness.test.js`: Hostile / broken input: crafted share links (setting clamps, compression bombs, size caps), invalid coordinates, GPS glitches, input size limits, corrupted saved plans, XML entity attacks, CSP compatibility. Add a case here for every new input path.
 - **Keep Tests Updated:** When introducing new algorithms, formulas, or formats, add corresponding test cases to `test/`.

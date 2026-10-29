@@ -7,6 +7,9 @@
 import { DEFAULT_SETTINGS, THEME_INDEX, THEME_NAMES, WPT_TYPE_INDEX, WPT_TYPE_NAMES } from './constants.js';
 import { simplifyProfileCurve } from './simplify.js';
 
+/** Largest distance the v3 format can express (3-byte total distance field). */
+const MAX_V3_DISTANCE_M = 0xffffff;
+
 /**
  * Safely extracts a subarray slice from a byte buffer without overflowing bounds.
  *
@@ -199,7 +202,11 @@ export function deserializeBinaryState(bytes) {
       if (offsetObj.offset >= bytes.length) return null;
       const deltaD = readVarint(bytes, offsetObj);
       const deltaE = readVarint(bytes, offsetObj);
+      // Distances only grow and cannot exceed what the 3-byte total field can express;
+      // otherwise a crafted link makes the dense reconstruction below build millions of points
+      if (deltaD < 0) return null;
       prevD += deltaD * 10;
+      if (prevD > MAX_V3_DISTANCE_M) return null;
       prevE += deltaE / 10.0;
       simplified.push([prevD, prevE]);
     }

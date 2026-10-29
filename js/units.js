@@ -184,3 +184,26 @@ export function hasRouteLength(coords) {
   const first = coords[0];
   return coords.some(c => c.lat !== first.lat || c.lon !== first.lon || (c.dist !== undefined && c.dist !== first.dist));
 }
+
+/**
+ * Route length in meters: great-circle sum for GPS coordinates, or the last
+ * distance for synthetic distance-based coordinates.
+ *
+ * @param {NormalizedCoordinate[]} coords - Normalized coordinates
+ * @returns {number}
+ */
+export function routeLengthM(coords) {
+  if (!Array.isArray(coords) || coords.length < 2) return 0;
+  if (coords[0].dist !== undefined) return coords[coords.length - 1].dist - coords[0].dist;
+  const rad = d => (d * Math.PI) / 180;
+  let total = 0;
+  for (let i = 1; i < coords.length; i++) {
+    const a = coords[i - 1];
+    const b = coords[i];
+    const dLat = rad(b.lat - a.lat);
+    const dLon = rad(b.lon - a.lon);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLon / 2) ** 2;
+    total += 2 * 6371000 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+  }
+  return total;
+}

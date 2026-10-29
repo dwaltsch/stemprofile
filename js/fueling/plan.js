@@ -9,6 +9,11 @@ import { detectTerrainHazard, findNearestSafeWindow } from './terrain.js';
 import { distToElapsedSeconds, formatElapsedSeconds } from './timing.js';
 import { buildPacing } from './pacing.js';
 
+/** Smallest forward step of the cadence loop. */
+const MIN_CADENCE_PROGRESS_M = 500;
+/** Upper bound on cadence loop iterations (a 24 h race needs ~70 feeds). */
+const MAX_CADENCE_STEPS = 1000;
+
 /**
  * Automatically generates a recommended "Pro Default" fueling strategy:
  * - Aims for target carbs/h (default 75g CHO/h, in the 60-80g bracket)
@@ -163,13 +168,16 @@ export function generateDefaultFuelPlan({ points, stats, climbs = [], waypoints 
 
   let curM = pacing.distAt(nominalIntervalSec);
   let cadenceStep = 0;
+  // Termination guard: every iteration advances at least MIN_CADENCE_PROGRESS_M and the loop is
+  // capped, so no pacing model / hazard-search interaction (e.g. on corrupted tracks) can spin forever
+  const moveTo = nextM => Math.max(nextM, curM + MIN_CADENCE_PROGRESS_M);
 
-  while (curM < totalDistM - 3500) {
+  for (let step = 0; curM < totalDistM - 3500 && step < MAX_CADENCE_STEPS; step++) {
     // Check if an existing item (aid station or pre-climb gel) is nearby
     const curSec = tAt(curM);
     const nearbyItem = items.find(it => Math.abs(tAt(it.distM) - curSec) < minSpacingSec);
     if (nearbyItem) {
-      curM = advance(nearbyItem.distM, feedIntervalSec(nearbyItem.carbsG || 30));
+      curM = moveTo(advance(nearbyItem.distM, feedIntervalSec(nearbyItem.carbsG || 30)));
       continue;
     }
 
@@ -229,7 +237,7 @@ export function generateDefaultFuelPlan({ points, stats, climbs = [], waypoints 
       }
     }
 
-    curM = advance(safeTargetM, feedIntervalSec(itemCarbs));
+    curM = moveTo(advance(safeTargetM, feedIntervalSec(itemCarbs)));
   }
 
   // Sort chronologically by distance

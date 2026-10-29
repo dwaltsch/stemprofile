@@ -14,6 +14,9 @@ export const MAX_FILE_BYTES = 50 * 1024 * 1024;
 /** Most track points kept; larger tracks are thinned preserving elevation extremes. */
 export const MAX_TRACK_POINTS = 100000;
 
+/** Longest route accepted (km); RAAM is ~5,000 km. Longer "routes" are corrupted or hostile. */
+export const MAX_ROUTE_KM = 10000;
+
 /** Most GPX / TCX / FIT waypoints imported (matching is O(waypoints x points)). */
 export const MAX_IMPORTED_WAYPOINTS = 500;
 
