@@ -19,3 +19,4 @@ import './fueling.test.js';
 import './export.test.js';
 import './app.test.js';
 import './escape.test.js';
+import './share-compat.test.js';
