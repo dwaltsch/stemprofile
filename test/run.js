@@ -1,27 +1,39 @@
 /**
  * StemProfile Standalone Test Runner
  *
- * Runs all test suites under test/ using Node's built-in test runner.
+ * Runs every test suite in one process (shared globals), which catches
+ * suites that leak global state into each other.
  * Usage:
- *   node --test
- *   or
- *   node test/run.js
+ *   node --test        (each suite in its own process)
+ *   node test/run.js   (all suites in this process)
+ *
+ * `node --test` also picks up this file as a test file. In that case
+ * NODE_TEST_CONTEXT is set and this file does nothing, otherwise every
+ * suite would run twice.
  */
 
-import './units.test.js';
-import './layout.test.js';
-import './store.test.js';
-import './signal.test.js';
-import './share.test.js';
-import './parser.test.js';
-import './renderer.test.js';
-import './fueling.test.js';
-import './export.test.js';
-import './app.test.js';
-import './escape.test.js';
-import './share-compat.test.js';
-import './ui-modules.test.js';
-import './pacing.test.js';
-import './history.test.js';
-import './climb-detail.test.js';
-import './robustness.test.js';
+const SUITES = [
+  './units.test.js',
+  './layout.test.js',
+  './store.test.js',
+  './signal.test.js',
+  './share.test.js',
+  './parser.test.js',
+  './renderer.test.js',
+  './fueling.test.js',
+  './export.test.js',
+  './app.test.js',
+  './escape.test.js',
+  './share-compat.test.js',
+  './ui-modules.test.js',
+  './pacing.test.js',
+  './history.test.js',
+  './climb-detail.test.js',
+  './robustness.test.js'
+];
+
+if (!process.env.NODE_TEST_CONTEXT) {
+  for (const suite of SUITES) {
+    await import(suite);
+  }
+}

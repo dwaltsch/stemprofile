@@ -160,10 +160,11 @@ describe('App & UI Integration: Route File Ingestion Flow', () => {
       }
     };
 
-    const origGetElementById = globalThis.document ? globalThis.document.getElementById : null;
-    if (!globalThis.document) {
+    const createdDocument = !globalThis.document;
+    if (createdDocument) {
       globalThis.document = {};
     }
+    const origGetElementById = globalThis.document.getElementById;
     globalThis.document.getElementById = id => id === 'file-input' ? fakeInput : null;
 
     try {
@@ -175,7 +176,10 @@ describe('App & UI Integration: Route File Ingestion Flow', () => {
       openRouteFilePicker();
       assert.equal(clickCount, 1, 'Immediate second call within 500ms must be suppressed to prevent macOS dialog dismissal');
     } finally {
-      if (origGetElementById) {
+      // Leave no partial document behind for later suites in the same process
+      if (createdDocument) {
+        delete globalThis.document;
+      } else {
         globalThis.document.getElementById = origGetElementById;
       }
     }
