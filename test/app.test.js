@@ -184,9 +184,14 @@ describe('App & UI Integration: Route File Ingestion Flow', () => {
 
 describe('App & UI Responsiveness: Viewport Layout & Overflow Prevention', () => {
   const htmlPath = path.resolve(__dirname, '../index.html');
-  const cssPath = path.resolve(__dirname, '../css/styles.css');
   const html = fs.readFileSync(htmlPath, 'utf8');
-  const css = fs.readFileSync(cssPath, 'utf8');
+  // Stylesheets are split per UI area; concatenate them in the order index.html links them.
+  const cssHrefs = [...html.matchAll(/<link rel="stylesheet" href="([^"]+\.css)">/g)].map(m => m[1]);
+  const css = cssHrefs.map(href => fs.readFileSync(path.resolve(__dirname, '..', href), 'utf8')).join('\n');
+
+  it('links stylesheets that all exist on disk', () => {
+    assert.ok(cssHrefs.length > 0, 'index.html must link at least one stylesheet');
+  });
 
   it('guarantees page and body level horizontal overflow is locked', () => {
     assert.match(css, /html\s*\{[^}]*overflow-x:\s*hidden/, 'html must specify overflow-x: hidden');

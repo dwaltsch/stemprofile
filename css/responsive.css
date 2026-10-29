@@ -1,0 +1,147 @@
+/* ==========================================================================
+   Mobile Workstation Responsiveness (< 768px & < 480px)
+   ========================================================================== */
+@media (max-width: 768px) {
+  header.app-header {
+    padding: 0 0.65rem;
+    gap: 0.4rem;
+    height: 48px;
+  }
+
+  .brand-text .brand-tag {
+    display: none;
+  }
+
+  .route-pill {
+    display: none;
+  }
+
+  .view-switch-group {
+    display: none;
+  }
+
+  .actions {
+    gap: 0.25rem;
+  }
+
+  .btn {
+    padding: 0.38rem 0.55rem;
+    font-size: 0.74rem;
+    min-height: 36px;
+  }
+
+  .btn .btn-text {
+    display: none;
+  }
+
+  .action-divider {
+    margin: 0 0.1rem;
+    height: 16px;
+  }
+
+  /* Prevent iOS Safari auto-zoom when focusing inputs */
+  input[type="text"],
+  input[type="number"],
+  select {
+    font-size: 16px !important;
+  }
+
+  /* Mobile Stage Preview adjustments */
+  .preview-stage {
+    padding: 2.8rem 0.5rem 1.25rem;
+    min-height: 240px;
+  }
+
+  .stage-header-toolbar {
+    left: 0.5rem;
+    right: 0.5rem;
+    top: 8px;
+  }
+
+  .stage-zoom-controls .zoom-btn[data-zoom="actual"],
+  .stage-zoom-controls #btn-reset-labels {
+    display: none;
+  }
+
+  /* Scrollable Climbs Table */
+  .climbs-panel {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .climbs-table {
+    min-width: 440px;
+  }
+
+  /* Touch Target Enhancements */
+  .pill-opt {
+    min-height: 32px;
+    padding: 0.35rem 0.55rem;
+  }
+
+  .checkbox-row {
+    padding: 0.25rem 0;
+  }
+
+  .checkbox-row input {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* Responsive Print Studio Modal */
+  .modal-dialog.print-studio-dialog {
+    max-height: 96vh;
+    border-radius: 8px;
+  }
+
+  .modal-footer.print-studio-footer {
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .modal-footer .footer-left,
+  .modal-footer .footer-right {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .modal-footer .footer-left .btn,
+  .modal-footer .footer-right .btn {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  header.app-header {
+    padding: 0 0.5rem;
+  }
+
+  .brand-title {
+    font-size: 0.85rem;
+  }
+
+  .brand-logo {
+    width: 24px;
+    height: 24px;
+  }
+
+  .mobile-tab-btn span {
+    font-size: 0.74rem;
+  }
+
+  .stats-strip {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.45rem;
+  }
+
+  .stat-item {
+    padding: 0.45rem 0.6rem;
+  }
+
+  .stat-value {
+    font-size: 1.05rem;
+  }
+}
+

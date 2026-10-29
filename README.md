@@ -104,7 +104,16 @@ toptube/
 ├── index.html          # Clean application layout & control workstation
 ├── favicon.svg         # Modern vector cycling elevation profile favicon
 ├── css/
-│   └── styles.css      # Dark cockpit & light theme, @media print matrix styles
+│   ├── base.css        # Theme tokens, resets, accessibility helpers
+│   ├── header.css      # Header bar, buttons, mobile tab switcher
+│   ├── layout.css      # Studio grid, sidebar, form controls
+│   ├── stage.css       # Center workbench, zoom, stats strip
+│   ├── panels.css      # Climbs, legend, waypoints panels
+│   ├── print.css       # Print Studio modal & @media print matrix
+│   ├── toast.css       # Toast notifications
+│   ├── responsive.css  # Mobile breakpoints
+│   └── fueling.css     # Fueling mode & nutrition panel
+│                       # (linked in this order in index.html; order matters)
 ├── js/
 │   ├── app.js          # Application coordinator & bootstrapper
 │   ├── store.js        # Reactive application state store & event bus

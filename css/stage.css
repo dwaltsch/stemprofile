@@ -1,0 +1,298 @@
+/* ==========================================================================
+   Center Stage / Workbench
+   ========================================================================== */
+main.stage-area {
+  background: var(--bg-workbench);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.preview-stage {
+  width: 100%;
+  max-width: 960px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 3.6rem 1.5rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 380px;
+  position: relative;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 0.15s ease;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.preview-stage.dragover {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  box-shadow: 0 0 0 2px var(--accent), 0 8px 24px rgba(37, 99, 235, 0.12);
+}
+
+.stage-drop-hint {
+  display: none;
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(4px);
+  border-radius: 7px;
+  border: 2px dashed var(--accent);
+  z-index: 40;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.6rem;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+[data-theme="dark"] .stage-drop-hint {
+  background: rgba(11, 15, 23, 0.92);
+}
+
+.preview-stage.dragover .stage-drop-hint {
+  display: flex;
+}
+
+/* Stage Header Toolbar (Calipers & Zoom Controls) */
+.stage-header-toolbar {
+  position: absolute;
+  top: 12px;
+  left: 1.25rem;
+  right: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+  z-index: 10;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.stage-header-toolbar > * {
+  pointer-events: auto;
+}
+
+/* Calipers */
+.caliper-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 0.70rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  gap: 0.5rem;
+  background: var(--bg-pill);
+  border: 1px solid var(--border-color);
+  padding: 3px 10px;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.caliper-tick {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* Stage Zoom Controls */
+.stage-zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  background: var(--bg-pill);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 2px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.zoom-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  user-select: none;
+}
+
+.zoom-btn:hover:not(.active) {
+  color: var(--text-primary);
+  background: var(--bg-pill-hover);
+}
+
+.zoom-btn.active {
+  background: var(--bg-pill-active);
+  color: var(--text-pill-active);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Sticker Wrapper & Responsive Zoom */
+.sticker-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: var(--stage-zoom-w, 720px);
+  background: transparent;
+  position: relative;
+  cursor: crosshair;
+  transition: max-width 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sticker-wrapper.zoom-actual {
+  max-width: var(--sticker-w);
+}
+
+#svg-host {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#svg-host svg#profile-svg-elem {
+  width: 100%;
+  height: auto;
+  display: block;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.14), 0 1px 3px rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
+}
+
+[data-theme="dark"] #svg-host svg#profile-svg-elem {
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* Empty State */
+.empty-msg {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-dim);
+  text-align: center;
+  padding: 3rem 1.5rem;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s ease;
+}
+
+.empty-msg:hover {
+  color: var(--text-secondary);
+}
+
+.empty-msg svg {
+  color: var(--text-dim);
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.empty-msg:hover svg {
+  color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.empty-msg h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.empty-msg p {
+  font-size: 0.74rem;
+}
+
+/* Tooltip Hover */
+#cursor-tip {
+  position: absolute;
+  display: none;
+  pointer-events: none;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  color: #ffffff;
+  z-index: 50;
+  white-space: nowrap;
+  transform: translate(-50%, -125%);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+/* Stats Summary Row */
+.stats-strip {
+  width: 100%;
+  max-width: 900px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+@media (max-width: 1120px) and (min-width: 961px) {
+  .stats-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .stats-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+}
+
+.stat-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.65rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  min-width: 0;
+}
+
+.stat-label {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.stat-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  margin-top: 0.15rem;
+}
+
+.stat-highlight-green { color: var(--z1); }
+.stat-highlight-red { color: var(--z4); }
+.stat-highlight-blue { color: var(--accent); }
+

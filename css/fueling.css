@@ -1,0 +1,979 @@
+/* ==========================================================================
+   View Switcher (Elevation vs Fueling Mode)
+   ========================================================================== */
+.view-switch-group {
+  display: flex;
+  align-items: center;
+  background: var(--bg-pill);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.view-switch-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.65rem;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.view-switch-btn:hover {
+  color: var(--text-primary);
+}
+
+.view-switch-btn.active {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Fueling Panel Streamlined Styling */
+.fuel-header-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.fuel-summary-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--bg-pill);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 0.22rem 0.65rem;
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.fuel-sum-icon {
+  color: #eab308;
+}
+
+.fuel-sum-bold {
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.fuel-sum-muted {
+  color: var(--text-dim);
+}
+
+.mini-pill-group .pill-opt {
+  padding: 0.2rem 0.55rem;
+  font-size: 0.70rem;
+}
+
+.fuel-inline-settings {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.45rem;
+  background: var(--bg-pill);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.35rem 0.55rem;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.inline-setting-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.input-with-unit {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+}
+
+.input-with-unit input {
+  width: 52px;
+  padding: 0.18rem 1.4rem 0.18rem 0.4rem;
+  font-size: 0.74rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  height: 24px;
+}
+
+.input-with-unit .unit-tag {
+  position: absolute;
+  right: 4px;
+  font-size: 0.60rem;
+  color: var(--text-dim);
+  pointer-events: none;
+  font-family: var(--font-mono);
+}
+
+.btn-subtle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.70rem;
+  margin-left: auto;
+  height: 24px;
+}
+
+/* Quick Add Presets Bar */
+.fuel-quick-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.quick-bar-label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.fuel-quick-scroll {
+  display: flex;
+  gap: 0.3rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.fuel-quick-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.fuel-mini-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  background: var(--bg-pill);
+  border: 1px solid var(--border-color);
+  font-size: 0.70rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.12s ease;
+}
+
+.fuel-mini-pill:hover {
+  background: var(--bg-pill-hover);
+  border-color: var(--border-hover);
+}
+
+.pill-code {
+  display: inline-block;
+  padding: 0.08rem 0.3rem;
+  border-radius: 3px;
+  font-size: 0.62rem;
+  font-weight: 900;
+  font-family: var(--font-mono, monospace);
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.fuel-type-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.12rem 0.32rem;
+  border-radius: 4px;
+  font-size: 0.64rem;
+  font-weight: 900;
+  font-family: var(--font-mono, monospace);
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.code-gel {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #f59e0b;
+}
+
+.code-hc {
+  background: #ffedd5;
+  color: #c2410c;
+  border: 1px solid #f97316;
+}
+
+.code-mix {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #38bdf8;
+}
+
+.code-bar {
+  background: #fef9c3;
+  color: #a16207;
+  border: 1px solid #eab308;
+}
+
+.code-caff {
+  background: #fce7f3;
+  color: #be185d;
+  border: 1px solid #ec4899;
+}
+
+.code-aid {
+  background: #ede9fe;
+  color: #6d28d9;
+  border: 1px solid #8b5cf6;
+}
+
+.code-h2o {
+  background: #e0f2fe;
+  color: #0284c7;
+  border: 1px solid #0ea5e9;
+}
+
+[data-theme="dark"] .code-gel {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  border-color: #f59e0b;
+}
+
+[data-theme="dark"] .code-hc {
+  background: rgba(249, 115, 22, 0.18);
+  color: #fb923c;
+  border-color: #f97316;
+}
+
+[data-theme="dark"] .code-mix {
+  background: rgba(56, 189, 248, 0.18);
+  color: #38bdf8;
+  border-color: #0284c7;
+}
+
+[data-theme="dark"] .code-bar {
+  background: rgba(234, 179, 8, 0.18);
+  color: #facc15;
+  border-color: #ca8a04;
+}
+
+[data-theme="dark"] .code-caff {
+  background: rgba(236, 72, 153, 0.18);
+  color: #f472b6;
+  border-color: #db2777;
+}
+
+[data-theme="dark"] .code-aid {
+  background: rgba(139, 92, 246, 0.18);
+  color: #a78bfa;
+  border-color: #7c3aed;
+}
+
+[data-theme="dark"] .code-h2o {
+  background: rgba(14, 165, 233, 0.18);
+  color: #38bdf8;
+  border-color: #0284c7;
+}
+
+/* Workbench Fueling Mode (Narrow Vertical Top-Tube Sticker) */
+.preview-stage.mode-fueling .sticker-wrapper {
+  max-width: 260px;
+}
+
+.preview-stage.mode-fueling #btn-reset-labels {
+  display: none;
+}
+
+.preview-stage.mode-fueling #svg-host svg#fueling-svg-elem {
+  width: 100%;
+  height: auto;
+  display: block;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.14), 0 1px 3px rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
+}
+
+[data-theme="dark"] .preview-stage.mode-fueling #svg-host svg#fueling-svg-elem {
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* Draggable Fuel List Cards */
+.fuel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 520px;
+  overflow-y: auto;
+  margin-top: 0.4rem;
+}
+
+.fuel-item-card {
+  display: flex;
+  align-items: stretch;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.35rem 0.45rem;
+  gap: 0.35rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fuel-item-card:hover {
+  border-color: var(--border-hover);
+}
+
+.fuel-item-card.dragging {
+  opacity: 0.4;
+  border-style: dashed;
+}
+
+.fuel-item-card.drag-over {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-subtle);
+}
+
+.fuel-card-handle {
+  display: flex;
+  align-items: center;
+  color: var(--text-dim);
+  cursor: grab;
+  padding: 0.15rem 0.25rem;
+  border-radius: 3px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.fuel-card-handle:hover {
+  color: var(--text-primary);
+  background: var(--bg-pill);
+}
+
+.fuel-card-handle:active {
+  cursor: grabbing;
+}
+
+.fuel-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.fuel-card-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+.fuel-card-meta-left {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.fuel-card-meta-right {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.fuel-type-select {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 900;
+  font-family: var(--font-mono, monospace);
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  outline: none;
+  border-width: 1px;
+  border-style: solid;
+  transition: opacity 0.15s ease, border-color 0.15s ease;
+}
+
+.fuel-type-select:hover {
+  filter: brightness(0.96);
+}
+
+.fuel-type-select option {
+  background: var(--bg-card, #ffffff);
+  color: var(--text-primary, #0f172a);
+  font-weight: 700;
+}
+
+.fuel-card-name-row {
+  display: flex;
+  width: 100%;
+}
+
+.fuel-index-badge {
+  font-size: 0.72rem;
+  font-weight: 900;
+  font-family: var(--font-mono);
+  background: var(--bg-pill);
+  padding: 0.15rem 0.35rem;
+  border-radius: 4px;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.fuel-icon-glyph {
+  font-size: 0.95rem;
+}
+
+.fuel-name-input {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  border-radius: 4px;
+  padding: 0.22rem 0.45rem;
+  cursor: text;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fuel-name-input:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-input-hover);
+}
+
+.fuel-name-input:focus {
+  border-color: var(--border-focus);
+  background: var(--bg-input);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-subtle);
+}
+
+.fuel-carbs-pill {
+  display: flex;
+  align-items: center;
+  background: var(--bg-pill);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 0 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-secondary);
+  transition: border-color 0.15s ease;
+}
+
+.fuel-carbs-pill:hover {
+  border-color: var(--border-hover);
+}
+
+.fuel-carbs-input {
+  width: 30px;
+  border: none;
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  text-align: right;
+  padding: 0.15rem 0;
+}
+
+.fuel-carbs-input:focus {
+  outline: none;
+}
+
+.fuel-del-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0.2rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.fuel-del-btn:hover {
+  color: var(--z4);
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.fuel-hazard-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+}
+
+.fuel-hazard-chip.hazard-climb {
+  background: rgba(220, 38, 38, 0.1);
+  color: var(--z4);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+}
+
+.fuel-hazard-chip.hazard-descent {
+  background: rgba(234, 88, 12, 0.1);
+  color: var(--z3);
+  border: 1px solid rgba(234, 88, 12, 0.25);
+}
+
+.btn-snap-flat {
+  border: none;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 3px;
+  padding: 0.1rem 0.3rem;
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: inherit;
+  cursor: pointer;
+}
+
+.btn-snap-flat:hover {
+  background: rgba(0, 0, 0, 0.16);
+}
+
+/* Editable Distance Badge on Fuel Item Cards */
+.fuel-dist-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  background: var(--bg-pill);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 0 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-primary);
+}
+
+.fuel-dist-input {
+  width: 38px;
+  border: none;
+  background: transparent;
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  text-align: right;
+  padding: 0.12rem 0;
+  font-family: var(--font-mono);
+}
+
+.fuel-dist-input:focus {
+  outline: none;
+}
+
+.fuel-dist-unit {
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+/* Unified Fueling Strategy Card */
+.panel-fuel-unified {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.fuel-unified-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0.75rem;
+}
+
+.fuel-unified-card .fuel-list {
+  flex: 1;
+  max-height: none;
+  height: 100%;
+}
+
+/* Fueling Plan Top Header & Controls */
+.fuel-card-top-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.6rem;
+}
+
+.fuel-header-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.fuel-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.mini-pill-group .pill-opt {
+  padding: 0.2rem 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.btn-auto-plan {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 4px;
+}
+
+/* Fueling Telemetry Summary Row */
+.fuel-summary-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+  margin-bottom: 0.6rem;
+  background: var(--bg-pill, #f1f5f9);
+  padding: 0.4rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color, #e2e8f0);
+}
+
+.fuel-metric-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.fuel-metric-chip .metric-lbl {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim, #94a3b8);
+}
+
+.fuel-metric-chip .metric-val {
+  font-size: 0.82rem;
+  font-weight: 900;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-primary, #0f172a);
+}
+
+/* Controls Bar (Target, Speed, Defaults) */
+.fuel-controls-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+}
+
+.fuel-control-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.fuel-control-field label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-secondary, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.input-with-unit {
+  display: flex;
+  align-items: center;
+  background: var(--bg-input, #ffffff);
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 4px;
+  padding: 0 0.35rem;
+  transition: border-color 0.15s ease;
+}
+
+.input-with-unit:focus-within {
+  border-color: var(--accent-blue, #3b82f6);
+  box-shadow: 0 0 0 2px var(--accent-subtle, rgba(59, 130, 246, 0.15));
+}
+
+.input-with-unit input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-primary, #0f172a);
+  padding: 0.22rem 0;
+}
+
+.input-with-unit input:focus {
+  outline: none;
+}
+
+.input-with-unit .unit-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-dim, #94a3b8);
+  white-space: nowrap;
+}
+
+.btn-toggle-defaults {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  height: 28px;
+  white-space: nowrap;
+}
+
+.btn-toggle-defaults.active {
+  background: var(--accent-blue, #3b82f6);
+  color: #ffffff;
+  border-color: var(--accent-blue, #3b82f6);
+}
+
+/* Product Defaults Drawer */
+.fuel-defaults-panel {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 6px;
+  padding: 0.6rem;
+  margin-bottom: 0.65rem;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06);
+  animation: fadeInDown 0.15s ease-out;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.defaults-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.45rem;
+}
+
+.defaults-drawer-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-primary, #0f172a);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.btn-close-defaults {
+  background: transparent;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim, #94a3b8);
+  cursor: pointer;
+  padding: 0.2rem;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.btn-close-defaults:hover {
+  color: var(--text-primary, #0f172a);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.defaults-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.default-input-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.default-input-item label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-secondary, #64748b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mini-unit {
+  padding: 0 0.25rem;
+}
+
+.mini-unit input {
+  font-size: 0.74rem;
+  padding: 0.15rem 0;
+}
+
+.mini-unit .unit-tag {
+  font-size: 0.62rem;
+}
+
+.defaults-drawer-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+}
+
+/* Fueling Telemetry Stats Strip Items */
+.stat-item-fueling {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Hourly Carb Distribution Meter (Bonk Risk Gauge) */
+.fuel-hourly-card {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 6px;
+  padding: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.fuel-hourly-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.35rem;
+}
+
+.fuel-hourly-title {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary, #64748b);
+}
+
+.fuel-hourly-badge {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--text-dim, #94a3b8);
+  font-family: var(--font-mono, monospace);
+}
+
+.fuel-hourly-chart {
+  min-height: 58px;
+  display: flex;
+  align-items: flex-end;
+}
+
+.hourly-bars-track {
+  display: flex;
+  gap: 0.25rem;
+  align-items: flex-end;
+  width: 100%;
+  overflow-x: auto;
+  padding: 0.2rem 0;
+}
+
+.hourly-bar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-width: 24px;
+  cursor: default;
+}
+
+.hourly-bar-wrapper {
+  width: 100%;
+  height: 36px;
+  background: var(--bg-pill, rgba(0, 0, 0, 0.05));
+  border-radius: 3px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.hourly-bar-fill {
+  width: 100%;
+  border-radius: 2px;
+  transition: height 0.2s ease;
+}
+
+.bar-on-target {
+  background: #10b981;
+}
+
+.bar-warning {
+  background: #f59e0b;
+}
+
+.bar-critical {
+  background: #ef4444;
+}
+
+.hourly-bar-val {
+  font-size: 0.56rem;
+  font-weight: 700;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-secondary, #64748b);
+  margin-bottom: 2px;
+}
+
+.hourly-bar-lbl {
+  font-size: 0.56rem;
+  font-weight: 800;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-dim, #94a3b8);
+  margin-top: 2px;
+}
+
+.hourly-empty {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-dim, #94a3b8);
+  text-align: center;
+  width: 100%;
+  padding: 0.5rem 0;
+}
+
+
+
+
