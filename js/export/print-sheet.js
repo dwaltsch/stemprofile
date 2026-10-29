@@ -10,6 +10,7 @@ import { getUnitFactors, getUnitLabels } from '../units.js';
 import { renderFuelingSVG } from '../fueling-renderer.js';
 import { renderProfileSVG } from '../renderer.js';
 import { getDetailClimbs, renderClimbDetailSVG } from '../renderer/climb-detail.js';
+import { setHTML } from '../ui/html.js';
 
 /**
  * Generates vector L-shaped corner crop marks and center registration ticks for a sticker cell.
@@ -314,5 +315,5 @@ export function updatePrintMatrix(pointsOrOptions, stats, climbs, blocks, waypoi
   if (!host) return;
 
   const result = generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks, waypoints, settings, printOptions);
-  host.innerHTML = result.html;
+  setHTML(host, result.html);
 }

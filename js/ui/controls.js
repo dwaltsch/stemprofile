@@ -8,6 +8,7 @@
  */
 
 import { getRecommendedBlockPresets } from '../layout.js';
+import { setHTML } from './html.js';
 
 /**
  * Updates the block size segmented pill buttons to reflect stage distance and active settings.
@@ -38,7 +39,7 @@ export function updateBlockSizePills(store) {
     html += `<button type="button" class="pill-opt ${activeClass}" data-value="${opt.value}">${opt.label}</button>`;
   });
 
-  container.innerHTML = html;
+  setHTML(container, html);
 
   if (matched || currentVal === 0) {
     if (fieldCustomBlock) fieldCustomBlock.style.display = 'none';

@@ -9,6 +9,7 @@
 import { WAYPOINT_CONFIG, escapeXml } from '../renderer.js';
 import { getUnitFactors, getUnitLabels } from '../units.js';
 import { showToast } from './toast.js';
+import { setHTML } from './html.js';
 
 /**
  * Returns technical shortcode badge for waypoint type.
@@ -48,7 +49,7 @@ export function renderWaypointsList(store) {
 
   if (wpts.length === 0) {
     emptyHint.style.display = 'block';
-    listEl.innerHTML = '';
+    setHTML(listEl, '');
     return;
   }
 
@@ -93,7 +94,7 @@ export function renderWaypointsList(store) {
       </div>
     `;
   });
-  listEl.innerHTML = html;
+  setHTML(listEl, html);
 }
 
 /**

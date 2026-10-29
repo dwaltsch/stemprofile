@@ -7,6 +7,8 @@
  * @module ui/climbs-panel
  */
 
+import { setHTML } from './html.js';
+
 /**
  * Highlights or unhighlights a climb segment on both the SVG profile and sidebar table.
  *
@@ -49,7 +51,7 @@ export function renderClimbsTable(store) {
 
   if (!climbs || climbs.length === 0) {
     if (emptyHint) emptyHint.style.display = 'block';
-    host.innerHTML = '';
+    setHTML(host, '');
     return;
   }
 
@@ -83,7 +85,7 @@ export function renderClimbsTable(store) {
       </tr>
     `;
   });
-  host.innerHTML = html;
+  setHTML(host, html);
 
   // Bind row events
   const rows = host.querySelectorAll('tr[data-climb-id]');

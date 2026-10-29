@@ -11,6 +11,7 @@
 import { renderProfileSVG } from '../renderer.js';
 import { renderFuelingSVG } from '../fueling-renderer.js';
 import { getDetailClimbs, renderClimbDetailSVG } from '../renderer/climb-detail.js';
+import { setHTML } from './html.js';
 
 /**
  * Renders the active sticker preview (or empty-state prompt) into #svg-host.
@@ -27,14 +28,14 @@ export function renderPreview(state) {
   if (svgHost) {
     if (hasData) {
       if (isFuelingView) {
-        svgHost.innerHTML = renderFuelingSVG(state);
+        setHTML(svgHost, renderFuelingSVG(state));
       } else if (state.climbDetail) {
-        svgHost.innerHTML = renderClimbDetailPreview(state);
+        setHTML(svgHost, renderClimbDetailPreview(state));
       } else {
-        svgHost.innerHTML = renderProfileSVG(state);
+        setHTML(svgHost, renderProfileSVG(state));
       }
     } else {
-      svgHost.innerHTML = `
+      setHTML(svgHost, `
         <div class="empty-msg">
           <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -52,7 +53,7 @@ export function renderPreview(state) {
             Choose Route File
           </button>
         </div>
-      `;
+      `);
     }
   }
 }

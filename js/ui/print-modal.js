@@ -17,6 +17,7 @@ import {
   exportSheetPNG
 } from '../export.js';
 import { showToast } from './toast.js';
+import { setHTML } from './html.js';
 
 let activePrintConfig = { ...DEFAULT_PRINT_CONFIG };
 let currentStore = null;
@@ -50,7 +51,7 @@ export function updatePrintModalPreview(store) {
   if (!previewHost) return;
 
   const result = generatePrintSheetMarkup(state, activePrintConfig);
-  previewHost.innerHTML = result.html;
+  setHTML(previewHost, result.html);
 
   if (previewMeta) {
     const paperName = (activePrintConfig.paper || 'a4').toUpperCase();

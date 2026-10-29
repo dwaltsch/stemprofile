@@ -8,6 +8,7 @@ import { DEFAULT_FUEL_PRODUCT_DEFAULTS, calculateHourlyIntake, getStatePacing } 
 import { bindDragAndDrop } from './drag-sort.js';
 import { escapeHtml } from '../../escape.js';
 import { getUnitFactors, getUnitLabels } from '../../units.js';
+import { setHTML } from '../html.js';
 
 /**
  * Renders the fueling cues list and hourly intake meter.
@@ -107,7 +108,7 @@ export function renderFuelingPanel(store) {
 
   if (hourlyHost) {
     if (intake.hours.length === 0 || stats.totalDist <= 0) {
-      hourlyHost.innerHTML = '<div class="hourly-empty">Load route to preview hourly pacing</div>';
+      setHTML(hourlyHost, '<div class="hourly-empty">Load route to preview hourly pacing</div>');
     } else {
       let chartHtml = '<div class="hourly-bars-track">';
       intake.hours.forEach(h => {
@@ -127,14 +128,14 @@ export function renderFuelingPanel(store) {
         `;
       });
       chartHtml += '</div>';
-      hourlyHost.innerHTML = chartHtml;
+      setHTML(hourlyHost, chartHtml);
     }
   }
 
   // 2. Render Fueling Item Cards
   if (items.length === 0) {
     if (emptyHint) emptyHint.style.display = 'block';
-    listEl.innerHTML = '';
+    setHTML(listEl, '');
     return;
   }
 
@@ -258,7 +259,7 @@ export function renderFuelingPanel(store) {
     `;
   });
 
-  listEl.innerHTML = html;
+  setHTML(listEl, html);
   bindDragAndDrop(store, listEl);
 
   // Restore active input focus and cursor selection range

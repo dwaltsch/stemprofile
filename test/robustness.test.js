@@ -428,6 +428,22 @@ describe('Robustness: Content Security Policy', () => {
     assert.ok(!/script-src[^;]*'unsafe-(inline|eval)'/.test(csp), 'scripts must not allow unsafe-inline / unsafe-eval');
   });
 
+  it('writes raw HTML only through js/ui/html.js (setHTML)', () => {
+    const offenders = [];
+    const walk = dir => fs.readdirSync(dir, { withFileTypes: true }).forEach(e => {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) return walk(p);
+      if (!p.endsWith('.js') || p.endsWith(path.join('ui', 'html.js'))) return;
+      fs.readFileSync(p, 'utf8').split('\n').forEach((line, i) => {
+        if (/\.(?:inner|outer)HTML\s*=(?!=)|insertAdjacentHTML\s*\(|document\.write\s*\(/.test(line)) {
+          offenders.push(`${path.relative(repo, p)}:${i + 1}`);
+        }
+      });
+    });
+    walk(path.join(repo, 'js'));
+    assert.deepEqual(offenders, [], 'use setHTML() from js/ui/html.js instead');
+  });
+
   it('keeps the page compatible with script-src self (no inline scripts, handlers or eval)', () => {
     // The only inline script allowed is the generated import map, pinned by its CSP hash (see test/assets.test.js)
     const inline = html.match(/<script(?![^>]*\ssrc=)[^>]*>/g) || [];

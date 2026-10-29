@@ -13,6 +13,7 @@ import { openPrintModal, getActivePrintConfig } from './print-modal.js';
 import { copyShareableLink } from '../share.js';
 import { exportSVG, exportPNG, copySVG, updatePrintMatrix } from '../export.js';
 import { getUnitFactors } from '../units.js';
+import { setHTML } from './html.js';
 
 /**
  * Initializes workbench click interactions and export dialog buttons.
@@ -113,10 +114,10 @@ export function initActions(store) {
     btnShareLink.addEventListener('click', async () => {
       try {
         const orig = btnShareLink.innerHTML;
-        btnShareLink.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Link Copied!`;
+        setHTML(btnShareLink, `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Link Copied!`);
         await copyShareableLink(store.getState());
         showToast('Share link copied to clipboard', 'success');
-        setTimeout(() => { btnShareLink.innerHTML = orig; }, 1800);
+        setTimeout(() => setHTML(btnShareLink, orig), 1800);
       } catch (err) {
         showToast('Failed to generate share link: ' + err.message, 'error');
       }
@@ -139,9 +140,9 @@ export function initActions(store) {
       copySVG(store.getState(), err => {
         if (!err) {
           const orig = btnCopy.innerHTML;
-          btnCopy.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!`;
+          setHTML(btnCopy, `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!`);
           showToast('SVG markup copied to clipboard', 'success');
-          setTimeout(() => { btnCopy.innerHTML = orig; }, 1400);
+          setTimeout(() => setHTML(btnCopy, orig), 1400);
         } else {
           showToast('Failed to copy SVG: ' + err.message, 'error');
         }

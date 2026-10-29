@@ -6,6 +6,8 @@
  * @module ui/toast
  */
 
+import { setHTML } from './html.js';
+
 /**
  * Displays a non-blocking toast message on screen.
  *
@@ -38,7 +40,7 @@ export function showToast(message, type = 'info', durationMs = 2500) {
   }
 
   // Icon markup is static; the message may contain user data (route titles), so set it as text.
-  toast.innerHTML = iconSvg;
+  setHTML(toast, iconSvg);
   const text = document.createElement('span');
   text.textContent = String(message);
   toast.appendChild(text);
