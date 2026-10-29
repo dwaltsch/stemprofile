@@ -8,7 +8,6 @@
  */
 
 import { store } from './store.js';
-import { updatePrintMatrix } from './export.js';
 import { decompressPayload, extractHashPayload } from './share.js';
 
 // Modular UI Controllers
@@ -21,7 +20,7 @@ import { initFuelingPanel, renderFuelingPanel } from './ui/fueling-panel.js';
 import { initDragEngine } from './ui/drag-engine.js';
 import { bindTooltipHover } from './ui/tooltip.js';
 import { showToast } from './ui/toast.js';
-import { initPrintModal, updatePrintModalPreview, getActivePrintConfig } from './ui/print-modal.js';
+import { initPrintModal, updatePrintModalPreview } from './ui/print-modal.js';
 import { renderPreview, syncViewMode } from './ui/workbench.js';
 import { updateStatsStrip } from './ui/stats-strip.js';
 import { initActions, syncHistoryButtons } from './ui/actions.js';
@@ -83,7 +82,8 @@ export function updateUI(event) {
   if (panels.has('climbs')) runSection('climbs panel', () => renderClimbsTable(store));
   if (panels.has('waypoints')) runSection('waypoints panel', () => renderWaypointsList(store));
   if (panels.has('fueling')) runSection('fueling panel', () => renderFuelingPanel(store));
-  runSection('print sheet', () => updatePrintMatrix(state, null, null, null, null, null, getActivePrintConfig()));
+  // The hidden print matrix is built on demand (beforeprint, Cmd+P, Print Studio), not on every update:
+  // at many copies of a large sticker it is tens of MB of markup
   if (!isFuelingView) {
     runSection('tooltip', () => bindTooltipHover(store));
   }

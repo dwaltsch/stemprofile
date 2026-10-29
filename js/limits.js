@@ -20,6 +20,9 @@ export const MAX_ROUTE_KM = 10000;
 /** Most GPX / TCX / FIT waypoints imported (matching is O(waypoints x points)). */
 export const MAX_IMPORTED_WAYPOINTS = 500;
 
+/** Most climbs shown / exported / printed in climb detail mode (route order). */
+export const MAX_DETAIL_CLIMBS = 50;
+
 /** Longest route title kept (characters). */
 export const MAX_TITLE_CHARS = 120;
 

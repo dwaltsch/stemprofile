@@ -205,6 +205,13 @@ main.stage-area {
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
+.climb-detail-note {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  text-align: center;
+}
+
 .zoom-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;

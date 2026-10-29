@@ -10,7 +10,7 @@
 
 import { renderProfileSVG } from '../renderer.js';
 import { renderFuelingSVG } from '../fueling-renderer.js';
-import { getDetailClimbs, renderClimbDetailSVG } from '../renderer/climb-detail.js';
+import { getDetailClimbs, getEligibleDetailClimbs, renderClimbDetailSVG } from '../renderer/climb-detail.js';
 import { setHTML } from './html.js';
 
 /**
@@ -150,5 +150,9 @@ function renderClimbDetailPreview(state) {
       </div>
     `;
   }
-  return `<div class="climb-detail-stack">${climbs.map((c, i) => renderClimbDetailSVG(state, c, { index: i })).join('')}</div>`;
+  const total = getEligibleDetailClimbs(state).length;
+  const note = total > climbs.length
+    ? `<p class="climb-detail-note">Showing the first ${climbs.length} of ${total} climbs. Hide climbs in the Climbs panel to choose others.</p>`
+    : '';
+  return `<div class="climb-detail-stack">${climbs.map((c, i) => renderClimbDetailSVG(state, c, { index: i })).join('')}${note}</div>`;
 }

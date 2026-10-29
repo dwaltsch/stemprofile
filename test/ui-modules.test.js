@@ -149,6 +149,7 @@ describe('UI Modules: Workbench, Stats Strip, Actions, Mobile Tabs', () => {
       document.getElementById('stat-dist').textContent = '';
       assert.doesNotThrow(() => updateUI());
       assert.match(document.getElementById('stat-dist').textContent, /km/, 'stats strip still updated');
+      assert.equal(document.getElementById('print-matrix').innerHTML, '', 'print matrix is built on demand, not per update');
     } finally {
       console.error = origError;
       delete host.innerHTML;

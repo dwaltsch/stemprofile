@@ -13,10 +13,10 @@ import path from 'node:path';
 import './helpers/dom-shim.js';
 import { createStore } from '../js/store.js';
 import { renderFuelingSVG } from '../js/fueling-renderer.js';
-import { renderClimbDetailStackSVG } from '../js/renderer/climb-detail.js';
+import { renderClimbDetailStackSVG, getEligibleDetailClimbs } from '../js/renderer/climb-detail.js';
 import { parseRouteFile } from '../js/parser.js';
 import { normalizeCoordinates } from '../js/units.js';
-import { MAX_ROUTE_KM, MAX_TRACK_POINTS, MAX_IMPORTED_WAYPOINTS, MAX_TITLE_CHARS, MAX_LABEL_CHARS, MAX_FILE_BYTES } from '../js/limits.js';
+import { MAX_DETAIL_CLIMBS, MAX_ROUTE_KM, MAX_TRACK_POINTS, MAX_IMPORTED_WAYPOINTS, MAX_TITLE_CHARS, MAX_LABEL_CHARS, MAX_FILE_BYTES } from '../js/limits.js';
 import { handleRouteFile } from '../js/ui/dropzone.js';
 import { installStubDocument } from './helpers/stub-document.js';
 import { savePlan, loadPlan, PLAN_INDEX_KEY, MAX_SAVED_PLANS } from '../js/plan-storage.js';
@@ -666,5 +666,50 @@ describe('Robustness: Fuzzer-Found Hangs (regressions)', () => {
     // Zigzag between two far-apart points: no single "glitch" to remove, but ~400,000 km in total
     const coords = Array.from({ length: 40 }, (_, i) => (i % 2 ? { lat: 45, lon: 6, ele: 1 } : { lat: -45, lon: -174, ele: 1 }));
     assert.throws(() => createStore().setTrack({ title: 'z', coords }), new RegExp(`longer than ${MAX_ROUTE_KM.toLocaleString('en')} km`));
+  });
+});
+
+describe('Performance Budgets: Worst Case the Limits Allow', () => {
+  // 100k points (the thinning cap), ~2,000 km sawtooth with ~200 climbs, 500 waypoints (the import cap),
+  // then the most expensive settings the clamps allow. Budgets are ~4x local timings to absorb slow CI runners.
+  const coords = Array.from({ length: 100000 }, (_, i) => ({ lat: 45 + i * 0.00018, lon: 6, ele: 300 + 400 * Math.abs(((i % 500) / 250) - 1) }));
+  const rawWaypoints = Array.from({ length: 500 }, (_, i) => ({ lat: 45 + i * 0.036, lon: 6, name: 'Feed ' + i, sym: 'Food', desc: '', typeStr: '' }));
+  const timed = fn => { const t0 = Date.now(); const value = fn(); return { value, ms: Date.now() - t0 }; };
+  const store = createStore();
+
+  it('loads the worst-case route within budget', () => {
+    const { ms } = timed(() => store.setTrack({ title: 'Worst', coords, rawWaypoints }));
+    assert.ok(ms < 5000, `setTrack took ${ms} ms`);
+    assert.ok(store.getState().climbs.length > MAX_DETAIL_CLIMBS, 'fixture must exceed the climb cap');
+  });
+
+  it('renders every sticker kind at the most expensive settings within budget', () => {
+    timed(() => store.updateSettings({ blockSizeM: 50, widthMm: 400, heightMm: 200, printCopies: 16 }, true));
+    const s = store.getState();
+    let profileChars = 0;
+    for (const [name, fn, maxMs, maxChars] of [
+      ['profile', () => renderProfileSVG(s), 1500, 6e6],
+      ['fueling', () => renderFuelingSVG(s), 500, 1e6]
+    ]) {
+      const { value, ms } = timed(fn);
+      assert.ok(ms < maxMs, `${name} took ${ms} ms`);
+      assert.ok(value.length < maxChars, `${name} is ${value.length} chars`);
+      if (name === 'profile') profileChars = value.length;
+    }
+    // The sheet holds `copies` stickers, so it scales with copies; it must render each sticker once
+    const sheet = timed(() => generatePrintSheetMarkup(s));
+    assert.ok(sheet.ms < 1500, `print sheet took ${sheet.ms} ms`);
+    assert.ok(sheet.value.html.length < sheet.value.count * profileChars * 1.1 + 50000, 'no growth beyond copies x sticker');
+  });
+
+  it('caps climb detail at MAX_DETAIL_CLIMBS cards within budget', () => {
+    store.setClimbDetail(true);
+    const s = store.getState();
+    assert.ok(getEligibleDetailClimbs(s).length > MAX_DETAIL_CLIMBS);
+    const { value, ms } = timed(() => renderClimbDetailStackSVG(s));
+    assert.equal(value.count, MAX_DETAIL_CLIMBS);
+    assert.ok(ms < 1500, `climb stack took ${ms} ms`);
+    const sheet = timed(() => generatePrintSheetMarkup(s));
+    assert.ok(sheet.value.count <= MAX_PRINT_CELLS && sheet.ms < 1500);
   });
 });

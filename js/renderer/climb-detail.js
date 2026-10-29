@@ -16,20 +16,32 @@ import { getInterpolatedEle } from '../signal.js';
 import { buildSpatialBlocks } from '../signal/blocks.js';
 import { getStatePacing } from '../fueling/pacing.js';
 import { getUnitFactors, getUnitLabels } from '../units.js';
+import { MAX_DETAIL_CLIMBS } from '../limits.js';
 
 const BLOCK_SIZE_CANDIDATES_M = [100, 200, 250, 500, 1000, 2000];
 const MAX_DETAIL_BLOCKS = 20;
 const CARD_GAP_MM = 4;
 
 /**
- * Climbs shown in climb detail mode: enabled and not hidden on the profile.
+ * Climbs eligible for climb detail mode: enabled and not hidden on the profile.
+ *
+ * @param {Object} state - Store state
+ * @returns {Array<Object>} Climbs in route order
+ */
+export function getEligibleDetailClimbs(state) {
+  const hidden = new Set(((state.settings && state.settings.hiddenClimbIds) || []).map(String));
+  return (state.climbs || []).filter(c => c && c.enabled !== false && !hidden.has(String(c.id)));
+}
+
+/**
+ * Climbs shown in climb detail mode: the eligible climbs, at most MAX_DETAIL_CLIMBS
+ * (a sawtooth route can have hundreds; a 7 m stack of stickers helps nobody).
  *
  * @param {Object} state - Store state
  * @returns {Array<Object>} Climbs in route order
  */
 export function getDetailClimbs(state) {
-  const hidden = new Set(((state.settings && state.settings.hiddenClimbIds) || []).map(String));
-  return (state.climbs || []).filter(c => c && c.enabled !== false && !hidden.has(String(c.id)));
+  return getEligibleDetailClimbs(state).slice(0, MAX_DETAIL_CLIMBS);
 }
 
 /**

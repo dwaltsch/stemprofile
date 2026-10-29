@@ -180,14 +180,22 @@ export function generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks,
   const title = p.settings.title || 'StemProfile Elevation Sticker';
 
   // Render individual sticker SVG
+  // Copies of the same sticker are identical, so each distinct sticker renders once per sheet
+  // (16 copies of a large profile used to cost 16 full renders on every UI update)
+  const renderedByKey = new Map();
+  const renderOnce = (key, render) => {
+    if (!renderedByKey.has(key)) renderedByKey.set(key, render());
+    return renderedByKey.get(key);
+  };
+
   const renderCellSvg = (cellIndex) => {
     if (isClimbSheet) {
       const climbIndex = Math.floor(cellIndex / copies);
-      return renderClimbDetailSVG(
+      return renderOnce(`climb-${climbIndex}`, () => renderClimbDetailSVG(
         { ...p, settings: { ...p.settings, theme: effectiveTheme } },
         detailClimbs[climbIndex],
         { index: climbIndex, isPrint: isPrintWhite }
-      );
+      ));
     }
     let isFuel = false;
     if (stickerType === 'fueling') {
@@ -201,16 +209,16 @@ export function generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks,
     }
 
     if (isFuel) {
-      return renderFuelingSVG({
+      return renderOnce('fueling', () => renderFuelingSVG({
         ...p,
         settings: { ...p.settings, theme: effectiveTheme }
-      }, { isPrint: isPrintWhite });
+      }, { isPrint: isPrintWhite }));
     }
-    return renderProfileSVG({
+    return renderOnce('profile', () => renderProfileSVG({
       ...p,
       settings: { ...p.settings, theme: effectiveTheme },
       isPrint: isPrintWhite
-    });
+    }));
   };
 
   // Crop marks SVG for one cell
@@ -229,7 +237,8 @@ export function generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks,
       .replace(/id="climb-active-grad"/g, `id="climb-active-grad-sheet-${i}"`)
       .replace(/url\(#climb-active-grad\)/g, `url(#climb-active-grad-sheet-${i})`)
       .replace(/id="profile-svg-elem"/g, `id="profile-svg-elem-sheet-${i}"`)
-      .replace(/id="fueling-svg-elem"/g, `id="fueling-svg-elem-sheet-${i}"`);
+      .replace(/id="fueling-svg-elem"/g, `id="fueling-svg-elem-sheet-${i}"`)
+      .replace(/profile-grad-([a-z0-9]+)/g, `profile-grad-$1-sheet-${i}`);
 
     const cutOutline = cfg.showCutLines
       ? `<div class="print-cell-cut-guide" style="position:absolute; left:${cropOffset}mm; top:${cropOffset}mm; width:${W}mm; height:${H}mm; border-radius:${radius}mm; border:0.35pt dashed #94a3b8; pointer-events:none;"></div>`
