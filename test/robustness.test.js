@@ -8,6 +8,8 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import './helpers/dom-shim.js';
 import { createStore } from '../js/store.js';
 import { renderFuelingSVG } from '../js/fueling-renderer.js';
@@ -386,5 +388,33 @@ describe('Robustness: XML Entity Attacks', () => {
 
   it('still parses ordinary GPX', () => {
     assert.equal(parseRouteFile(`<?xml version="1.0"?><gpx>${trk}</gpx>`, 'a.gpx').coords.length, 2);
+  });
+});
+
+describe('Robustness: Content Security Policy', () => {
+  const repo = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+  const html = fs.readFileSync(path.join(repo, 'index.html'), 'utf8');
+  const csp = (html.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/) || [])[1] || '';
+
+  it('declares a restrictive policy', () => {
+    for (const directive of ["default-src 'none'", "script-src 'self'", "object-src 'none'", "base-uri 'none'", "form-action 'none'"]) {
+      assert.ok(csp.includes(directive), `CSP must include ${directive}`);
+    }
+    assert.ok(!/script-src[^;]*'unsafe-(inline|eval)'/.test(csp), 'scripts must not allow unsafe-inline / unsafe-eval');
+  });
+
+  it('keeps the page compatible with script-src self (no inline scripts, handlers or eval)', () => {
+    assert.equal((html.match(/<script(?![^>]*\ssrc=)[^>]*>/g) || []).length, 0, 'no inline <script> blocks');
+    const jsFiles = [];
+    const walk = dir => fs.readdirSync(dir, { withFileTypes: true }).forEach(e => {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) walk(p); else if (p.endsWith('.js')) jsFiles.push(p);
+    });
+    walk(path.join(repo, 'js'));
+    for (const file of [path.join(repo, 'index.html'), ...jsFiles]) {
+      const src = fs.readFileSync(file, 'utf8');
+      assert.ok(!/\son[a-z]+\s*=\s*["']/.test(src), `inline event handler attribute in ${path.relative(repo, file)}`);
+      assert.ok(!/\beval\(|new Function\(/.test(src), `eval / new Function in ${path.relative(repo, file)}`);
+    }
   });
 });

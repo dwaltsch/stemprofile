@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Content Security Policy: only same-origin scripts, no plugins / forms / base rewriting.
+       Inline styles stay allowed (templates use style attributes); blob:/data: images are needed for PNG export. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
   <title>StemProfile — Pro Elevation Sticker Studio</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <!-- Order matters: later files override earlier ones, exactly as the former single styles.css -->
