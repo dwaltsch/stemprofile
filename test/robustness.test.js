@@ -16,7 +16,7 @@ import { parseRouteFile } from '../js/parser.js';
 import { normalizeCoordinates } from '../js/units.js';
 import { renderProfileSVG } from '../js/renderer.js';
 import { generatePrintSheetMarkup, MAX_PRINT_CELLS } from '../js/export.js';
-import { buildSpatialBlocks, MAX_SPATIAL_BLOCKS } from '../js/signal.js';
+import { buildSpatialBlocks, MAX_SPATIAL_BLOCKS, dropPositionSpikes } from '../js/signal.js';
 import {
   clampSettings,
   SETTING_LIMITS,
@@ -200,5 +200,42 @@ describe('Robustness: Invalid Coordinates', () => {
     assert.equal(store.getState().rawCoords.length, 2, 'only the two complete points remain ([1] has no longitude)');
     const allSame = await deserializeHashToState(await legacyLink({ t: 'x', coords: [[45, 6, 1], [45, 6, 1]] }));
     assert.equal(createStore().loadPayload(allSame), false);
+  });
+});
+
+describe('Robustness: GPS Position Glitches', () => {
+  const track = n => Array.from({ length: n }, (_, i) => ({ lat: 45 + i * 0.001, lon: 6, ele: 500 }));
+
+  it('drops a single fix that teleports across the globe and back', () => {
+    const coords = track(100);
+    coords[50] = { lat: -45, lon: -174, ele: 500 };
+    const { state } = loadAndRenderAll(coords);
+    assert.ok(state.stats.totalDist < 12000, `distance ${Math.round(state.stats.totalDist)} m`);
+    assert.equal(state.rawCoords.length, 99);
+  });
+
+  it('drops a short run of glitched fixes', () => {
+    const coords = track(100);
+    for (let i = 40; i < 44; i++) coords[i] = { lat: 10 + i * 0.001, lon: 20, ele: 500 };
+    assert.equal(dropPositionSpikes(coords).length, 96);
+  });
+
+  it('drops a bad first fix', () => {
+    const coords = [{ lat: 0, lon: 0, ele: 0 }, ...track(50)];
+    const out = dropPositionSpikes(coords);
+    assert.equal(out.length, 50);
+    assert.equal(out[0].lat, 45);
+  });
+
+  it('keeps a genuine gap that does not come back (ferry / joined tracks)', () => {
+    const coords = [...track(50), ...track(50).map(c => ({ ...c, lon: 6.5 }))];
+    assert.equal(dropPositionSpikes(coords).length, 100);
+  });
+
+  it('leaves normal and synthetic-distance tracks unchanged', () => {
+    const coords = track(200);
+    assert.deepEqual(dropPositionSpikes(coords), coords);
+    const synthetic = Array.from({ length: 10 }, (_, i) => ({ dist: i * 1e6, lat: 0, lon: 0, ele: 1 }));
+    assert.equal(dropPositionSpikes(synthetic), synthetic);
   });
 });

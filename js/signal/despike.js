@@ -1,8 +1,64 @@
 /**
- * Elevation outlier removal for GPS / barometric spikes before smoothing.
+ * Outlier removal before smoothing: GPS position glitches (a fix that jumps
+ * kilometres away and back) and elevation spikes from GPS / barometric sensors.
  *
  * @module signal/despike
  */
+
+import { calcHaversine } from './geo.js';
+
+/** Longest run of glitched fixes that is removed when the track jumps away and comes back. */
+const MAX_GLITCH_RUN = 10;
+
+/**
+ * Drops GPS position glitches: runs of up to MAX_GLITCH_RUN points that jump far
+ * away from the track and then return. A jump counts as a glitch when it is at
+ * least 5 km and 50x the track's median point spacing. A jump that never returns
+ * (ferry, tunnel, joined tracks) is kept. A bad first fix is dropped too.
+ * Synthetic distance-based coordinates are returned unchanged.
+ *
+ * @param {Array<{lat: number, lon: number, dist?: number}>} coords - Normalized coordinates
+ * @returns {Array<Object>} Coordinates without position glitches
+ */
+export function dropPositionSpikes(coords) {
+  if (!Array.isArray(coords) || coords.length < 3 || coords.some(c => c.dist !== undefined)) return coords;
+  const dist = (a, b) => calcHaversine(a.lat, a.lon, b.lat, b.lon);
+
+  const steps = [];
+  for (let i = 1; i < coords.length; i++) steps.push(dist(coords[i - 1], coords[i]));
+  const median = steps.slice().sort((a, b) => a - b)[Math.floor(steps.length / 2)];
+  const threshold = Math.max(5000, median * 50);
+
+  // Leading glitch: the first fixes are far from a track that is otherwise continuous
+  let start = 0;
+  while (start < Math.min(MAX_GLITCH_RUN, coords.length - 2) &&
+    dist(coords[start], coords[start + 1]) > threshold &&
+    dist(coords[start + 1], coords[start + 2]) <= threshold) {
+    start++;
+  }
+
+  const out = [coords[start]];
+  let i = start + 1;
+  while (i < coords.length) {
+    const prev = out[out.length - 1];
+    if (dist(prev, coords[i]) > threshold) {
+      let back = -1;
+      for (let j = i + 1; j < Math.min(coords.length, i + 1 + MAX_GLITCH_RUN); j++) {
+        if (dist(prev, coords[j]) <= threshold) {
+          back = j;
+          break;
+        }
+      }
+      if (back !== -1) {
+        i = back; // skip the excursion
+        continue;
+      }
+    }
+    out.push(coords[i]);
+    i++;
+  }
+  return out;
+}
 
 /**
  * Removes isolated single-point and two-point impulse elevation artifacts (sensor glitches,

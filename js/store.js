@@ -8,7 +8,7 @@
  * @module store
  */
 
-import { processTrackSignal, matchWaypointsToTrack } from './signal.js';
+import { processTrackSignal, matchWaypointsToTrack, dropPositionSpikes } from './signal.js';
 import { DEFAULT_SETTINGS, sanitizePayload, clampSettings } from './share.js';
 import { getRecommendedBlockPresets } from './layout.js';
 import { normalizeCoordinates, hasRouteLength } from './units.js';
@@ -316,7 +316,7 @@ export function createStore(initialSettings = {}) {
      * @throws {Error} When the coordinates do not describe a route with length (state is left unchanged)
      */
     setTrack({ title, coords, rawWaypoints = [] }) {
-      const normalized = normalizeCoordinates(coords);
+      const normalized = dropPositionSpikes(normalizeCoordinates(coords));
       if (!hasRouteLength(normalized)) {
         throw new Error('Route needs at least two distinct GPS points with valid coordinates.');
       }
@@ -468,7 +468,7 @@ export function createStore(initialSettings = {}) {
     loadPayload(rawPayload) {
       const payload = sanitizePayload(rawPayload);
       if (!payload) return false;
-      const normalized = normalizeCoordinates(payload.coords);
+      const normalized = dropPositionSpikes(normalizeCoordinates(payload.coords));
       if (!hasRouteLength(normalized)) return false;
 
       state.rawCoords = normalized;
