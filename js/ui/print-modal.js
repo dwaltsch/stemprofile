@@ -11,6 +11,7 @@
 
 import {
   DEFAULT_PRINT_CONFIG,
+  PRINT_PAGE_MARGIN_MM,
   generatePrintSheetMarkup,
   updatePrintMatrix,
   exportSheetSVG,
@@ -21,6 +22,10 @@ import { setHTML } from './html.js';
 
 let activePrintConfig = { ...DEFAULT_PRINT_CONFIG };
 let currentStore = null;
+let currentPage = null;
+
+const MM_TO_CSS_PX = 96 / 25.4;
+const PAPER_STAGE_GUTTER_PX = 32;
 
 /**
  * Returns current active print configuration.
@@ -39,6 +44,42 @@ export function setPrintConfig(partial) {
 }
 
 /**
+ * Scales the true-size preview page to fit its stage.
+ *
+ * @private
+ */
+function fitPaperToStage() {
+  const stage = document.getElementById('print-paper-stage');
+  const paper = document.getElementById('print-paper-sheet');
+  if (!stage || !paper || !currentPage || !stage.clientWidth) return;
+  paper.style.zoom = Math.min(
+    1,
+    (stage.clientWidth - PAPER_STAGE_GUTTER_PX) / (currentPage.widthMm * MM_TO_CSS_PX),
+    (stage.clientHeight - PAPER_STAGE_GUTTER_PX) / (currentPage.heightMm * MM_TO_CSS_PX)
+  );
+}
+
+/**
+ * Applies the resolved page to the preview and to the printed output.
+ *
+ * @private
+ * @param {HTMLElement} paper - Preview page element
+ * @param {{ widthMm: number, heightMm: number }} page - Physical page size
+ */
+function applyPageSize(paper, page) {
+  currentPage = page;
+  paper.style.width = `${page.widthMm}mm`;
+  paper.style.minHeight = `${page.heightMm}mm`;
+  paper.style.padding = `${PRINT_PAGE_MARGIN_MM}mm`;
+  fitPaperToStage();
+
+  const pageRule = document.getElementById('print-page-rule');
+  if (pageRule) {
+    pageRule.textContent = `@page { size: ${page.widthMm}mm ${page.heightMm}mm; margin: ${PRINT_PAGE_MARGIN_MM}mm; }`;
+  }
+}
+
+/**
  * Updates the miniature live print sheet preview inside the modal dialog.
  *
  * @param {import('../store.js').StemStore} store - Application store
@@ -52,6 +93,7 @@ export function updatePrintModalPreview(store) {
 
   const result = generatePrintSheetMarkup(state, activePrintConfig);
   setHTML(previewHost, result.html);
+  applyPageSize(previewHost, result.page);
 
   if (previewMeta) {
     const paperName = (activePrintConfig.paper || 'a4').toUpperCase();
@@ -77,10 +119,11 @@ export function openPrintModal(store) {
   activePrintConfig.copies = parseInt(state.settings.printCopies, 10) || activePrintConfig.copies || 2;
 
   syncPrintModalForm(state);
-  updatePrintModalPreview(store);
 
+  // Visible first: the preview measures its stage to fit the page
   modal.style.display = 'flex';
   document.body.classList.add('modal-open');
+  updatePrintModalPreview(store);
 
   // Trap focus / focus on print button
   const triggerBtn = document.getElementById('btn-trigger-print');
@@ -167,6 +210,8 @@ export function initPrintModal(store) {
       if (e.target === modal) closePrintModal();
     });
   }
+
+  window.addEventListener('resize', fitPaperToStage);
 
   // Escape key closes modal
   window.addEventListener('keydown', e => {

@@ -15,7 +15,7 @@ export const DEFAULT_PRINT_CONFIG = {
   showCutLines: true,
   showRuler: true,
   showHeader: true,
-  paper: 'a4', // 'a4', 'letter', 'compact'
+  paper: 'a4', // 'a4', 'letter'
   orientation: 'auto' // 'auto', 'portrait', 'landscape'
 };
 
@@ -24,9 +24,28 @@ export const DEFAULT_PRINT_CONFIG = {
  */
 export const PAPER_DIMENSIONS = {
   a4: { widthMm: 210, heightMm: 297, name: 'A4' },
-  letter: { widthMm: 215.9, heightMm: 279.4, name: 'US Letter' },
-  compact: { widthMm: 0, heightMm: 0, name: 'Compact' }
+  letter: { widthMm: 215.9, heightMm: 279.4, name: 'US Letter' }
 };
+
+/** Page margin in mm, shared by the printed page and its preview. */
+export const PRINT_PAGE_MARGIN_MM = 8;
+
+/**
+ * Resolves the physical page for a print sheet. 'auto' stays portrait unless a
+ * sticker cell only fits across the long edge.
+ *
+ * @param {{ paper?: string, orientation?: string }} config - Print configuration
+ * @param {number} cellWidthMm - Width of one sticker cell including crop marks
+ * @returns {{ widthMm: number, heightMm: number }} Page size
+ */
+export function resolvePageSize(config, cellWidthMm) {
+  const paper = PAPER_DIMENSIONS[config.paper] || PAPER_DIMENSIONS.a4;
+  const portraitFits = cellWidthMm <= paper.widthMm - PRINT_PAGE_MARGIN_MM * 2;
+  const landscape = config.orientation === 'landscape' || (config.orientation !== 'portrait' && !portraitFits);
+  return landscape
+    ? { widthMm: paper.heightMm, heightMm: paper.widthMm }
+    : { widthMm: paper.widthMm, heightMm: paper.heightMm };
+}
 
 /**
  * Normalizes polymorphic arguments (options object vs positional parameters) for export functions.

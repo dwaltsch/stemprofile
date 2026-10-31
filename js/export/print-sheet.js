@@ -4,7 +4,7 @@
  * @module export/print-sheet
  */
 
-import { DEFAULT_PRINT_CONFIG, resolveExportParams } from './config.js';
+import { DEFAULT_PRINT_CONFIG, resolveExportParams, resolvePageSize } from './config.js';
 import { escapeHtml } from '../escape.js';
 import { getUnitFactors, getUnitLabels } from '../units.js';
 import { renderFuelingSVG } from '../fueling-renderer.js';
@@ -71,7 +71,7 @@ export function generateCropMarksSVG(W, H, offset = 2.5, armLen = 4) {
  */
 export function generateCalibrationRulerSVG(widthMm = 140) {
   const rulerW = Math.max(110, widthMm);
-  const rulerH = 9;
+  const rulerH = 10.5;
 
   let metricTicks = '';
   for (let i = 0; i <= 50; i++) {
@@ -80,11 +80,11 @@ export function generateCalibrationRulerSVG(widthMm = 140) {
     let label = '';
     if (i % 10 === 0) {
       tickH = 3.2;
-      label = `<text x="${x}" y="7.8" font-size="1.8" font-weight="700" font-family="monospace" text-anchor="middle" fill="#0f172a">${i}</text>`;
+      label = `<text x="${x}" y="9.2" font-size="1.8" font-weight="700" font-family="monospace" text-anchor="middle" fill="#0f172a">${i}</text>`;
     } else if (i % 5 === 0) {
       tickH = 2.2;
     }
-    metricTicks += `<line x1="${x}" y1="4.0" x2="${x}" y2="${4.0 - tickH}" stroke="#0f172a" stroke-width="0.25"/>${label}`;
+    metricTicks += `<line x1="${x}" y1="6.4" x2="${x}" y2="${6.4 - tickH}" stroke="#0f172a" stroke-width="0.25"/>${label}`;
   }
 
   // Imperial 2-inch bar (50.8mm)
@@ -99,26 +99,26 @@ export function generateCalibrationRulerSVG(widthMm = 140) {
     if (i % 8 === 0) {
       const inVal = i / 8;
       tickH = 3.2;
-      label = `<text x="${x.toFixed(2)}" y="7.8" font-size="1.8" font-weight="700" font-family="monospace" text-anchor="middle" fill="#0f172a">${inVal}"</text>`;
+      label = `<text x="${x.toFixed(2)}" y="9.2" font-size="1.8" font-weight="700" font-family="monospace" text-anchor="middle" fill="#0f172a">${inVal}"</text>`;
     } else if (i % 4 === 0) {
       tickH = 2.2;
     }
-    imperialTicks += `<line x1="${x.toFixed(2)}" y1="4.0" x2="${x.toFixed(2)}" y2="${(4.0 - tickH).toFixed(2)}" stroke="#0f172a" stroke-width="0.25"/>${label}`;
+    imperialTicks += `<line x1="${x.toFixed(2)}" y1="6.4" x2="${x.toFixed(2)}" y2="${(6.4 - tickH).toFixed(2)}" stroke="#0f172a" stroke-width="0.25"/>${label}`;
   }
 
   return `
     <svg class="print-calibration-bar" viewBox="0 0 ${rulerW} ${rulerH}" width="${rulerW}mm" height="${rulerH}mm" xmlns="http://www.w3.org/2000/svg" style="display:block; margin: 0 auto;">
       <rect x="0" y="0" width="${rulerW}" height="${rulerH}" fill="#f8fafc" stroke="#cbd5e1" stroke-width="0.3" rx="1"/>
       <!-- Metric Bar -->
-      <line x1="5" y1="4.0" x2="55" y2="4.0" stroke="#0f172a" stroke-width="0.3"/>
+      <line x1="5" y1="6.4" x2="55" y2="6.4" stroke="#0f172a" stroke-width="0.3"/>
       ${metricTicks}
       <text x="30" y="2.2" font-size="1.5" font-weight="700" font-family="sans-serif" text-anchor="middle" fill="#475569">50 mm Metric Scale</text>
       <!-- Imperial Bar -->
-      <line x1="${impStartX}" y1="4.0" x2="${impStartX + 50.8}" y2="4.0" stroke="#0f172a" stroke-width="0.3"/>
+      <line x1="${impStartX}" y1="6.4" x2="${impStartX + 50.8}" y2="6.4" stroke="#0f172a" stroke-width="0.3"/>
       ${imperialTicks}
       <text x="${impStartX + 25.4}" y="2.2" font-size="1.5" font-weight="700" font-family="sans-serif" text-anchor="middle" fill="#475569">2.0 in Imperial Scale</text>
       <!-- Verification text -->
-      <text x="${rulerW - 3}" y="4.8" font-size="1.4" font-weight="600" font-family="sans-serif" text-anchor="end" fill="#64748b">100% Physical Size Check</text>
+      <text x="${rulerW - 3}" y="6.4" font-size="1.4" font-weight="600" font-family="sans-serif" text-anchor="end" fill="#64748b">100% Physical Size Check</text>
     </svg>
   `.trim();
 }
@@ -132,7 +132,7 @@ export const MAX_PRINT_CELLS = 64;
  *
  * @param {Object} pointsOrOptions - Route points or state object
  * @param {Object} [printOpts={}] - Print options overrides
- * @returns {{ html: string, count: number, widthMm: number, heightMm: number, stickerW: number, stickerH: number }} Generated markup & geometry
+ * @returns {{ html: string, count: number, widthMm: number, heightMm: number, stickerW: number, stickerH: number, page: { widthMm: number, heightMm: number } }} Generated markup & geometry
  */
 export function generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks, waypoints, settings, printOpts = {}) {
   // Support polymorphic options
@@ -245,7 +245,7 @@ export function generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks,
       : '';
 
     cellsHtml += `
-      <div class="print-sheet-cell" style="position:relative; width:${cellW}mm; height:${cellH}mm; margin:1mm; page-break-inside:avoid; break-inside:avoid;">
+      <div class="print-sheet-cell" style="position:relative; flex:none; width:${cellW}mm; height:${cellH}mm; margin:1mm; page-break-inside:avoid; break-inside:avoid;">
         ${cfg.showCropMarks ? `
           <svg viewBox="0 0 ${cellW} ${cellH}" width="${cellW}mm" height="${cellH}mm" style="position:absolute; left:0; top:0; pointer-events:none; z-index:2;">
             ${cropMarksSvg}
@@ -276,7 +276,7 @@ export function generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks,
   // Calibration Ruler HTML
   const rulerHtml = cfg.showRuler ? `
     <div class="print-sheet-ruler-wrap" style="width:100%; margin-top:3mm; padding-top:2mm; border-top: 0.5pt solid #cbd5e1; display:flex; justify-content:center;">
-      ${generateCalibrationRulerSVG(Math.max(120, cellW))}
+      ${generateCalibrationRulerSVG(Math.max(140, cellW))}
     </div>
   ` : '';
 
@@ -304,7 +304,8 @@ export function generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks,
     widthMm: cellW,
     heightMm: cellH,
     stickerW: W,
-    stickerH: H
+    stickerH: H,
+    page: resolvePageSize(cfg, cellW)
   };
 }
 

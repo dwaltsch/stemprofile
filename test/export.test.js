@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import {
   DEFAULT_PRINT_CONFIG,
   PAPER_DIMENSIONS,
+  resolvePageSize,
   generateCropMarksSVG,
   generateCalibrationRulerSVG,
   generatePrintSheetMarkup,
@@ -38,6 +39,24 @@ describe('Export & Print Module: Configuration & Geometry', () => {
     assert.equal(PAPER_DIMENSIONS.letter.heightMm, 279.4);
   });
 
+  it('resolves the physical page from paper format and orientation', () => {
+    assert.deepEqual(resolvePageSize({ paper: 'a4', orientation: 'auto' }, 117), { widthMm: 210, heightMm: 297 });
+    assert.deepEqual(resolvePageSize({ paper: 'a4', orientation: 'landscape' }, 117), { widthMm: 297, heightMm: 210 });
+    assert.deepEqual(resolvePageSize({ paper: 'letter', orientation: 'portrait' }, 117), { widthMm: 215.9, heightMm: 279.4 });
+    // A sticker wider than the portrait printable area turns the page, unless portrait is forced
+    assert.deepEqual(resolvePageSize({ paper: 'a4', orientation: 'auto' }, 250), { widthMm: 297, heightMm: 210 });
+    assert.deepEqual(resolvePageSize({ paper: 'a4', orientation: 'portrait' }, 250), { widthMm: 210, heightMm: 297 });
+    assert.deepEqual(resolvePageSize({ paper: 'bogus' }, 117), { widthMm: 210, heightMm: 297 });
+  });
+
+  it('keeps sticker cells at their physical width in a narrow container', () => {
+    const coords = Array.from({ length: 20 }, (_, i) => ({ lat: 45 + i * 0.001, lon: 6, ele: 500 + i * 5 }));
+    const { points, stats, climbs, blocks } = processTrackSignal(coords);
+    const sheet = generatePrintSheetMarkup({ points, stats, climbs, blocks, waypoints: [], settings: DEFAULT_SETTINGS });
+    assert.ok(sheet.html.includes('class="print-sheet-cell" style="position:relative; flex:none;'));
+    assert.deepEqual(sheet.page, { widthMm: 210, heightMm: 297 });
+  });
+
   it('generates precision corner crop marks with valid coordinates', () => {
     const W = 110;
     const H = 35;
@@ -59,7 +78,7 @@ describe('Export & Print Module: Configuration & Geometry', () => {
     assert.ok(rulerSvg.includes('50 mm Metric Scale'));
     assert.ok(rulerSvg.includes('2.0 in Imperial Scale'));
     assert.ok(rulerSvg.includes('100% Physical Size Check'));
-    assert.ok(rulerSvg.includes('viewBox="0 0 140 9"'));
+    assert.ok(rulerSvg.includes('viewBox="0 0 140 10.5"'));
   });
 });
 

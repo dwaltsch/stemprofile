@@ -131,6 +131,25 @@ describe('Renderer Module: SVG Profile Generation', () => {
     assert.ok(pctMatches.length >= 10, `Expected >= 10 labels, got ${pctMatches.length}`);
   });
 
+  it('keeps waypoint labels on the sticker at both route ends', () => {
+    const coords = [];
+    for (let i = 0; i <= 220; i++) coords.push({ lat: 45.0 + i * 0.01, lon: 6.0, ele: 400 });
+    const { points, stats, climbs, blocks } = processTrackSignal(coords);
+    const waypoints = [
+      { id: 'a', distM: 0, type: 'feed', label: 'A very long start label', enabled: true },
+      { id: 'b', distM: stats.totalDist, type: 'feed', label: 'A very long finish label', enabled: true }
+    ];
+    const svg = renderProfileSVG(points, stats, climbs, blocks, waypoints, DEFAULT_SETTINGS);
+    const width = DEFAULT_SETTINGS.widthMm;
+    for (const id of ['a', 'b']) {
+      const pin = svg.match(new RegExp(`data-drag-id="wpt-${id}"[^>]*transform="translate\\(([\\d.]+),`));
+      const start = svg.indexOf(`data-drag-id="wpt-${id}"`);
+      const tag = svg.slice(start).match(/<g transform="translate\((-?[\d.]+), -?[\d.]+\)">\s*<rect width="([\d.]+)"/);
+      const left = Number(pin[1]) + Number(tag[1]);
+      assert.ok(left >= 0 && left + Number(tag[2]) <= width, `label ${id} spans ${left}..${left + Number(tag[2])}`);
+    }
+  });
+
   it('handles empty or minimal point sets without throwing', () => {
     const svg1 = renderProfileSVG([], null, [], [], [], DEFAULT_SETTINGS);
     assert.ok(typeof svg1 === 'string' && svg1.includes('<svg'));

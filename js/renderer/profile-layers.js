@@ -378,7 +378,7 @@ function renderClimbBadge(climb, badge, theme) {
  * @returns {string}
  */
 export function renderWaypoints(ctx) {
-  const { points, climbs, settings, theme, H, padTop, toX, toY, dFactor, activeWaypoints, customPositions } = ctx;
+  const { points, climbs, settings, theme, W, H, padTop, toX, toY, dFactor, activeWaypoints, customPositions } = ctx;
   let waypointsMarkup = '';
   const showWaypoints = settings.showWaypoints !== false;
   const showWptLabels = settings.showWaypointLabels !== false;
@@ -441,7 +441,9 @@ export function renderWaypoints(ctx) {
     if (showWptLabels) {
       const tagText = customLabel ? `${distStr} ${customLabel}` : `${distStr} ${typeCfg.shortCode}`;
       const tagW = Math.min(26, tagText.length * 1.35 + 2.5);
-      const tagX = - (tagW / 2);
+      // Keep the label on the sticker when the pin sits near either edge
+      const tagLeft = Math.max(0.8, Math.min(W - 0.8 - tagW, badgeX - tagW / 2));
+      const tagX = tagLeft - badgeX;
       let tagY = badgeR + 0.6;
       if (badgeY + badgeR + 3.2 > profY && badgeY - 3.2 >= 1.0) {
         tagY = - badgeR - 2.8;

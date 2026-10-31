@@ -126,8 +126,7 @@ body.modal-open {
   border-radius: 8px;
   padding: 1rem;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  height: min(64vh, 640px);
   min-height: 380px;
   overflow: auto;
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
@@ -142,10 +141,8 @@ body.modal-open {
   color: #000000;
   border-radius: 2px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  padding: 12px;
-  width: 100%;
-  max-width: 440px;
-  min-height: 320px;
+  flex: none;
+  margin: auto;
   box-sizing: border-box;
 }
 
@@ -234,7 +231,7 @@ body.modal-open {
     min-height: auto !important;
   }
 
-  header, footer, aside, .stats-strip, #cursor-tip, .actions, .preview-stage, .modal-backdrop, .toast-container, .stage-zoom-controls, .stage-drop-hint {
+  header, footer, aside, .mobile-tab-nav, .app-layout, .stats-strip, #cursor-tip, .actions, .preview-stage, .modal-backdrop, .toast-container, .stage-zoom-controls, .stage-drop-hint {
     display: none !important;
   }
 
