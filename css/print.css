@@ -137,13 +137,21 @@ body.modal-open {
 }
 
 .print-paper-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  flex: none;
+  margin: auto;
+}
+
+/* Padding matches PRINT_PAGE_MARGIN_MM, which is the @page margin on paper */
+.print-paper-sheet .print-sheet-page {
+  box-sizing: content-box;
+  padding: 8mm;
   background: #ffffff;
   color: #000000;
   border-radius: 2px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  flex: none;
-  margin: auto;
-  box-sizing: border-box;
 }
 
 /* Right Pane: Settings */
@@ -245,6 +253,16 @@ body.modal-open {
   .print-matrix {
     display: block !important;
     width: 100% !important;
+  }
+
+  .print-sheet-page {
+    width: auto !important;
+    height: auto !important;
+    break-after: page;
+  }
+
+  .print-sheet-page:last-child {
+    break-after: auto;
   }
 
   .print-sheet-cell {

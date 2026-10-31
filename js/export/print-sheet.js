@@ -4,7 +4,7 @@
  * @module export/print-sheet
  */
 
-import { DEFAULT_PRINT_CONFIG, resolveExportParams, resolvePageSize } from './config.js';
+import { DEFAULT_PRINT_CONFIG, PRINT_PAGE_MARGIN_MM, resolveExportParams, resolvePageSize } from './config.js';
 import { escapeHtml } from '../escape.js';
 import { getUnitFactors, getUnitLabels } from '../units.js';
 import { renderFuelingSVG } from '../fueling-renderer.js';
@@ -126,13 +126,20 @@ export function generateCalibrationRulerSVG(widthMm = 140) {
 /** Upper bound on sticker cells in one print sheet. */
 export const MAX_PRINT_CELLS = 64;
 
+const SHEET_GRID_GAP_MM = 2;
+const SHEET_CELL_MARGIN_MM = 1;
+// Space reserved on every page, slightly above the rendered heights
+const SHEET_HEADER_HEIGHT_MM = 11;
+const SHEET_RULER_HEIGHT_MM = 18;
+const SHEET_NOTE_HEIGHT_MM = 6;
+
 /**
  * Builds complete print sheet DOM & SVG markup with precision crop marks,
  * calibration ruler, header metadata, and multiple sticker cells.
  *
  * @param {Object} pointsOrOptions - Route points or state object
  * @param {Object} [printOpts={}] - Print options overrides
- * @returns {{ html: string, count: number, widthMm: number, heightMm: number, stickerW: number, stickerH: number, page: { widthMm: number, heightMm: number } }} Generated markup & geometry
+ * @returns {{ html: string, pages: string[], count: number, widthMm: number, heightMm: number, stickerW: number, stickerH: number, page: { widthMm: number, heightMm: number } }} Generated markup & geometry
  */
 export function generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks, waypoints, settings, printOpts = {}) {
   // Support polymorphic options
@@ -162,8 +169,12 @@ export function generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks,
     ((stickerType === 'active' || !stickerType) && p.activeView !== 'fueling' && p.climbDetail));
   // Hard cap so no combination of copies x climbs can build an unbounded sheet
   const count = Math.min(MAX_PRINT_CELLS, isClimbSheet ? detailClimbs.length * copies : copies);
-  const W = isSheetFueling ? (p.settings.fuelingWidthMm || 35) : (p.settings.widthMm || 110);
-  const H = isSheetFueling ? (p.settings.fuelingHeightMm || 115) : (p.settings.heightMm || 35);
+  const profileW = p.settings.widthMm || 110;
+  const profileH = p.settings.heightMm || 35;
+  const fuelingW = p.settings.fuelingWidthMm || 35;
+  const fuelingH = p.settings.fuelingHeightMm || 115;
+  const W = isSheetFueling ? fuelingW : profileW;
+  const H = isSheetFueling ? fuelingH : profileH;
   const radius = p.settings.radiusMm || 0;
   const cropOffset = 3.5; // mm margin around sticker for crop marks
 
@@ -188,6 +199,13 @@ export function generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks,
     return renderedByKey.get(key);
   };
 
+  const cellIsFueling = (cellIndex) => {
+    if (isClimbSheet || stickerType === 'elevation') return false;
+    if (stickerType === 'fueling') return true;
+    if (stickerType === 'both') return cellIndex % 2 === 1;
+    return p.activeView === 'fueling';
+  };
+
   const renderCellSvg = (cellIndex) => {
     if (isClimbSheet) {
       const climbIndex = Math.floor(cellIndex / copies);
@@ -197,18 +215,7 @@ export function generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks,
         { index: climbIndex, isPrint: isPrintWhite }
       ));
     }
-    let isFuel = false;
-    if (stickerType === 'fueling') {
-      isFuel = true;
-    } else if (stickerType === 'elevation') {
-      isFuel = false;
-    } else if (stickerType === 'both') {
-      isFuel = (cellIndex % 2 === 1);
-    } else {
-      isFuel = (p.activeView === 'fueling');
-    }
-
-    if (isFuel) {
+    if (cellIsFueling(cellIndex)) {
       return renderOnce('fueling', () => renderFuelingSVG({
         ...p,
         settings: { ...p.settings, theme: effectiveTheme }
@@ -221,16 +228,15 @@ export function generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks,
     }));
   };
 
-  // Crop marks SVG for one cell
-  const cropMarksSvg = cfg.showCropMarks ? generateCropMarksSVG(W, H, cropOffset, 3.5) : '';
-
-  // Generate cells
-  let cellsHtml = '';
-  const cellW = W + (cropOffset * 2);
-  const cellH = H + (cropOffset * 2);
+  // Generate cells; a 'both' sheet mixes wide profile and tall fueling stickers
+  const cells = [];
 
   for (let i = 0; i < count; i++) {
     const singleSvg = renderCellSvg(i);
+    const stickerW = cellIsFueling(i) ? fuelingW : profileW;
+    const stickerH = cellIsFueling(i) ? fuelingH : profileH;
+    const cellW = stickerW + (cropOffset * 2);
+    const cellH = stickerH + (cropOffset * 2);
 
     // Unique scoped gradient ID per cell to prevent collision
     const scopedSvg = singleSvg
@@ -241,23 +247,31 @@ export function generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks,
       .replace(/profile-grad-([a-z0-9]+)/g, `profile-grad-$1-sheet-${i}`);
 
     const cutOutline = cfg.showCutLines
-      ? `<div class="print-cell-cut-guide" style="position:absolute; left:${cropOffset}mm; top:${cropOffset}mm; width:${W}mm; height:${H}mm; border-radius:${radius}mm; border:0.35pt dashed #94a3b8; pointer-events:none;"></div>`
+      ? `<div class="print-cell-cut-guide" style="position:absolute; left:${cropOffset}mm; top:${cropOffset}mm; width:${stickerW}mm; height:${stickerH}mm; border-radius:${radius}mm; border:0.35pt dashed #94a3b8; pointer-events:none;"></div>`
       : '';
 
-    cellsHtml += `
-      <div class="print-sheet-cell" style="position:relative; flex:none; width:${cellW}mm; height:${cellH}mm; margin:1mm; page-break-inside:avoid; break-inside:avoid;">
+    cells.push({
+      outerW: cellW + SHEET_CELL_MARGIN_MM * 2,
+      outerH: cellH + SHEET_CELL_MARGIN_MM * 2,
+      html: `
+      <div class="print-sheet-cell" style="position:relative; flex:none; width:${cellW}mm; height:${cellH}mm; margin:${SHEET_CELL_MARGIN_MM}mm; page-break-inside:avoid; break-inside:avoid;">
         ${cfg.showCropMarks ? `
           <svg viewBox="0 0 ${cellW} ${cellH}" width="${cellW}mm" height="${cellH}mm" style="position:absolute; left:0; top:0; pointer-events:none; z-index:2;">
-            ${cropMarksSvg}
+            ${generateCropMarksSVG(stickerW, stickerH, cropOffset, 3.5)}
           </svg>
         ` : ''}
-        <div style="position:absolute; left:${cropOffset}mm; top:${cropOffset}mm; width:${W}mm; height:${H}mm;">
+        <div style="position:absolute; left:${cropOffset}mm; top:${cropOffset}mm; width:${stickerW}mm; height:${stickerH}mm;">
           ${scopedSvg}
         </div>
         ${cutOutline}
       </div>
-    `;
+    `
+    });
   }
+
+  const cellW = W + (cropOffset * 2);
+  const cellH = H + (cropOffset * 2);
+  const widestCellW = Math.max(...cells.map(cell => cell.outerW)) - SHEET_CELL_MARGIN_MM * 2;
 
   // Header HTML
   const headerHtml = cfg.showHeader ? `
@@ -276,7 +290,7 @@ export function generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks,
   // Calibration Ruler HTML
   const rulerHtml = cfg.showRuler ? `
     <div class="print-sheet-ruler-wrap" style="width:100%; margin-top:3mm; padding-top:2mm; border-top: 0.5pt solid #cbd5e1; display:flex; justify-content:center;">
-      ${generateCalibrationRulerSVG(Math.max(140, cellW))}
+      ${generateCalibrationRulerSVG(Math.max(140, widestCellW))}
     </div>
   ` : '';
 
@@ -287,25 +301,60 @@ export function generatePrintSheetMarkup(pointsOrOptions, stats, climbs, blocks,
     </div>
   `;
 
-  const fullHtml = `
+  // Flow the cells into rows and pages the way the flex grid wraps them; header and ruler repeat on each page
+  const page = resolvePageSize(cfg, widestCellW);
+  const contentW = page.widthMm - PRINT_PAGE_MARGIN_MM * 2;
+  const contentH = page.heightMm - PRINT_PAGE_MARGIN_MM * 2;
+  const reservedH = (cfg.showHeader ? SHEET_HEADER_HEIGHT_MM : 0) +
+    (cfg.showRuler ? SHEET_RULER_HEIGHT_MM : 0) +
+    SHEET_NOTE_HEIGHT_MM;
+  const renderPage = (pageCells) => `
+    <div class="print-sheet-page" style="width:${contentW}mm; height:${contentH}mm;">
     <div class="print-sheet-wrapper" style="box-sizing:border-box; width:100%; display:flex; flex-direction:column; align-items:center; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
       ${headerHtml}
-      <div class="print-sheet-grid" style="display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:2mm; width:100%;">
-        ${cellsHtml}
+      <div class="print-sheet-grid" style="display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:${SHEET_GRID_GAP_MM}mm; width:100%;">
+        ${pageCells.map(cell => cell.html).join('')}
       </div>
       ${rulerHtml}
       ${instructionsHtml}
     </div>
+    </div>
   `.trim();
 
+  const availableH = contentH - reservedH;
+  const pagedCells = [[]];
+  let rowW = 0;
+  let rowH = 0;
+  let usedH = 0;
+
+  for (const cell of cells) {
+    if (rowW > 0 && rowW + SHEET_GRID_GAP_MM + cell.outerW > contentW) {
+      usedH += rowH + SHEET_GRID_GAP_MM;
+      rowW = 0;
+      rowH = 0;
+    }
+    if (pagedCells[pagedCells.length - 1].length > 0 && usedH + Math.max(rowH, cell.outerH) > availableH) {
+      pagedCells.push([]);
+      usedH = 0;
+      rowW = 0;
+      rowH = 0;
+    }
+    pagedCells[pagedCells.length - 1].push(cell);
+    rowW += (rowW > 0 ? SHEET_GRID_GAP_MM : 0) + cell.outerW;
+    rowH = Math.max(rowH, cell.outerH);
+  }
+
+  const pages = pagedCells.map(renderPage);
+
   return {
-    html: fullHtml,
+    html: pages.join(''),
+    pages,
     count,
     widthMm: cellW,
     heightMm: cellH,
     stickerW: W,
     stickerH: H,
-    page: resolvePageSize(cfg, cellW)
+    page
   };
 }
 

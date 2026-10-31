@@ -63,14 +63,10 @@ function fitPaperToStage() {
  * Applies the resolved page to the preview and to the printed output.
  *
  * @private
- * @param {HTMLElement} paper - Preview page element
  * @param {{ widthMm: number, heightMm: number }} page - Physical page size
  */
-function applyPageSize(paper, page) {
+function applyPageSize(page) {
   currentPage = page;
-  paper.style.width = `${page.widthMm}mm`;
-  paper.style.minHeight = `${page.heightMm}mm`;
-  paper.style.padding = `${PRINT_PAGE_MARGIN_MM}mm`;
   fitPaperToStage();
 
   const pageRule = document.getElementById('print-page-rule');
@@ -93,12 +89,12 @@ export function updatePrintModalPreview(store) {
 
   const result = generatePrintSheetMarkup(state, activePrintConfig);
   setHTML(previewHost, result.html);
-  applyPageSize(previewHost, result.page);
+  applyPageSize(result.page);
 
   if (previewMeta) {
     const paperName = (activePrintConfig.paper || 'a4').toUpperCase();
     const themeName = activePrintConfig.printTheme === 'white' ? 'Ink-Saver White' : (state.settings.theme || 'Active Theme');
-    previewMeta.textContent = `${paperName} · ${result.count} ${result.count === 1 ? 'Copy' : 'Copies'} · ${result.stickerW}×${result.stickerH}mm · ${themeName}`;
+    previewMeta.textContent = `${paperName} · ${result.count} ${result.count === 1 ? 'Copy' : 'Copies'} · ${result.stickerW}×${result.stickerH}mm · ${themeName}${result.pages.length > 1 ? ` · ${result.pages.length} Pages` : ''}`;
   }
 
   // Also sync the real hidden #print-matrix in background

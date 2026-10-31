@@ -57,6 +57,30 @@ describe('Export & Print Module: Configuration & Geometry', () => {
     assert.deepEqual(sheet.page, { widthMm: 210, heightMm: 297 });
   });
 
+  it('splits a sheet into pages that each hold what fits', () => {
+    const coords = Array.from({ length: 20 }, (_, i) => ({ lat: 45 + i * 0.001, lon: 6, ele: 500 + i * 5 }));
+    const { points, stats, climbs, blocks } = processTrackSignal(coords);
+    const state = { points, stats, climbs, blocks, waypoints: [], settings: DEFAULT_SETTINGS };
+    const cellsOn = (html) => (html.match(/class="print-sheet-cell"/g) || []).length;
+
+    const portrait = generatePrintSheetMarkup(state, { copies: 8 });
+    assert.equal(portrait.pages.length, 2);
+    assert.equal(portrait.pages.map(cellsOn).reduce((a, b) => a + b), 8);
+    assert.equal(cellsOn(portrait.pages[0]), 5);
+    assert.equal(portrait.html, portrait.pages.join(''));
+
+    assert.equal(generatePrintSheetMarkup(state, { copies: 2 }).pages.length, 1);
+
+    // A mixed sheet keeps each sticker at its own size
+    const mixed = generatePrintSheetMarkup(state, { copies: 2, stickerType: 'both' });
+    assert.ok(mixed.html.includes(`width:${DEFAULT_SETTINGS.widthMm + 7}mm`));
+    assert.ok(mixed.html.includes(`height:${DEFAULT_SETTINGS.fuelingHeightMm + 7}mm`));
+
+    // Without header and ruler more rows fit on a page
+    const bare = generatePrintSheetMarkup(state, { copies: 8, showHeader: false, showRuler: false });
+    assert.ok(cellsOn(bare.pages[0]) > 5);
+  });
+
   it('generates precision corner crop marks with valid coordinates', () => {
     const W = 110;
     const H = 35;

@@ -5,6 +5,7 @@
  */
 
 import { THEMES, renderProfileSVG } from '../renderer.js';
+import { PRINT_PAGE_MARGIN_MM } from './config.js';
 import { generatePrintSheetMarkup } from './print-sheet.js';
 import { renderFuelingSVG } from '../fueling-renderer.js';
 import { resolveExportParams } from './config.js';
@@ -181,6 +182,37 @@ export function exportPNG(pointsOrOptions, stats, climbs, blocks, waypoints, set
   img.src = url;
 }
 
+/** Largest canvas side browsers reliably support. */
+const MAX_CANVAS_SIDE_PX = 32000;
+
+/**
+ * Wraps a print sheet in a standalone SVG at its real page size, stacking multiple pages vertically.
+ *
+ * @private
+ * @param {{ pages: string[], page: { widthMm: number, heightMm: number } }} result - Generated print sheet
+ * @returns {{ standaloneSvg: string, sheetW: number, sheetH: number }}
+ */
+function buildSheetSvg(result) {
+  const { widthMm: sheetW, heightMm: pageH } = result.page;
+  const sheetH = pageH * result.pages.length;
+  const margin = PRINT_PAGE_MARGIN_MM;
+
+  const pagesSvg = result.pages.map((html, i) => `
+      <foreignObject x="${margin}" y="${i * pageH + margin}" width="${sheetW - margin * 2}" height="${pageH - margin * 2}">
+        <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:-apple-system, BlinkMacSystemFont, sans-serif;">
+          ${html}
+        </div>
+      </foreignObject>`).join('');
+
+  const standaloneSvg = `
+    <svg viewBox="0 0 ${sheetW} ${sheetH}" width="${sheetW}mm" height="${sheetH}mm" xmlns="http://www.w3.org/2000/svg">
+      <rect width="100%" height="100%" fill="#ffffff"/>${pagesSvg}
+    </svg>
+  `.trim();
+
+  return { standaloneSvg, sheetW, sheetH };
+}
+
 /**
  * Exports the complete multi-sticker print sheet as an SVG file.
  *
@@ -189,20 +221,8 @@ export function exportPNG(pointsOrOptions, stats, climbs, blocks, waypoints, set
  */
 export function exportSheetSVG(state, printConfig = {}) {
   const result = generatePrintSheetMarkup(state, printConfig);
-  const sheetW = 210; // A4 standard width in mm
-  const sheetH = 297; // A4 standard height in mm
-
+  const { standaloneSvg } = buildSheetSvg(result);
   // Wrap generated HTML/SVG inside a standalone foreignObject SVG
-  const standaloneSvg = `
-    <svg viewBox="0 0 ${sheetW} ${sheetH}" width="${sheetW}mm" height="${sheetH}mm" xmlns="http://www.w3.org/2000/svg">
-      <rect width="100%" height="100%" fill="#ffffff"/>
-      <foreignObject x="8" y="8" width="${sheetW - 16}" height="${sheetH - 16}">
-        <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:-apple-system, BlinkMacSystemFont, sans-serif;">
-          ${result.html}
-        </div>
-      </foreignObject>
-    </svg>
-  `.trim();
 
   const blob = new Blob([standaloneSvg], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -227,26 +247,13 @@ export function exportSheetSVG(state, printConfig = {}) {
  */
 export function exportSheetPNG(state, printConfig = {}, callback) {
   const result = generatePrintSheetMarkup(state, printConfig);
-  const sheetW = 210;
-  const sheetH = 297;
+  const { standaloneSvg, sheetW, sheetH } = buildSheetSvg(result);
   const dpi = 300;
   const mmToIn = 1 / 25.4;
   const pxW = Math.round(sheetW * mmToIn * dpi);
   const pxH = Math.round(sheetH * mmToIn * dpi);
 
-  const standaloneSvg = `
-    <svg viewBox="0 0 ${sheetW} ${sheetH}" width="${sheetW}mm" height="${sheetH}mm" xmlns="http://www.w3.org/2000/svg">
-      <rect width="100%" height="100%" fill="#ffffff"/>
-      <foreignObject x="8" y="8" width="${sheetW - 16}" height="${sheetH - 16}">
-        <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:-apple-system, BlinkMacSystemFont, sans-serif;">
-          ${result.html}
-        </div>
-      </foreignObject>
-    </svg>
-  `.trim();
 
-  const blob = new Blob([standaloneSvg], { type: 'image/svg+xml;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
   const img = new Image();
 
   img.onload = function() {
@@ -272,13 +279,11 @@ export function exportSheetPNG(state, printConfig = {}, callback) {
       if (callback) callback(null);
     } catch (err) {
       if (callback) callback(err);
-    } finally {
-      URL.revokeObjectURL(url);
     }
   };
   img.onerror = function(err) {
-    URL.revokeObjectURL(url);
     if (callback) callback(err);
   };
-  img.src = url;
+  // A blob URL would taint the canvas: this SVG holds foreignObject HTML
+  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(standaloneSvg)}`;
 }
