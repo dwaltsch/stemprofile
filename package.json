@@ -18,9 +18,9 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dwaltsch/Stemprofile.git"
+    "url": "https://github.com/dwaltsch/stemprofile.git"
   },
-  "homepage": "https://dwaltsch.github.io/Stemprofile/",
+  "homepage": "https://dwaltsch.github.io/stemprofile/",
   "engines": {
     "node": ">=22"
   }

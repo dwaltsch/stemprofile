@@ -1,6 +1,6 @@
 # StemProfile
 
-**[Live demo](https://dwaltsch.github.io/Stemprofile/)**
+**[Live demo](https://dwaltsch.github.io/stemprofile/)**
 
 **StemProfile** is a clean, zero-dependency web studio designed for cyclists, racers, and directeur sportifs to convert GPX tracks into millimeter-accurate elevation stickers for bicycle stems and top tubes.
 
