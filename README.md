@@ -4,9 +4,9 @@
 
 **Turn any GPX file into a race-ready elevation sticker for your stem or top tube.**
 
-Free, no sign-up, and your route never leaves your browser. No file handy? Try the built-in example route.
+Free, no sign-up, and your route never leaves your browser.
 
-### [Open StemProfile](https://dwaltsch.github.io/stemprofile/)
+### [Open StemProfile](https://dwaltsch.github.io/stemprofile/) · [Try an example route](https://dwaltsch.github.io/stemprofile/#example)
 
 [![Tests](https://github.com/dwaltsch/stemprofile/actions/workflows/test.yml/badge.svg)](https://github.com/dwaltsch/stemprofile/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)

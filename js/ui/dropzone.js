@@ -10,6 +10,16 @@ import { parseRouteFile, getSupportedExtensions, isBinaryExtension } from '../pa
 import { showToast } from './toast.js';
 import { MAX_FILE_BYTES, MAX_TRACK_POINTS, MAX_IMPORTED_WAYPOINTS } from '../limits.js';
 import { beginLoad, isLatestLoad } from '../load-guard.js';
+import { buildExampleGpx } from '../example-route.js';
+
+/**
+ * Loads the built-in example stage through the normal file path.
+ *
+ * @param {import('../store.js').StemStore} store - Application store
+ */
+export function loadExampleRoute(store) {
+  handleRouteFile(new File([buildExampleGpx()], 'example-alpine-stage.gpx', { type: 'application/gpx+xml' }), store);
+}
 
 /**
  * Parses and ingests a route file into the store.

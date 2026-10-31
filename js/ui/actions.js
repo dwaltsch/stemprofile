@@ -7,14 +7,13 @@
  * @module ui/actions
  */
 
-import { handleRouteFile, openRouteFilePicker } from './dropzone.js';
+import { loadExampleRoute, openRouteFilePicker } from './dropzone.js';
 import { showToast } from './toast.js';
 import { openPrintModal, getActivePrintConfig } from './print-modal.js';
 import { copyShareableLink } from '../share.js';
 import { exportSVG, exportPNG, copySVG, updatePrintMatrix } from '../export.js';
 import { getUnitFactors } from '../units.js';
 import { distanceAtClientX } from '../renderer/profile-layers.js';
-import { buildExampleGpx } from '../example-route.js';
 import { setHTML } from './html.js';
 
 /**
@@ -39,8 +38,7 @@ export function initActions(store) {
       if (e.target.closest('.empty-example-btn')) {
         e.preventDefault();
         e.stopPropagation();
-        const example = new File([buildExampleGpx()], 'example-alpine-stage.gpx', { type: 'application/gpx+xml' });
-        handleRouteFile(example, store);
+        loadExampleRoute(store);
         return;
       }
 

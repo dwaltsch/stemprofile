@@ -12,7 +12,7 @@ import { decompressPayload, extractHashPayload } from './share.js';
 
 // Modular UI Controllers
 import { initTheme } from './ui/theme.js';
-import { initDropzone } from './ui/dropzone.js';
+import { initDropzone, loadExampleRoute } from './ui/dropzone.js';
 import { initControls, syncFormControls, updateBlockSizePills } from './ui/controls.js';
 import { initWaypointsPanel, renderWaypointsList } from './ui/waypoints-panel.js';
 import { renderClimbsTable } from './ui/climbs-panel.js';
@@ -97,6 +97,11 @@ export function updateUI(event) {
  */
 export async function loadFromUrlHash(hashStr) {
   if (!hashStr) return false;
+
+  if (hashStr === '#example') {
+    loadExampleRoute(store);
+    return true;
+  }
 
   const b64 = extractHashPayload(hashStr);
   if (!b64 || b64.length < 5) return false;
