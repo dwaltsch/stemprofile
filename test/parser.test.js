@@ -7,6 +7,8 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { processTrackSignal } from '../js/signal.js';
+import { buildExampleGpx } from '../js/example-route.js';
 import './helpers/dom-shim.js';
 import {
   parseGPX,
@@ -895,7 +897,16 @@ describe('Parser Module: Modular Registry with FIT', () => {
     assert.equal(state.waypoints[1].type, 'food');
     assert.equal(state.waypoints[2].type, 'summit');
   });
+
 });
 
-
-
+describe('Example Route', () => {
+  it('builds an example route that parses into a usable stage', () => {
+    const { coords, rawWaypoints, title } = parseGPX(buildExampleGpx());
+    const { stats, climbs } = processTrackSignal(coords);
+    assert.equal(title, 'Example Alpine Stage');
+    assert.ok(Math.abs(stats.totalDist - 150000) < 5000);
+    assert.equal(climbs.length, 4);
+    assert.equal(rawWaypoints.length, 2);
+  });
+});

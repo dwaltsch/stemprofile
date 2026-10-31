@@ -9,6 +9,7 @@
 
 import { getRecommendedBlockPresets } from '../layout.js';
 import { setHTML } from './html.js';
+import { SETTING_LIMITS } from '../share/constants.js';
 
 /**
  * Updates the block size segmented pill buttons to reflect stage distance and active settings.
@@ -196,7 +197,8 @@ export function initControls(store) {
   if (wIn) {
     wIn.addEventListener('input', e => {
       const v = parseInt(e.target.value, 10);
-      if (v >= 15 && v <= 400) {
+      const [min, max] = SETTING_LIMITS.widthMm;
+      if (v >= min && v <= max) {
         const isFueling = store.getState().activeView === 'fueling';
         presetPills.forEach(p => p.classList.toggle('active', p.dataset.value === 'custom'));
         if (presetSelect) presetSelect.value = 'custom';
@@ -209,10 +211,22 @@ export function initControls(store) {
     });
   }
 
+  // A rejected value would otherwise stay in the field while the sticker keeps the old size
+  const restoreSize = (input, key, fuelingKey) => {
+    if (!input) return;
+    input.addEventListener('blur', () => {
+      const s = store.getState().settings;
+      input.value = store.getState().activeView === 'fueling' ? s[fuelingKey] : s[key];
+    });
+  };
+  restoreSize(wIn, 'widthMm', 'fuelingWidthMm');
+  restoreSize(hIn, 'heightMm', 'fuelingHeightMm');
+
   if (hIn) {
     hIn.addEventListener('input', e => {
       const v = parseInt(e.target.value, 10);
-      if (v >= 15 && v <= 400) {
+      const [min, max] = SETTING_LIMITS.heightMm;
+      if (v >= min && v <= max) {
         const isFueling = store.getState().activeView === 'fueling';
         presetPills.forEach(p => p.classList.toggle('active', p.dataset.value === 'custom'));
         if (presetSelect) presetSelect.value = 'custom';

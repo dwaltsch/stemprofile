@@ -7,12 +7,14 @@
  * @module ui/actions
  */
 
-import { openRouteFilePicker } from './dropzone.js';
+import { handleRouteFile, openRouteFilePicker } from './dropzone.js';
 import { showToast } from './toast.js';
 import { openPrintModal, getActivePrintConfig } from './print-modal.js';
 import { copyShareableLink } from '../share.js';
 import { exportSVG, exportPNG, copySVG, updatePrintMatrix } from '../export.js';
 import { getUnitFactors } from '../units.js';
+import { distanceAtClientX } from '../renderer/profile-layers.js';
+import { buildExampleGpx } from '../example-route.js';
 import { setHTML } from './html.js';
 
 /**
@@ -34,16 +36,21 @@ export function initActions(store) {
         return;
       }
 
+      if (e.target.closest('.empty-example-btn')) {
+        e.preventDefault();
+        e.stopPropagation();
+        const example = new File([buildExampleGpx()], 'example-alpine-stage.gpx', { type: 'application/gpx+xml' });
+        handleRouteFile(example, store);
+        return;
+      }
+
       const state = store.getState();
       if (state.points.length < 2 || !state.stats) {
         return;
       }
       const svg = document.getElementById('profile-svg-elem');
       if (!svg) return;
-      const rect = svg.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const ratio = Math.max(0, Math.min(1, mouseX / rect.width));
-      const targetDistM = ratio * state.stats.totalDist;
+      const targetDistM = distanceAtClientX(svg, e.clientX, state.stats.totalDist);
 
       const { dFactor } = getUnitFactors(state.settings.units);
       const distVal = (targetDistM * dFactor).toFixed(1);

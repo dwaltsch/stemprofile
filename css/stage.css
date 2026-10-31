@@ -328,3 +328,18 @@ main.stage-area {
 .stat-highlight-red { color: var(--z4); }
 .stat-highlight-blue { color: var(--accent); }
 
+
+.empty-example-btn {
+  border: none;
+  background: none;
+  padding: 0.35rem;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.empty-example-btn:hover {
+  text-decoration: underline;
+}

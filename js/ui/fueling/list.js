@@ -178,7 +178,7 @@ export function renderFuelingPanel(store) {
     } else {
       indexBadgeMarkup = `
         <div class="fuel-dist-badge" title="Click to edit kilometer">
-          <input type="number" class="fuel-dist-input" data-action="edit-dist" data-id="${escapeHtml(item.id)}" value="${distU}" step="0.5" min="0" max="1000" draggable="false">
+          <input type="number" class="fuel-dist-input" aria-label="Distance" data-action="edit-dist" data-id="${escapeHtml(item.id)}" value="${distU}" step="0.5" min="0" max="1000" draggable="false">
           <span class="fuel-dist-unit">${distUnit}</span>
         </div>
       `;
@@ -237,7 +237,7 @@ export function renderFuelingPanel(store) {
             </div>
             <div class="fuel-card-meta-right">
               <div class="fuel-carbs-pill" title="Click to edit carbs (g)">
-                <input type="number" class="fuel-carbs-input" data-action="edit-carbs" data-id="${escapeHtml(item.id)}" value="${item.carbsG || 0}" min="0" max="140" step="5" draggable="false">
+                <input type="number" class="fuel-carbs-input" aria-label="Carbs" data-action="edit-carbs" data-id="${escapeHtml(item.id)}" value="${item.carbsG || 0}" min="0" max="140" step="5" draggable="false">
                 <span>g</span>
               </div>
               <button type="button" class="fuel-del-btn" data-action="delete" data-id="${escapeHtml(item.id)}" title="Remove item">

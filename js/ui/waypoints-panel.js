@@ -127,6 +127,13 @@ export function initWaypointsPanel(store) {
 
       const { dFactor } = getUnitFactors(state.settings.units);
       const distM = enteredDist / dFactor;
+      const routeEnd = state.stats.totalDist * dFactor;
+      if (enteredDist > routeEnd + 0.05) {
+        const { dist: distUnit } = getUnitLabels(state.settings.units);
+        showToast(`The route ends at ${routeEnd.toFixed(1)} ${distUnit}.`, 'warning');
+        distInput.focus();
+        return;
+      }
       const type = typeSelect.value;
       const label = labelInput.value;
 

@@ -52,6 +52,7 @@ export function renderPreview(state) {
             </svg>
             Choose Route File
           </button>
+          <button type="button" class="empty-example-btn" id="btn-empty-example">Or try an example route</button>
         </div>
       `);
     }

@@ -5,19 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- Content Security Policy: only same-origin scripts, no plugins / forms / base rewriting.
        Inline styles stay allowed (templates use style attributes); blob:/data: images are needed for PNG export. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-xEGXv6to2iJ/HQH758pBUr06LoTmnsjk+/8+ykplT3Y='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-hqy5zJMFZhd1Mz8hDTIMBxWkSfthB8wCsukMdfvpBws='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
-  <title>StemProfile — Pro Elevation Sticker Studio</title>
+  <title>StemProfile — Elevation Stickers for Your Stem or Top Tube</title>
+  <meta name="description" content="Turn any GPX, TCX or FIT file into a printable, race-ready elevation sticker for your bike. Free, no sign-up, and your route never leaves your browser.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="StemProfile">
+  <meta property="og:title" content="StemProfile — Elevation Stickers for Your Stem or Top Tube">
+  <meta property="og:description" content="Turn any GPX file into a printable, race-ready elevation sticker. Free, no sign-up, and your route never leaves your browser.">
+  <meta property="og:url" content="https://dwaltsch.github.io/stemprofile/">
+  <meta property="og:image" content="https://dwaltsch.github.io/stemprofile/docs/social-card.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="A cycling elevation sticker with categorized climbs and gradient-colored blocks">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <!-- Order matters: later files override earlier ones, exactly as the former single styles.css -->
-  <link rel="stylesheet" href="css/base.css?v=2e42f468a7">
+  <link rel="stylesheet" href="css/base.css?v=0ef4fefddd">
   <link rel="stylesheet" href="css/header.css?v=bdbbbdbcdf">
   <link rel="stylesheet" href="css/layout.css?v=6ed9976a74">
-  <link rel="stylesheet" href="css/stage.css?v=45fae73cdb">
-  <link rel="stylesheet" href="css/panels.css?v=710453c014">
-  <link rel="stylesheet" href="css/print.css?v=b714b28eb4">
+  <link rel="stylesheet" href="css/stage.css?v=604181e9b1">
+  <link rel="stylesheet" href="css/panels.css?v=b4fe2454d0">
+  <link rel="stylesheet" href="css/print.css?v=e148540ef1">
   <link rel="stylesheet" href="css/toast.css?v=fa321537b9">
-  <link rel="stylesheet" href="css/responsive.css?v=28bec3f9e3">
+  <link rel="stylesheet" href="css/responsive.css?v=25803fddef">
   <link rel="stylesheet" href="css/fueling.css?v=957fb4fad6">
   <style id="print-page-rule"></style>
 </head>
@@ -440,7 +451,7 @@
             <polyline points="17 8 12 3 7 8"></polyline>
             <line x1="12" y1="3" x2="12" y2="15"></line>
           </svg>
-          <span>Drop GPX track to load profile</span>
+          <span>Drop a route file to load it</span>
         </div>
       </div>
 
@@ -514,7 +525,7 @@
                 </select>
               </div>
               <div class="field">
-                <label class="field-label" for="input-wpt-dist">Dist (<span id="label-wpt-unit">km</span>)</label>
+                <label class="field-label" for="input-wpt-dist"><span>Dist (<span id="label-wpt-unit">km</span>)</span></label>
                 <input type="number" id="input-wpt-dist" min="0" max="1000" step="0.1" placeholder="e.g. 45.0">
               </div>
             </div>
@@ -938,6 +949,7 @@
   "imports": {
     "./js/app.js": "./js/app.js?v=782cdab701",
     "./js/escape.js": "./js/escape.js?v=6ce228fc6d",
+    "./js/example-route.js": "./js/example-route.js?v=e294ff2c2f",
     "./js/export.js": "./js/export.js?v=2b0a1c68ef",
     "./js/export/config.js": "./js/export/config.js?v=41d3c0a2c6",
     "./js/export/download.js": "./js/export/download.js?v=9949299b7c",
@@ -955,13 +967,13 @@
     "./js/load-guard.js": "./js/load-guard.js?v=07a6ce2829",
     "./js/parser.js": "./js/parser.js?v=b65c84f4af",
     "./js/parsers/fit.js": "./js/parsers/fit.js?v=b38baa408e",
-    "./js/parsers/gpx.js": "./js/parsers/gpx.js?v=c9c01c3d11",
-    "./js/parsers/tcx.js": "./js/parsers/tcx.js?v=c5450cdef3",
+    "./js/parsers/gpx.js": "./js/parsers/gpx.js?v=0447d8d036",
+    "./js/parsers/tcx.js": "./js/parsers/tcx.js?v=6f518eda28",
     "./js/parsers/xml-utils.js": "./js/parsers/xml-utils.js?v=089c018a89",
     "./js/plan-storage.js": "./js/plan-storage.js?v=db606cd6b5",
     "./js/renderer.js": "./js/renderer.js?v=6338c5c370",
     "./js/renderer/climb-detail.js": "./js/renderer/climb-detail.js?v=8935982219",
-    "./js/renderer/profile-layers.js": "./js/renderer/profile-layers.js?v=02f89ddaf1",
+    "./js/renderer/profile-layers.js": "./js/renderer/profile-layers.js?v=6ce21c0412",
     "./js/renderer/themes.js": "./js/renderer/themes.js?v=38413d4242",
     "./js/renderer/waypoints-config.js": "./js/renderer/waypoints-config.js?v=024dee0631",
     "./js/share.js": "./js/share.js?v=3f85f31a8d",
@@ -977,24 +989,24 @@
     "./js/signal/geo.js": "./js/signal/geo.js?v=3c9d9ea410",
     "./js/signal/waypoint-match.js": "./js/signal/waypoint-match.js?v=eb1d402509",
     "./js/store.js": "./js/store.js?v=279ba2b82e",
-    "./js/ui/actions.js": "./js/ui/actions.js?v=73de609205",
+    "./js/ui/actions.js": "./js/ui/actions.js?v=32605b6382",
     "./js/ui/climbs-panel.js": "./js/ui/climbs-panel.js?v=f2244685a6",
-    "./js/ui/controls.js": "./js/ui/controls.js?v=1c04cf13bc",
+    "./js/ui/controls.js": "./js/ui/controls.js?v=7f45e0cb4d",
     "./js/ui/drag-engine.js": "./js/ui/drag-engine.js?v=e453071300",
     "./js/ui/dropzone.js": "./js/ui/dropzone.js?v=a73602d05a",
     "./js/ui/error-boundary.js": "./js/ui/error-boundary.js?v=342d6b4ae3",
     "./js/ui/fueling-panel.js": "./js/ui/fueling-panel.js?v=d15b632109",
     "./js/ui/fueling/drag-sort.js": "./js/ui/fueling/drag-sort.js?v=4a101d8627",
-    "./js/ui/fueling/list.js": "./js/ui/fueling/list.js?v=0aa8323b52",
+    "./js/ui/fueling/list.js": "./js/ui/fueling/list.js?v=79f637ca0a",
     "./js/ui/html.js": "./js/ui/html.js?v=1106958617",
     "./js/ui/mobile-tabs.js": "./js/ui/mobile-tabs.js?v=1f91f9dc17",
     "./js/ui/print-modal.js": "./js/ui/print-modal.js?v=4bb4b7ce75",
     "./js/ui/stats-strip.js": "./js/ui/stats-strip.js?v=dc65d7f29d",
     "./js/ui/theme.js": "./js/ui/theme.js?v=8438e58000",
     "./js/ui/toast.js": "./js/ui/toast.js?v=e7241d2ff0",
-    "./js/ui/tooltip.js": "./js/ui/tooltip.js?v=ab0016b7c5",
-    "./js/ui/waypoints-panel.js": "./js/ui/waypoints-panel.js?v=4c88d4307e",
-    "./js/ui/workbench.js": "./js/ui/workbench.js?v=34b03505b4",
+    "./js/ui/tooltip.js": "./js/ui/tooltip.js?v=88b17c0ec0",
+    "./js/ui/waypoints-panel.js": "./js/ui/waypoints-panel.js?v=ce0d8632a3",
+    "./js/ui/workbench.js": "./js/ui/workbench.js?v=f735d41e7f",
     "./js/units.js": "./js/units.js?v=2f2be43df5"
   }
 }

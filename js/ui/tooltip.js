@@ -9,6 +9,7 @@
 
 import { getUnitFactors, getUnitLabels } from '../units.js';
 import { setClimbHighlight } from './climbs-panel.js';
+import { distanceAtClientX } from '../renderer/profile-layers.js';
 
 /**
  * Binds tooltip mouse tracking and bidirectional cross-highlighting (SVG -> Climbs Table).
@@ -29,8 +30,7 @@ export function bindTooltipHover(store) {
   svg.onmousemove = function(e) {
     const rect = svg.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
-    const ratio = Math.max(0, Math.min(1, mouseX / rect.width));
-    const targetDist = ratio * state.stats.totalDist;
+    const targetDist = distanceAtClientX(svg, e.clientX, state.stats.totalDist);
 
     let low = 0, high = pts.length - 1;
     while (low < high) {

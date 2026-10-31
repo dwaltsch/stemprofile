@@ -343,3 +343,11 @@ body.is-dragging-label * {
   background: rgba(220, 38, 38, 0.1);
 }
 
+
+/* Sidebars and phones are narrower than the table: drop the columns the sticker already shows */
+.climbs-table th:nth-child(3),
+.climbs-table td:nth-child(3),
+.climbs-table th:nth-child(6),
+.climbs-table td:nth-child(6) {
+  display: none;
+}

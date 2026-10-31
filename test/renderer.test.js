@@ -7,6 +7,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { distanceAtClientX } from '../js/renderer/profile-layers.js';
 import { THEMES, WAYPOINT_CONFIG, renderProfileSVG } from '../js/renderer.js';
 import { processTrackSignal } from '../js/signal.js';
 import { DEFAULT_SETTINGS } from '../js/share.js';
@@ -148,6 +149,15 @@ describe('Renderer Module: SVG Profile Generation', () => {
       const left = Number(pin[1]) + Number(tag[1]);
       assert.ok(left >= 0 && left + Number(tag[2]) <= width, `label ${id} spans ${left}..${left + Number(tag[2])}`);
     }
+  });
+
+  it('maps a pointer to distance on the plot area, not the whole sticker', () => {
+    const svg = { viewBox: { baseVal: { width: 110 } }, getBoundingClientRect: () => ({ left: 100, width: 1100 }) };
+    // 7.5 mm margin at 10 px/mm: the route starts at client X 175 and ends 50 px before the right edge
+    assert.equal(distanceAtClientX(svg, 175, 150000), 0);
+    assert.equal(distanceAtClientX(svg, 1150, 150000), 150000);
+    assert.equal(Math.round(distanceAtClientX(svg, 662.5, 150000)), 75000);
+    assert.equal(distanceAtClientX(svg, 110, 150000), 0);
   });
 
   it('shortens long labels and titles instead of letting them collide', () => {

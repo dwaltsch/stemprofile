@@ -26,7 +26,7 @@ export function parseTCX(xmlText) {
   // Check for XML parsing syntax errors
   const parseErrors = findElementsByLocalNames(xmlDoc, "parsererror");
   if (parseErrors.length > 0) {
-    throw new Error("Invalid TCX XML syntax: " + parseErrors[0].textContent);
+    throw new Error("This TCX file is damaged or incomplete.");
   }
 
   // 1. Extract course or activity title

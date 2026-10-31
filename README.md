@@ -4,7 +4,7 @@
 
 **Turn any GPX file into a race-ready elevation sticker for your stem or top tube.**
 
-Free, no sign-up, and your route never leaves your browser.
+Free, no sign-up, and your route never leaves your browser. No file handy? Try the built-in example route.
 
 ### [Open StemProfile](https://dwaltsch.github.io/stemprofile/)
 
@@ -63,7 +63,7 @@ Your head unit shows the next few hundred meters. A sticker shows the whole day 
 **Prints at true size**
 - Print Studio with A4 / US Letter sheets, 1 to 8 copies, crop marks and a 50 mm scale ruler to check your printer
 - SVG for plotters and vinyl cutters, 300 DPI PNG for label printers
-- Six sticker themes, metric or imperial units
+- Seven sticker themes, metric or imperial units
 
 **Stays out of your way**
 - Share links carry the elevation profile, your cues and settings, but no GPS positions

@@ -24,7 +24,7 @@ export function parseGPX(xmlText) {
   // Check for XML parsing syntax errors
   const parseErrors = findElementsByLocalNames(xmlDoc, "parsererror");
   if (parseErrors.length > 0) {
-    throw new Error("Invalid GPX XML syntax: " + parseErrors[0].textContent);
+    throw new Error("This GPX file is damaged or incomplete.");
   }
 
   // 1. Extract track or route title: metadata > name -> trk > name -> rte > name -> default

@@ -12,6 +12,10 @@ import { escapeXml } from '../escape.js';
 import { getInterpolatedEle } from '../signal.js';
 import { getUnitFactors, getUnitLabels } from '../units.js';
 
+/** Sticker margins around the plot area in mm. */
+const PROFILE_PAD_LEFT_MM = 7.5;
+const PROFILE_PAD_RIGHT_MM = 5.0;
+
 /**
  * @typedef {Object} ProfileContext
  * @property {Array<Object>} points - Profile points
@@ -59,8 +63,8 @@ export function createProfileContext(points, stats, climbs, blocks, waypoints, s
   const { dist: distUnit, ele: eleUnit } = getUnitLabels(settings.units);
 
   // SVG Geometry Layout Bounds
-  const padLeft = 7.5;
-  const padRight = 5.0;
+  const padLeft = PROFILE_PAD_LEFT_MM;
+  const padRight = PROFILE_PAD_RIGHT_MM;
   const padTop = settings.showHeader ? 7.2 : 3.0;
   const padBottom = 4.2;
 
@@ -269,6 +273,22 @@ export function renderElevationLabels(ctx) {
       <text x="${(padLeft - 1.0).toFixed(2)}" y="${(toY(stats.maxEle) + 0.9).toFixed(2)}" fill="${theme.textMuted}" font-size="1.8" font-weight="800" font-family="system-ui, -apple-system, sans-serif" text-anchor="end">${maxStr}</text>
       <text x="${(padLeft - 1.0).toFixed(2)}" y="${(toY(stats.minEle) + 0.6).toFixed(2)}" fill="${theme.textMuted}" font-size="1.8" font-weight="800" font-family="system-ui, -apple-system, sans-serif" text-anchor="end">${minStr}</text>
     `;
+}
+
+/**
+ * Route distance under a pointer, measured on the plot area rather than the whole sticker.
+ *
+ * @param {SVGSVGElement} svg - Rendered profile sticker
+ * @param {number} clientX - Pointer X in client pixels
+ * @param {number} totalDist - Route length in meters
+ * @returns {number} Distance along the route in meters
+ */
+export function distanceAtClientX(svg, clientX, totalDist) {
+  const rect = svg.getBoundingClientRect();
+  const widthMm = svg.viewBox.baseVal.width;
+  const xMm = ((clientX - rect.left) / rect.width) * widthMm;
+  const plotW = widthMm - PROFILE_PAD_LEFT_MM - PROFILE_PAD_RIGHT_MM;
+  return Math.max(0, Math.min(1, (xMm - PROFILE_PAD_LEFT_MM) / plotW)) * totalDist;
 }
 
 /**
