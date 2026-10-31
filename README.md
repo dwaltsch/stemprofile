@@ -17,6 +17,29 @@ Free, no sign-up, and your route never leaves your browser.
 
 Your head unit shows the next few hundred meters. A sticker shows the whole day at a glance: how long the climb is, how steep it gets, and where the next bottle is. StemProfile makes one in minutes, in the style of Grand Tour roadbooks, printed at the exact size of your bike.
 
+## See it in action
+
+![StemProfile studio with a route loaded, showing sticker settings, the live sticker preview and detected climbs](docs/screenshots/studio.png)
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/climb-detail.png" alt="Climb Detail view with one zoomed gradient sticker per climb"></td>
+    <td width="50%"><img src="docs/screenshots/fueling.png" alt="Fueling view with a vertical cue sheet sticker and an hourly carb plan"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Climb Detail</b>: every climb, block by block</td>
+    <td align="center"><b>Fueling</b>: when to eat, marked by kilometer</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/print-studio.png" alt="Print Studio showing an A4 page preview with crop marks and a scale ruler"></td>
+    <td><img src="docs/screenshots/dark.png" alt="Studio in dark mode with a dark sticker theme"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Print Studio</b>: true-size sheets with crop marks</td>
+    <td align="center"><b>Dark mode</b>: with matching sticker themes</td>
+  </tr>
+</table>
+
 ## How it works
 
 1. **Drop in your route.** GPX, TCX and FIT files all work, so exports from Strava, Komoot, Garmin and RideWithGPS are fine.
