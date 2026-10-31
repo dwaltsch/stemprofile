@@ -1,6 +1,6 @@
-# StemProfile (toptube)
+# StemProfile
 
-**[Live demo](https://dwaltsch.github.io/toptube/)**
+**[Live demo](https://dwaltsch.github.io/Stemprofile/)**
 
 **StemProfile** is a clean, zero-dependency web studio designed for cyclists, racers, and directeur sportifs to convert GPX tracks into millimeter-accurate elevation stickers for bicycle stems and top tubes.
 
@@ -127,7 +127,7 @@ $$\text{Score} = \text{Distance (km)} \times (\text{AvgGrade}_{\%})^2 = \left(\f
 ## Project Structure
 
 ```
-toptube/
+stemprofile/
 ├── index.html          # Clean application layout & control workstation
 ├── favicon.svg         # Modern vector cycling elevation profile favicon
 ├── css/

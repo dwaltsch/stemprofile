@@ -1,5 +1,5 @@
 {
-  "name": "toptube",
+  "name": "stemprofile",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:22-bookworm",
   "forwardPorts": [8000]
 }
