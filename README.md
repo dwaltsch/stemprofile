@@ -1,5 +1,7 @@
 # StemProfile (toptube)
 
+**[Live demo](https://dwaltsch.github.io/toptube/)**
+
 **StemProfile** is a clean, zero-dependency web studio designed for cyclists, racers, and directeur sportifs to convert GPX tracks into millimeter-accurate elevation stickers for bicycle stems and top tubes.
 
 Inspired by Grand Tour roadbooks (Tour de France, Giro d'Italia, Vuelta a España), StemProfile creates high-glanceability tactical elevation profiles with kilometer-by-kilometer gradient blocks, categorized climb summits, and customizable race cues.
@@ -23,7 +25,7 @@ Inspired by Grand Tour roadbooks (Tour de France, Giro d'Italia, Vuelta a Españ
   - 🟥 **Zone 4 (> 12%)**: Severe Gradient (`#dc2626` / `#f85149`)
 
 ### 2. Intelligent Anti-Collision Climb Summit Badges
-- **UCI Pro Climb Categorization**: Automatically segments sustained ascents into official categories (**HC**, **Cat 1**, **Cat 2**, **Cat 3**, **Cat 4**).
+- **UCI-Style Climb Categorization**: Automatically segments sustained ascents into categories (**HC**, **Cat 1**, **Cat 2**, **Cat 3**, **Cat 4**).
 - **Multi-Tier Anti-Collision Engine**: Automatically staggers overlapping climb badges on dense mountain stages (e.g. Queen stages) across vertical shelf tiers and horizontal candidate slots.
 - **Leader Line Pin Connectors**: Draws subtle dashed leader lines from elevated badge pills directly to the exact summit pin dot on the terrain profile.
 
@@ -211,3 +213,13 @@ Open `http://localhost:8000` in any web browser:
 
 StemProfile operates **100% client-side** in your web browser. No GPX files, coordinates, or telemetry data are ever transmitted over the network or stored on external servers.
 
+
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). To report a vulnerability, see [SECURITY.md](SECURITY.md).
+
+## License
+
+[MIT](LICENSE)

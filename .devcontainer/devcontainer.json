@@ -1,28 +1,5 @@
 {
-  "name": "toptube (Sandboxed)",
-  "image": "mcr.microsoft.com/devcontainers/javascript-node:20-bookworm",
-  "runArgs": [
-    "--cpus=4",
-    "--memory=6g",
-    "--pids-limit=512"
-  ],
-  "mounts": [
-    // Shared authentication: Antigravity config and shared keyrings
-    "source=${localEnv:HOME}/.gemini,target=/home/node/.gemini,type=bind",
-    "source=${localEnv:HOME}/.local/share/keyrings,target=/home/node/.local/share/keyrings,type=bind"
-  ],
-  "remoteEnv": {
-    "GEMINI_API_KEY": "${localEnv:GEMINI_API_KEY}"
-  },
-  "postCreateCommand": "bash .devcontainer/setup-sandbox.sh",
-  "customizations": {
-    "vscode": {
-      "settings": {
-        "terminal.integrated.defaultProfile.linux": "bash"
-      },
-      "extensions": [
-        "dbaeumer.vscode-eslint"
-      ]
-    }
-  }
+  "name": "toptube",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22-bookworm",
+  "forwardPorts": [8000]
 }
