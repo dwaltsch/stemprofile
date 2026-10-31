@@ -7,7 +7,7 @@
 
 import { resolveTheme, getClimbCategoryColor } from './themes.js';
 import { WAYPOINT_CONFIG, renderWaypointGlyph } from './waypoints-config.js';
-import { calculateLeaderLineAnchor, computeBlockPctLayout, computeClimbBadgeLayout } from '../layout.js';
+import { calculateLeaderLineAnchor, computeBlockPctLayout, computeClimbBadgeLayout, placeWaypointLabel } from '../layout.js';
 import { escapeXml } from '../escape.js';
 import { getInterpolatedEle } from '../signal.js';
 import { getUnitFactors, getUnitLabels } from '../units.js';
@@ -271,6 +271,23 @@ export function renderElevationLabels(ctx) {
 }
 
 /**
+ * Lays out the summit badges of all visible climbs.
+ *
+ * @param {ProfileContext} ctx
+ * @returns {Object[]} Badge placements
+ */
+function layoutVisibleClimbBadges(ctx) {
+  const { climbs, settings, W, H, padLeft, padRight, padBottom, toX, toY, activeWaypoints, customPositions } = ctx;
+  if (!settings.showClimbs || !climbs || climbs.length === 0) return [];
+
+  const hiddenClimbIds = new Set((settings.hiddenClimbIds || []).map(id => String(id)));
+  const visibleClimbs = climbs.filter(c => !hiddenClimbIds.has(String(c.id)) && c.enabled !== false);
+  const minY = settings.showHeader ? 5.8 : 1.5;
+  const maxY = H - padBottom - 1.0;
+  return computeClimbBadgeLayout(visibleClimbs, toX, toY, padLeft, padRight, minY, maxY, W, activeWaypoints, customPositions);
+}
+
+/**
  * Climb highlight overlays and two-tone summit badges with leader lines.
  *
  * @param {ProfileContext} ctx
@@ -282,11 +299,7 @@ export function renderClimbs(ctx) {
   if (!settings.showClimbs || !climbs || climbs.length === 0) return climbsMarkup;
 
   const hiddenClimbIds = new Set((settings.hiddenClimbIds || []).map(id => String(id)));
-  const visibleClimbs = climbs.filter(c => !hiddenClimbIds.has(String(c.id)) && c.enabled !== false);
-
-  const minY = settings.showHeader ? 5.8 : 1.5;
-  const maxY = H - padBottom - 1.0;
-  const badgeLayout = computeClimbBadgeLayout(visibleClimbs, toX, toY, padLeft, padRight, minY, maxY, W, activeWaypoints, customPositions);
+  const badgeLayout = layoutVisibleClimbBadges(ctx);
 
   climbs.forEach(climb => {
     const isHidden = hiddenClimbIds.has(String(climb.id)) || climb.enabled === false;
@@ -386,6 +399,13 @@ export function renderWaypoints(ctx) {
 
   const sortedWpts = [...activeWaypoints].sort((a, b) => a.distM - b.distM);
 
+  // Occupied rectangles: climb badges and summit dots, then each placed waypoint
+  const obstacles = layoutVisibleClimbBadges(ctx).flatMap(b => [
+    { x: b.x, y: b.y, w: b.w, h: b.h },
+    { x: b.summitX - 1.2, y: b.summitY - 1.2, w: 2.4, h: 2.4 }
+  ]);
+  const topLimit = settings.showHeader ? 5.8 : 1.0;
+
   sortedWpts.forEach((wpt, idx) => {
     const typeCfg = WAYPOINT_CONFIG[wpt.type] || WAYPOINT_CONFIG['feed'];
     const wptX = toX(wpt.distM);
@@ -415,17 +435,41 @@ export function renderWaypoints(ctx) {
     }
 
     const badgeR = 2.0; // 4.0mm diameter pin
-    let badgeX = wptX;
-    let badgeY = isStaggered ? Math.max(padTop - 2.0, profY - 13.5) : Math.max(padTop - 3.6, profY - 7.5);
+    const clampPinY = (y) => Math.max(topLimit + badgeR, Math.min(H - 6.0, y));
+    const tierNear = Math.max(padTop - 3.6, profY - 7.5);
+    const tierHigh = Math.max(padTop - 2.0, profY - 13.5);
+    const tierFree = [profY - 18, profY - 22, padTop, H * 0.45, H * 0.6];
+    let pinYs = [...new Set((isStaggered ? [tierHigh, tierNear] : [tierNear, tierHigh]).concat(tierFree).map(clampPinY))];
+    let pinX = wptX;
+    let pinDxs = [0, -6, 6, -12, 12, -18, 18, -24, 24, -30, 30];
 
-    // Check if custom dragged position exists for this waypoint
-    if (customPositions && customPositions['wpt-' + wpt.id]) {
-      badgeX = customPositions['wpt-' + wpt.id].x;
-      badgeY = customPositions['wpt-' + wpt.id].y;
+    // A dragged pin stays where the user put it; only its label may flip sides
+    const customPos = customPositions && customPositions['wpt-' + wpt.id];
+    if (customPos) {
+      pinX = customPos.x;
+      pinYs = [Math.max(2.5, Math.min(H - 6.0, customPos.y))];
+      pinDxs = [0];
     }
 
-    if (badgeY < 2.5) badgeY = 2.5;
-    if (badgeY > H - 6.0) badgeY = H - 6.0;
+    const tagText = customLabel ? `${distStr} ${customLabel}` : `${distStr} ${typeCfg.shortCode}`;
+    const tagW = showWptLabels ? Math.min(26, tagText.length * 1.35 + 2.5) : 0;
+    const tagH = 2.6;
+    const placed = placeWaypointLabel({
+      pinX,
+      pinYs,
+      pinDxs,
+      pinR: badgeR,
+      tagW,
+      tagH,
+      preferAbove: pinYs[0] + badgeR + 3.2 > profY && pinYs[0] - 3.2 >= 1.0,
+      W,
+      minY: topLimit,
+      maxY: H - 1.0,
+      obstacles
+    });
+    obstacles.push(...placed.boxes);
+    const badgeX = placed.pinX;
+    const badgeY = placed.pinY;
 
     // Drop Line / Leader line from pin badge down to profile surface
     const dropLine = `
@@ -439,19 +483,9 @@ export function renderWaypoints(ctx) {
     // High contrast label
     let textMarkup = '';
     if (showWptLabels) {
-      const tagText = customLabel ? `${distStr} ${customLabel}` : `${distStr} ${typeCfg.shortCode}`;
-      const tagW = Math.min(26, tagText.length * 1.35 + 2.5);
-      // Keep the label on the sticker when the pin sits near either edge
-      const tagLeft = Math.max(0.8, Math.min(W - 0.8 - tagW, badgeX - tagW / 2));
-      const tagX = tagLeft - badgeX;
-      let tagY = badgeR + 0.6;
-      if (badgeY + badgeR + 3.2 > profY && badgeY - 3.2 >= 1.0) {
-        tagY = - badgeR - 2.8;
-      }
-
       textMarkup = `
-          <g transform="translate(${tagX.toFixed(2)}, ${tagY.toFixed(2)})">
-            <rect width="${tagW.toFixed(2)}" height="2.6" rx="0.5" fill="${theme.badgeBg}" stroke="${theme.badgeStroke}" stroke-width="0.3"/>
+          <g transform="translate(${placed.tagX.toFixed(2)}, ${placed.tagY.toFixed(2)})">
+            <rect width="${tagW.toFixed(2)}" height="${tagH}" rx="0.5" fill="${theme.badgeBg}" stroke="${theme.badgeStroke}" stroke-width="0.3"/>
             <text x="${(tagW / 2).toFixed(2)}" y="1.85" fill="${theme.badgeText}" font-size="1.5" font-weight="800" font-family="monospace, sans-serif" text-anchor="middle">${escapeXml(tagText)}</text>
           </g>
         `;

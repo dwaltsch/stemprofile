@@ -329,6 +329,62 @@ export function getRecommendedBlockPresets(totalDistMeters, widthMm = 110, heigh
 }
 
 /**
+ * Picks a free spot for a waypoint pin and its label, avoiding climb badges,
+ * summit dots and earlier waypoints. Candidates are tried from the preferred
+ * spot outwards; when nothing is free, the least crowded one wins.
+ *
+ * @param {Object} options
+ * @param {number} options.pinX - Preferred pin center X in mm
+ * @param {number[]} options.pinYs - Pin center Y candidates in mm, best first
+ * @param {number[]} [options.pinDxs=[0]] - Horizontal pin offset candidates in mm, best first
+ * @param {number} options.pinR - Pin radius in mm
+ * @param {number} options.tagW - Label width in mm (0 when labels are hidden)
+ * @param {number} options.tagH - Label height in mm
+ * @param {boolean} options.preferAbove - Try the label above the pin first
+ * @param {number} options.W - Sticker width in mm
+ * @param {number} options.minY - Top limit in mm, below the header
+ * @param {number} options.maxY - Bottom limit in mm
+ * @param {Array<{x: number, y: number, w: number, h: number}>} options.obstacles - Occupied rectangles
+ * @returns {{ pinX: number, pinY: number, tagX: number, tagY: number, boxes: Array<{x: number, y: number, w: number, h: number}> }}
+ *   Pin center, label offset from the pin, and the rectangles now occupied
+ */
+export function placeWaypointLabel({ pinX, pinYs, pinDxs = [0], pinR, tagW, tagH, preferAbove, W, minY, maxY, obstacles }) {
+  const marginMm = 0.4;
+  const hits = (a, b) => a.x < b.x + b.w + marginMm && a.x + a.w + marginMm > b.x &&
+    a.y < b.y + b.h + marginMm && a.y + a.h + marginMm > b.y;
+
+  let best = null;
+  let bestCost = Infinity;
+
+  for (let dxIdx = 0; dxIdx < pinDxs.length; dxIdx++) {
+    for (let yIdx = 0; yIdx < pinYs.length; yIdx++) {
+      for (const above of [preferAbove, !preferAbove]) {
+        const x = pinX + pinDxs[dxIdx];
+        const pinY = pinYs[yIdx];
+        const tagLeft = Math.max(0.8, Math.min(W - 0.8 - tagW, x - tagW / 2));
+        const tagTop = above ? pinY - pinR - 0.2 - tagH : pinY + pinR + 0.6;
+        const pinBox = { x: x - pinR, y: pinY - pinR, w: pinR * 2, h: pinR * 2 };
+        const tagBox = { x: tagLeft, y: tagTop, w: tagW, h: tagH };
+        const boxes = tagW > 0 ? [pinBox, tagBox] : [pinBox];
+        const outOfBounds = pinY - pinR < minY || (tagW > 0 && (tagTop < minY || tagTop + tagH > maxY));
+        const overlaps = obstacles.reduce((n, o) => n + boxes.filter(b => hits(b, o)).length, 0);
+        // Staying on the sticker and out of the header outranks avoiding other labels
+        const cost = (outOfBounds ? 100000 : 0) + overlaps * 1000;
+        const candidate = { pinX: x, pinY, tagX: tagLeft - x, tagY: tagTop - pinY, boxes };
+
+        if (cost === 0) return candidate;
+        if (cost < bestCost) {
+          bestCost = cost;
+          best = candidate;
+        }
+      }
+    }
+  }
+
+  return best;
+}
+
+/**
  * Computes dynamic in-block gradient percentage layout, sizing, and orientation
  * based on physical sticker dimensions, column height, and block width.
  *

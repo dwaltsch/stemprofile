@@ -572,10 +572,15 @@
   color: var(--text-primary);
 }
 
-.fuel-dist-input {
-  width: 38px;
+input[type="number"].fuel-dist-input {
+  flex: none;
+  width: 44px;
   border: none;
+  border-radius: 0;
   background: transparent;
+  box-shadow: none;
+  appearance: textfield;
+  -moz-appearance: textfield;
   font-size: 0.74rem;
   font-weight: 800;
   color: var(--text-primary);
@@ -584,7 +589,13 @@
   font-family: var(--font-mono);
 }
 
-.fuel-dist-input:focus {
+input[type="number"].fuel-dist-input::-webkit-inner-spin-button,
+input[type="number"].fuel-dist-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"].fuel-dist-input:focus {
   outline: none;
 }
 

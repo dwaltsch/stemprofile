@@ -8,6 +8,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  placeWaypointLabel,
   calculateLeaderLineAnchor,
   computeClimbBadgeLayout,
   getRecommendedBlockPresets,
@@ -280,3 +281,41 @@ describe('Layout Module: Dynamic In-Block Percentage Engine', () => {
   });
 });
 
+
+describe('Waypoint Label Placement', () => {
+  const base = { pinR: 2, tagW: 20, tagH: 2.6, preferAbove: false, W: 110, minY: 5.8, maxY: 34, obstacles: [] };
+  const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+  it('keeps the preferred spot when it is free', () => {
+    const placed = placeWaypointLabel({ ...base, pinX: 55, pinYs: [15, 10], pinDxs: [0, 6] });
+    assert.equal(placed.pinX, 55);
+    assert.equal(placed.pinY, 15);
+    assert.equal(placed.tagX, -10);
+  });
+
+  it('moves pin and label clear of a climb badge', () => {
+    const badge = { x: 40, y: 12, w: 30, h: 8 };
+    const placed = placeWaypointLabel({ ...base, pinX: 55, pinYs: [15, 25], pinDxs: [0, -6, 6], obstacles: [badge] });
+    assert.ok(placed.boxes.every(box => !overlaps(box, badge)));
+  });
+
+  it('never moves a pin the user dragged', () => {
+    const badge = { x: 40, y: 12, w: 30, h: 8 };
+    const placed = placeWaypointLabel({ ...base, pinX: 55, pinYs: [15], obstacles: [badge] });
+    assert.equal(placed.pinX, 55);
+    assert.equal(placed.pinY, 15);
+  });
+
+  it('prefers staying below the header over dodging a badge', () => {
+    const badge = { x: 40, y: 8, w: 30, h: 8 };
+    const placed = placeWaypointLabel({ ...base, pinX: 55, pinYs: [10, 3], obstacles: [badge] });
+    assert.equal(placed.pinY, 10);
+  });
+
+  it('stays on the sticker near both edges', () => {
+    for (const pinX of [1, 109]) {
+      const { pinX: x, tagX } = placeWaypointLabel({ ...base, pinX, pinYs: [15] });
+      assert.ok(x + tagX >= 0.8 && x + tagX + base.tagW <= base.W - 0.8);
+    }
+  });
+});
