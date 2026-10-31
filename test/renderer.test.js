@@ -150,6 +150,30 @@ describe('Renderer Module: SVG Profile Generation', () => {
     }
   });
 
+  it('shortens long labels and titles instead of letting them collide', () => {
+    const coords = [];
+    for (let i = 0; i <= 220; i++) coords.push({ lat: 45.0 + i * 0.01, lon: 6.0, ele: 400 });
+    const { points, stats, climbs, blocks } = processTrackSignal(coords);
+    const longLabel = 'Neutral service point next to the old village fountain';
+    const longTitle = 'A remarkably long event name that would run into the stats';
+    const settings = { ...DEFAULT_SETTINGS, widthMm: 75, heightMm: 30, title: longTitle };
+    const svg = renderProfileSVG(points, stats, climbs, blocks, [{ id: 'a', distM: 100000, type: 'feed', label: longLabel, enabled: true }], settings);
+    assert.ok(!svg.includes(longLabel));
+    assert.ok(!svg.includes(longTitle));
+    assert.ok(svg.includes('…'));
+  });
+
+  it('hides block percentages behind a waypoint label', () => {
+    const coords = [];
+    for (let i = 0; i <= 220; i++) coords.push({ lat: 45.0 + i * 0.01, lon: 6.0, ele: 1000 + Math.sin(i / 12) * 300 });
+    const { points, stats, climbs, blocks } = processTrackSignal(coords, 3, 5000);
+    const countPct = (svg) => (svg.match(/>-?[0-9]+%<\/text>/g) || []).length;
+    const settings = { ...DEFAULT_SETTINGS, showClimbs: false };
+    const bare = renderProfileSVG(points, stats, climbs, blocks, [], settings);
+    const pinned = Array.from({ length: 12 }, (_, i) => ({ id: `w${i}`, distM: 8000 + i * 6000, type: 'feed', label: 'Feed stop', enabled: true }));
+    assert.ok(countPct(renderProfileSVG(points, stats, climbs, blocks, pinned, settings)) < countPct(bare));
+  });
+
   it('handles empty or minimal point sets without throwing', () => {
     const svg1 = renderProfileSVG([], null, [], [], [], DEFAULT_SETTINGS);
     assert.ok(typeof svg1 === 'string' && svg1.includes('<svg'));

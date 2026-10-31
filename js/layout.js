@@ -104,6 +104,7 @@ export function computeClimbBadgeLayout(
   const sortedClimbs = [...climbs].sort((a, b) => a.summitKm - b.summitKm);
   const placedBadges = [];
   const isDense = sortedClimbs.length >= 4;
+  const summits = sortedClimbs.map(c => ({ x: toX(c.summitKm * 1000), y: toY(c.summitEle) }));
 
   sortedClimbs.forEach((climb, climbIdx) => {
     const summitX = toX(climb.summitKm * 1000);
@@ -122,7 +123,7 @@ export function computeClimbBadgeLayout(
     const statsText = `${statsLength} ${statsGrade}`;
     const statsCharW = isDense ? 1.0 : 1.2;
     const statsW = statsText.length * statsCharW + 3.5;
-    const badgeW = Math.min(32, catW + statsW);
+    const fullW = Math.min(32, catW + statsW);
 
     const label = `${catCode} | ${statsLength} · ${statsGrade}`;
 
@@ -132,7 +133,7 @@ export function computeClimbBadgeLayout(
       placedBadges.push({
         x: customPos.x,
         y: customPos.y,
-        w: badgeW,
+        w: fullW,
         h: badgeH,
         catW,
         catCode,
@@ -146,9 +147,6 @@ export function computeClimbBadgeLayout(
       });
       return;
     }
-
-    const naturalX = summitX - (badgeW / 2);
-    const clampedNaturalX = Math.max(padLeft, Math.min(W - padRight - badgeW, naturalX));
 
     // Check if near previous climb (Delta X < 10.5mm / ~40px)
     let isConsecutiveNear = false;
@@ -183,8 +181,15 @@ export function computeClimbBadgeLayout(
     // Horizontal nudge offsets
     const candidateDxs = [0, -3.5, 3.5, -7.0, 7.0, -11.0, 11.0, -15.0, 15.0, -20.0, 20.0];
 
+    let chosen = null;
+    let chosenCost = Infinity;
+
+    // When the full badge only fits far from its summit, the category pill alone may sit closer
+    for (const badgeW of [fullW, catW]) {
+    if (chosenCost < 30) break;
     let bestCandidate = null;
     let minCost = Infinity;
+    const clampedNaturalX = Math.max(padLeft, Math.min(W - padRight - badgeW, summitX - (badgeW / 2)));
 
     for (let t = 0; t < candidateTiersY.length; t++) {
       const candY = candidateTiersY[t];
@@ -206,6 +211,12 @@ export function computeClimbBadgeLayout(
             collides = true;
             break;
           }
+        }
+
+        // Check collision against the other summit dots, including climbs not yet placed
+        if (!collides) {
+          collides = summits.some((s, summitIdx) => summitIdx !== climbIdx &&
+            candX < s.x + 1.5 && candX + badgeW > s.x - 1.5 && candY < s.y + 1.5 && candY + badgeH > s.y - 1.5);
         }
 
         // Check collision against the summit peak dot itself (avoid badge covering the summit)
@@ -240,12 +251,17 @@ export function computeClimbBadgeLayout(
         break;
       }
     }
+    if (bestCandidate && minCost < chosenCost) {
+      chosen = bestCandidate;
+      chosenCost = minCost;
+    }
+    }
 
-    if (!bestCandidate) {
-      bestCandidate = {
-        x: clampedNaturalX,
+    if (!chosen) {
+      chosen = {
+        x: Math.max(padLeft, Math.min(W - padRight - fullW, summitX - (fullW / 2))),
         y: tier1Y,
-        w: badgeW,
+        w: fullW,
         h: badgeH,
         catW,
         catCode,
@@ -259,7 +275,7 @@ export function computeClimbBadgeLayout(
       };
     }
 
-    placedBadges.push(bestCandidate);
+    placedBadges.push(chosen);
   });
 
   return placedBadges;
@@ -329,14 +345,14 @@ export function getRecommendedBlockPresets(totalDistMeters, widthMm = 110, heigh
 }
 
 /**
- * Picks a free spot for a waypoint pin and its label, avoiding climb badges,
- * summit dots and earlier waypoints. Candidates are tried from the preferred
- * spot outwards; when nothing is free, the least crowded one wins.
+ * Picks the best spot for a waypoint pin and its label. Leaving the sticker
+ * outranks everything, then covering another label, then crossing a leader
+ * line, then sitting on the terrain and straying from the route point.
  *
  * @param {Object} options
  * @param {number} options.pinX - Preferred pin center X in mm
  * @param {number[]} options.pinYs - Pin center Y candidates in mm, best first
- * @param {number[]} [options.pinDxs=[0]] - Horizontal pin offset candidates in mm, best first
+ * @param {number[]} [options.pinDxs=[0]] - Horizontal pin offset candidates in mm
  * @param {number} options.pinR - Pin radius in mm
  * @param {number} options.tagW - Label width in mm (0 when labels are hidden)
  * @param {number} options.tagH - Label height in mm
@@ -345,10 +361,15 @@ export function getRecommendedBlockPresets(totalDistMeters, widthMm = 110, heigh
  * @param {number} options.minY - Top limit in mm, below the header
  * @param {number} options.maxY - Bottom limit in mm
  * @param {Array<{x: number, y: number, w: number, h: number}>} options.obstacles - Occupied rectangles
- * @returns {{ pinX: number, pinY: number, tagX: number, tagY: number, boxes: Array<{x: number, y: number, w: number, h: number}> }}
- *   Pin center, label offset from the pin, and the rectangles now occupied
+ * @param {{x: number, y: number}} [options.apex] - Route point the pin's leader line runs to
+ * @param {Array<{x1: number, y1: number, x2: number, y2: number}>} [options.leaders=[]] - Existing leader lines
+ * @param {function(number): number} [options.terrainY] - Terrain surface Y at a given X
+ * @returns {{ pinX: number, pinY: number, tagX: number, tagY: number, overlaps: number, cost: number, boxes: Array<{x: number, y: number, w: number, h: number}>, leader: {x1: number, y1: number, x2: number, y2: number}|null }}
+ *   Pin center, label offset from the pin, overlap count, placement cost, occupied rectangles and the leader line
  */
-export function placeWaypointLabel({ pinX, pinYs, pinDxs = [0], pinR, tagW, tagH, preferAbove, W, minY, maxY, obstacles }) {
+export function placeWaypointLabel({
+  pinX, pinYs, pinDxs = [0], pinR, tagW, tagH, preferAbove, W, minY, maxY, obstacles, apex, leaders = [], terrainY
+}) {
   const marginMm = 0.4;
   const hits = (a, b) => a.x < b.x + b.w + marginMm && a.x + a.w + marginMm > b.x &&
     a.y < b.y + b.h + marginMm && a.y + a.h + marginMm > b.y;
@@ -356,26 +377,33 @@ export function placeWaypointLabel({ pinX, pinYs, pinDxs = [0], pinR, tagW, tagH
   let best = null;
   let bestCost = Infinity;
 
-  for (let dxIdx = 0; dxIdx < pinDxs.length; dxIdx++) {
+  for (const dx of pinDxs) {
     for (let yIdx = 0; yIdx < pinYs.length; yIdx++) {
       for (const above of [preferAbove, !preferAbove]) {
-        const x = pinX + pinDxs[dxIdx];
+        const x = pinX + dx;
         const pinY = pinYs[yIdx];
         const tagLeft = Math.max(0.8, Math.min(W - 0.8 - tagW, x - tagW / 2));
         const tagTop = above ? pinY - pinR - 0.2 - tagH : pinY + pinR + 0.6;
         const pinBox = { x: x - pinR, y: pinY - pinR, w: pinR * 2, h: pinR * 2 };
         const tagBox = { x: tagLeft, y: tagTop, w: tagW, h: tagH };
         const boxes = tagW > 0 ? [pinBox, tagBox] : [pinBox];
-        const outOfBounds = pinY - pinR < minY || (tagW > 0 && (tagTop < minY || tagTop + tagH > maxY));
-        const overlaps = obstacles.reduce((n, o) => n + boxes.filter(b => hits(b, o)).length, 0);
-        // Staying on the sticker and out of the header outranks avoiding other labels
-        const cost = (outOfBounds ? 100000 : 0) + overlaps * 1000;
-        const candidate = { pinX: x, pinY, tagX: tagLeft - x, tagY: tagTop - pinY, boxes };
+        const leader = apex ? { x1: x, y1: pinY, x2: apex.x, y2: apex.y } : null;
 
-        if (cost === 0) return candidate;
+        const outOfBounds = x - pinR < 0.3 || x + pinR > W - 0.3 || pinY - pinR < minY ||
+          (tagW > 0 && (tagTop < minY || tagTop + tagH > maxY));
+        const overlaps = obstacles.reduce((n, o) => n + boxes.filter(b => hits(b, o)).length, 0);
+        const ownCrossings = leader ? obstacles.filter(o => segmentHitsBox(leader, o)).length : 0;
+        const coversOwnLine = leader && tagW > 0 && segmentHitsBox(leader, tagBox) ? 1 : 0;
+        const otherCrossings = leaders.reduce((n, line) => n + boxes.filter(b => segmentHitsBox(line, b)).length, 0);
+        const onTerrain = terrainY ? boxes.filter(b => [b.x, b.x + b.w / 2, b.x + b.w].some(px => b.y + b.h > terrainY(px))).length : 0;
+        const leaderLen = leader ? Math.hypot(leader.x2 - leader.x1, leader.y2 - leader.y1) : Math.abs(dx);
+
+        const cost = (outOfBounds ? 100000 : 0) + overlaps * 1000 + (ownCrossings + otherCrossings) * 300 +
+          coversOwnLine * 150 + onTerrain * 60 + leaderLen * 2 + Math.max(0, leaderLen - 14) * 40 + yIdx + (above === preferAbove ? 0 : 0.5);
+
         if (cost < bestCost) {
           bestCost = cost;
-          best = candidate;
+          best = { pinX: x, pinY, tagX: tagLeft - x, tagY: tagTop - pinY, overlaps, cost, boxes, leader };
         }
       }
     }
@@ -385,11 +413,38 @@ export function placeWaypointLabel({ pinX, pinYs, pinDxs = [0], pinR, tagW, tagH
 }
 
 /**
+ * Whether a line segment passes through a rectangle (Liang-Barsky clipping).
+ *
+ * @private
+ * @param {{x1: number, y1: number, x2: number, y2: number}} s - Segment
+ * @param {{x: number, y: number, w: number, h: number}} b - Rectangle
+ * @returns {boolean}
+ */
+function segmentHitsBox(s, b) {
+  const dx = s.x2 - s.x1;
+  const dy = s.y2 - s.y1;
+  let t0 = 0;
+  let t1 = 1;
+  const edges = [[-dx, s.x1 - b.x], [dx, b.x + b.w - s.x1], [-dy, s.y1 - b.y], [dy, b.y + b.h - s.y1]];
+  for (const [p, q] of edges) {
+    if (p === 0) {
+      if (q < 0) return false;
+    } else {
+      const t = q / p;
+      if (p < 0) t0 = Math.max(t0, t);
+      else t1 = Math.min(t1, t);
+      if (t0 > t1) return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Computes dynamic in-block gradient percentage layout, sizing, and orientation
  * based on physical sticker dimensions, column height, and block width.
  *
  * @param {Object} params - Layout computation parameters
- * @returns {{ shouldRender: boolean, markup: string, nextRenderedTextX: number }}
+ * @returns {{ shouldRender: boolean, markup: string, nextRenderedTextX: number, textBox?: {x: number, y: number, w: number, h: number} }}
  */
 export function computeBlockPctLayout({
   block,
@@ -435,11 +490,12 @@ export function computeBlockPctLayout({
   const strokeWidth = ((isLightBackground ? 0.42 : 0.34) * sizeScale).toFixed(2);
 
   let labelMarkup = '';
+  let textY = topMidY;
 
   if (blockWidthMm >= (2.8 * sizeScale)) {
     // Wide block: Horizontal text with outline halo
     const fontSize = (1.75 * sizeScale).toFixed(2);
-    const textY = Math.min(yBase - 1.0 * sizeScale, topMidY + (colHeight * (isCompactHeight ? 0.42 : 0.45)));
+    textY = Math.min(yBase - 1.0 * sizeScale, topMidY + (colHeight * (isCompactHeight ? 0.42 : 0.45)));
     labelMarkup = `
       <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" fill="${textFill}" stroke="${strokeColor}" stroke-width="${strokeWidth}" stroke-linejoin="round" paint-order="stroke fill" font-size="${fontSize}" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${gradeText}</text>
     `;
@@ -447,13 +503,13 @@ export function computeBlockPctLayout({
     // Medium block: Compact horizontal or vertical text depending on available height
     if (colHeight >= (5.0 * sizeScale)) {
       const fontSize = (1.5 * sizeScale).toFixed(2);
-      const textY = (topMidY + yBase) / 2;
+      textY = (topMidY + yBase) / 2;
       labelMarkup = `
         <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" transform="rotate(-90, ${midX.toFixed(2)}, ${textY.toFixed(2)})" fill="${textFill}" stroke="${strokeColor}" stroke-width="${strokeWidth}" stroke-linejoin="round" paint-order="stroke fill" font-size="${fontSize}" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${gradeText}</text>
       `;
     } else {
       const fontSize = (1.35 * sizeScale).toFixed(2);
-      const textY = Math.min(yBase - 0.7 * sizeScale, topMidY + (colHeight * 0.48));
+      textY = Math.min(yBase - 0.7 * sizeScale, topMidY + (colHeight * 0.48));
       labelMarkup = `
         <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" fill="${textFill}" stroke="${strokeColor}" stroke-width="${strokeWidth}" stroke-linejoin="round" paint-order="stroke fill" font-size="${fontSize}" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${gradeText}</text>
       `;
@@ -462,16 +518,22 @@ export function computeBlockPctLayout({
     // Narrow block: Vertical text like Grand Tour roadbooks
     if (colHeight >= (3.5 * sizeScale)) {
       const fontSize = (1.25 * sizeScale).toFixed(2);
-      const textY = (topMidY + yBase) / 2;
+      textY = (topMidY + yBase) / 2;
       labelMarkup = `
         <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" transform="rotate(-90, ${midX.toFixed(2)}, ${textY.toFixed(2)})" fill="${textFill}" stroke="${strokeColor}" stroke-width="${strokeWidth}" stroke-linejoin="round" paint-order="stroke fill" font-size="${fontSize}" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${gradeText}</text>
       `;
     }
   }
 
+  const isVertical = labelMarkup.includes('rotate(');
+  const textBox = isVertical
+    ? { x: midX - 1, y: textY - 2.5 * sizeScale, w: 2, h: 5 * sizeScale }
+    : { x: midX - 2.4 * sizeScale, y: textY - 1.8 * sizeScale, w: 4.8 * sizeScale, h: 2.2 * sizeScale };
+
   return {
     shouldRender: Boolean(labelMarkup),
     markup: labelMarkup,
-    nextRenderedTextX: labelMarkup ? midX : lastRenderedTextX
+    nextRenderedTextX: labelMarkup ? midX : lastRenderedTextX,
+    textBox
   };
 }

@@ -154,7 +154,8 @@ export function renderBlockColumns(ctx) {
         themeKey
       });
 
-      if (pctResult.shouldRender) {
+      // A hidden percentage leaves its slot free for the next block
+      if (pctResult.shouldRender && !isCoveredByLabel(ctx, pctResult.textBox)) {
         blockTextLabels += pctResult.markup;
         lastRenderedTextX = pctResult.nextRenderedTextX;
       }
@@ -299,7 +300,7 @@ export function renderClimbs(ctx) {
   if (!settings.showClimbs || !climbs || climbs.length === 0) return climbsMarkup;
 
   const hiddenClimbIds = new Set((settings.hiddenClimbIds || []).map(id => String(id)));
-  const badgeLayout = layoutVisibleClimbBadges(ctx);
+  const badgeLayout = getLabelLayout(ctx).badges;
 
   climbs.forEach(climb => {
     const isHidden = hiddenClimbIds.has(String(climb.id)) || climb.enabled === false;
@@ -358,7 +359,7 @@ function renderClimbBadge(climb, badge, theme) {
         `;
 
   const catColor = getClimbCategoryColor(climb.category, theme);
-  const actualCatW = catW || Math.max(8.0, w * 0.38);
+  const actualCatW = Math.min(w, catW || Math.max(8.0, w * 0.38));
   const statsW = w - actualCatW;
   const statsMidX = actualCatW + (statsW / 2);
 
@@ -374,39 +375,85 @@ function renderClimbBadge(climb, badge, theme) {
               <line x1="${actualCatW.toFixed(2)}" y1="0" x2="${actualCatW.toFixed(2)}" y2="${h.toFixed(2)}" stroke="${theme.badgeStroke}" stroke-width="0.3"/>
               <!-- Category Code Text -->
               <text class="climb-cat-text" x="${(actualCatW / 2).toFixed(2)}" y="${(h * 0.72).toFixed(2)}" fill="#ffffff" font-size="${fontSize}" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${catCode || 'CLIMB'}</text>
-              <!-- Length & High-Contrast Bold Percentage Text (Right Segment) -->
-              <text class="climb-stats-text" x="${statsMidX.toFixed(2)}" y="${(h * 0.72).toFixed(2)}" fill="${theme.badgeText}" font-size="${fontSize}" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">
+              <!-- Length & High-Contrast Bold Percentage Text (Right Segment, dropped on crowded stages) -->
+              ${statsW <= 0 ? '' : `<text class="climb-stats-text" x="${statsMidX.toFixed(2)}" y="${(h * 0.72).toFixed(2)}" fill="${theme.badgeText}" font-size="${fontSize}" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">
                 <tspan font-weight="600" fill="${theme.textMuted}">${statsLength || (climb.lengthKm.toFixed(1) + 'k')} </tspan>
                 <tspan font-weight="900" fill="${theme.badgeText}">${statsGrade || (climb.avgGrade + '%')}</tspan>
-              </text>
+              </text>`}
             </g>
           </g>
         `;
 }
 
+/** Label metrics in mm: monospace glyph advance at font size 1.5, plus side padding. */
+const TAG_CHAR_W = 0.95;
+const TAG_PADDING_W = 1.6;
+const TAG_H = 2.6;
+const PIN_R = 2.0;
+/** Beyond this many waypoints only the nearest candidates are tried, which keeps huge plans fast. */
+const WIDE_SEARCH_MAX_WAYPOINTS = 40;
+
 /**
- * Waypoint pins, drop lines and labels (draggable, staggered near neighbours and summits).
+ * Shortens text with an ellipsis to fit a character budget.
  *
- * @param {ProfileContext} ctx
+ * @param {string} text
+ * @param {number} maxChars
  * @returns {string}
  */
-export function renderWaypoints(ctx) {
-  const { points, climbs, settings, theme, W, H, padTop, toX, toY, dFactor, activeWaypoints, customPositions } = ctx;
-  let waypointsMarkup = '';
-  const showWaypoints = settings.showWaypoints !== false;
+function ellipsize(text, maxChars) {
+  return text.length <= maxChars ? text : `${text.slice(0, Math.max(1, maxChars - 1)).trimEnd()}…`;
+}
+
+/**
+ * Highest terrain point per millimeter of sticker width, for label placement.
+ *
+ * @private
+ * @param {ProfileContext} ctx
+ * @returns {function(number): number} Terrain surface Y at a given X
+ */
+function buildTerrainLookup(ctx) {
+  const { points, W, yBase, toX, toY } = ctx;
+  const columns = new Array(Math.ceil(W) + 1).fill(yBase);
+  for (const pt of points) {
+    const col = Math.max(0, Math.min(columns.length - 1, Math.round(toX(pt.dist))));
+    columns[col] = Math.min(columns[col], toY(pt.smoothEle));
+  }
+  return (x) => columns[Math.max(0, Math.min(columns.length - 1, Math.round(x)))];
+}
+
+/**
+ * Places every waypoint against the climb badges, elevation labels and the waypoints before it.
+ *
+ * @private
+ * @param {ProfileContext} ctx
+ * @param {Object[]} badges - Climb badge placements
+ * @returns {{ placements: Object[], boxes: Array<{x: number, y: number, w: number, h: number}> }}
+ */
+function layoutWaypoints(ctx, badges) {
+  const { points, settings, stats, W, H, padTop, padLeft, yBase, toX, toY, dFactor, activeWaypoints, customPositions } = ctx;
+  if (settings.showWaypoints === false || activeWaypoints.length === 0) return { placements: [], boxes: [] };
+
   const showWptLabels = settings.showWaypointLabels !== false;
-  if (!showWaypoints || activeWaypoints.length === 0) return waypointsMarkup;
-
   const sortedWpts = [...activeWaypoints].sort((a, b) => a.distM - b.distM);
+  const topLimit = settings.showHeader ? 5.8 : 1.0;
+  const maxTagChars = Math.floor((Math.min(30, W * 0.4) - TAG_PADDING_W) / TAG_CHAR_W);
+  const tagWidth = (text) => (showWptLabels ? text.length * TAG_CHAR_W + TAG_PADDING_W : 0);
+  const clampPinY = (y) => Math.max(topLimit + PIN_R, Math.min(H - 6.0, y));
+  const wideSearch = sortedWpts.length <= WIDE_SEARCH_MAX_WAYPOINTS;
+  const terrainY = wideSearch ? buildTerrainLookup(ctx) : undefined;
 
-  // Occupied rectangles: climb badges and summit dots, then each placed waypoint
-  const obstacles = layoutVisibleClimbBadges(ctx).flatMap(b => [
+  // Occupied rectangles: climb badges, summit dots and elevation labels, then each placed waypoint
+  const obstacles = badges.flatMap(b => [
     { x: b.x, y: b.y, w: b.w, h: b.h },
     { x: b.summitX - 1.2, y: b.summitY - 1.2, w: 2.4, h: 2.4 }
   ]);
-  const topLimit = settings.showHeader ? 5.8 : 1.0;
+  if (settings.showElevationLabels && stats) {
+    for (const ele of [stats.minEle, stats.maxEle]) obstacles.push({ x: 0, y: toY(ele) - 1.3, w: padLeft, h: 2.6 });
+  }
+  const leaders = badges.map(b => ({ x1: b.x + b.w / 2, y1: b.y + b.h, x2: b.summitX, y2: b.summitY }));
+  const occupied = [];
 
-  sortedWpts.forEach((wpt, idx) => {
+  const placements = sortedWpts.map((wpt, idx) => {
     const typeCfg = WAYPOINT_CONFIG[wpt.type] || WAYPOINT_CONFIG['feed'];
     const wptX = toX(wpt.distM);
     const profEle = getInterpolatedEle(points, wpt.distM);
@@ -416,32 +463,16 @@ export function renderWaypoints(ctx) {
     const distStr = `${distVal}${settings.units !== 'imperial' ? 'k' : 'm'}`;
     const customLabel = (wpt.label || '').trim();
 
-    // Staggering: check proximity to adjacent waypoints or climb summits (Delta X < 10.5mm)
-    let isStaggered = false;
-    if (idx > 0) {
-      const prevWptX = toX(sortedWpts[idx - 1].distM);
-      if (Math.abs(wptX - prevWptX) < 10.5) {
-        isStaggered = (idx % 2 === 1);
-      }
-    }
-    if (!isStaggered && climbs && climbs.length > 0) {
-      for (const c of climbs) {
-        const sX = toX(c.summitKm * 1000);
-        if (Math.abs(wptX - sX) < 10.5) {
-          isStaggered = true;
-          break;
-        }
-      }
-    }
+    // Staggering: check proximity to adjacent waypoints (Delta X < 10.5mm)
+    const prevNear = idx > 0 && Math.abs(wptX - toX(sortedWpts[idx - 1].distM)) < 10.5;
+    const isStaggered = prevNear && idx % 2 === 1;
 
-    const badgeR = 2.0; // 4.0mm diameter pin
-    const clampPinY = (y) => Math.max(topLimit + badgeR, Math.min(H - 6.0, y));
     const tierNear = Math.max(padTop - 3.6, profY - 7.5);
     const tierHigh = Math.max(padTop - 2.0, profY - 13.5);
-    const tierFree = [profY - 18, profY - 22, padTop, H * 0.45, H * 0.6];
+    const tierFree = wideSearch ? [profY - 5, profY - 18, profY - 22, padTop, H * 0.45, H * 0.6] : [];
     let pinYs = [...new Set((isStaggered ? [tierHigh, tierNear] : [tierNear, tierHigh]).concat(tierFree).map(clampPinY))];
     let pinX = wptX;
-    let pinDxs = [0, -6, 6, -12, 12, -18, 18, -24, 24, -30, 30];
+    let pinDxs = wideSearch ? [0, -5, 5, -10, 10, -15, 15, -20, 20, -25, 25] : [0];
 
     // A dragged pin stays where the user put it; only its label may flip sides
     const customPos = customPositions && customPositions['wpt-' + wpt.id];
@@ -451,23 +482,92 @@ export function renderWaypoints(ctx) {
       pinDxs = [0];
     }
 
-    const tagText = customLabel ? `${distStr} ${customLabel}` : `${distStr} ${typeCfg.shortCode}`;
-    const tagW = showWptLabels ? Math.min(26, tagText.length * 1.35 + 2.5) : 0;
-    const tagH = 2.6;
-    const placed = placeWaypointLabel({
+    const fullText = ellipsize(customLabel ? `${distStr} ${customLabel}` : `${distStr} ${typeCfg.shortCode}`, maxTagChars);
+    const place = (text) => placeWaypointLabel({
       pinX,
       pinYs,
       pinDxs,
-      pinR: badgeR,
-      tagW,
-      tagH,
-      preferAbove: pinYs[0] + badgeR + 3.2 > profY && pinYs[0] - 3.2 >= 1.0,
+      pinR: PIN_R,
+      tagW: tagWidth(text),
+      tagH: TAG_H,
+      preferAbove: pinYs[0] + PIN_R + 3.2 > profY && pinYs[0] - 3.2 >= 1.0,
       W,
       minY: topLimit,
-      maxY: H - 1.0,
-      obstacles
+      maxY: yBase,
+      obstacles,
+      apex: { x: wptX, y: profY },
+      leaders,
+      terrainY
     });
+
+    // Out of room: the distance alone beats covering something else
+    let tagText = fullText;
+    let placed = place(fullText);
+    if (placed.cost >= 300 && showWptLabels) {
+      const shortPlaced = place(distStr);
+      if (shortPlaced.cost < placed.cost - 100) {
+        tagText = distStr;
+        placed = shortPlaced;
+      }
+    }
+
     obstacles.push(...placed.boxes);
+    occupied.push(...placed.boxes);
+    if (placed.leader) leaders.push(placed.leader);
+
+    return { wpt, typeCfg, wptX, profY, tagText, tagW: tagWidth(tagText), placed };
+  });
+
+  return { placements, boxes: occupied };
+}
+
+/**
+ * Lays out all overlay labels once per render: badges, then waypoints around them.
+ *
+ * @private
+ * @param {ProfileContext} ctx
+ * @returns {{ badges: Object[], placements: Object[], boxes: Array<{x: number, y: number, w: number, h: number}> }}
+ */
+function getLabelLayout(ctx) {
+  if (!ctx.labelLayout) {
+    const badges = layoutVisibleClimbBadges(ctx);
+    const { placements, boxes } = layoutWaypoints(ctx, badges);
+    ctx.labelLayout = {
+      badges,
+      placements,
+      boxes: boxes.concat(badges.map(b => ({ x: b.x, y: b.y, w: b.w, h: b.h })))
+    };
+  }
+  return ctx.labelLayout;
+}
+
+/**
+ * Whether an overlay label would hide the given rectangle.
+ *
+ * @private
+ * @param {ProfileContext} ctx
+ * @param {{x: number, y: number, w: number, h: number}} [box]
+ * @returns {boolean}
+ */
+function isCoveredByLabel(ctx, box) {
+  if (!box) return false;
+  return getLabelLayout(ctx).boxes.some(b =>
+    box.x < b.x + b.w && box.x + box.w > b.x && box.y < b.y + b.h && box.y + box.h > b.y);
+}
+
+/**
+ * Waypoint pins, drop lines and labels (draggable, staggered near neighbours and summits).
+ *
+ * @param {ProfileContext} ctx
+ * @returns {string}
+ */
+export function renderWaypoints(ctx) {
+  const { settings, theme } = ctx;
+  let waypointsMarkup = '';
+  const showWptLabels = settings.showWaypointLabels !== false;
+  const badgeR = PIN_R;
+
+  getLabelLayout(ctx).placements.forEach(({ wpt, typeCfg, wptX, profY, tagText, tagW, placed }) => {
     const badgeX = placed.pinX;
     const badgeY = placed.pinY;
 
@@ -485,7 +585,7 @@ export function renderWaypoints(ctx) {
     if (showWptLabels) {
       textMarkup = `
           <g transform="translate(${placed.tagX.toFixed(2)}, ${placed.tagY.toFixed(2)})">
-            <rect width="${tagW.toFixed(2)}" height="${tagH}" rx="0.5" fill="${theme.badgeBg}" stroke="${theme.badgeStroke}" stroke-width="0.3"/>
+            <rect width="${tagW.toFixed(2)}" height="${TAG_H}" rx="0.5" fill="${theme.badgeBg}" stroke="${theme.badgeStroke}" stroke-width="0.3"/>
             <text x="${(tagW / 2).toFixed(2)}" y="1.85" fill="${theme.badgeText}" font-size="1.5" font-weight="800" font-family="monospace, sans-serif" text-anchor="middle">${escapeXml(tagText)}</text>
           </g>
         `;
@@ -518,10 +618,14 @@ export function renderWaypoints(ctx) {
 export function renderHeader(ctx) {
   const { settings, stats, theme, W, padLeft, padRight, dFactor, eFactor, distUnit, eleUnit } = ctx;
   if (!settings.showHeader) return '';
-  const title = escapeXml(settings.title || 'StemProfile');
   const distStr = `${(stats.totalDist * dFactor).toFixed(1)} ${distUnit}`;
   const gainStr = `+${Math.round(stats.elevGain * eFactor)} ${eleUnit}`;
   const maxGStr = `Max ${stats.maxGrade.toFixed(1)}%`;
+
+  // Keep the title clear of the stats on narrow stickers
+  const statsW = (distStr.length + gainStr.length + maxGStr.length + 4) * 1.32;
+  const titleChars = Math.max(4, Math.floor((W - padLeft - padRight - statsW - 2) / 1.6));
+  const title = escapeXml(ellipsize(settings.title || 'StemProfile', titleChars));
 
   return `
       <text x="${padLeft.toFixed(2)}" y="4.2" fill="${theme.text}" font-size="2.8" font-weight="800" font-family="sans-serif">${title}</text>

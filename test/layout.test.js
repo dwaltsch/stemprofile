@@ -312,10 +312,45 @@ describe('Waypoint Label Placement', () => {
     assert.equal(placed.pinY, 10);
   });
 
+  it('keeps its leader line off a climb badge when another spot is free', () => {
+    const badge = { x: 50, y: 10, w: 10, h: 12 };
+    const spot = placeWaypointLabel({
+      ...base, tagW: 6, pinX: 55, pinYs: [8], pinDxs: [0, -12, 12], apex: { x: 55, y: 30 }, obstacles: [badge]
+    });
+    assert.notEqual(spot.pinX, 55);
+  });
+
+  it('avoids terrain when the air above is free', () => {
+    const spot = placeWaypointLabel({ ...base, pinX: 55, pinYs: [28, 12], terrainY: () => 20 });
+    assert.equal(spot.pinY, 12);
+  });
+
   it('stays on the sticker near both edges', () => {
     for (const pinX of [1, 109]) {
       const { pinX: x, tagX } = placeWaypointLabel({ ...base, pinX, pinYs: [15] });
       assert.ok(x + tagX >= 0.8 && x + tagX + base.tagW <= base.W - 0.8);
     }
+  });
+});
+
+describe('Climb Badge Crowding', () => {
+  const toX = (dist) => 5 + dist / 1000;
+  const toY = (ele) => 30 - ele / 100;
+  const climb = (id, summitKm) => ({ id, category: 'HC', summitKm, summitEle: 1500, lengthKm: 12.3, avgGrade: 7.1 });
+
+  it('shrinks badges to the category pill when full ones do not fit near the summit', () => {
+    const climbs = Array.from({ length: 12 }, (_, i) => climb(i, 5 + i * 8));
+    const badges = computeClimbBadgeLayout(climbs, toX, toY, 5, 5, 5.8, 29, 110);
+    assert.ok(badges.some(b => b.w === b.catW));
+    assert.ok(badges.some(b => b.w > b.catW));
+  });
+
+  it('keeps badges off the summit dots of later climbs', () => {
+    const climbs = [climb(1, 40), climb(2, 52)];
+    climbs[1].summitEle = 2000;
+    const [first] = computeClimbBadgeLayout(climbs, toX, toY, 5, 5, 5.8, 29, 110);
+    const dot = { x: toX(52000), y: toY(2000) };
+    const covers = first.x < dot.x + 1.5 && first.x + first.w > dot.x - 1.5 && first.y < dot.y + 1.5 && first.y + first.h > dot.y - 1.5;
+    assert.equal(covers, false);
   });
 });
