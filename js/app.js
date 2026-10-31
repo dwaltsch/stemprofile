@@ -98,7 +98,7 @@ export function updateUI(event) {
 export async function loadFromUrlHash(hashStr) {
   if (!hashStr) return false;
 
-  if (hashStr === '#example') {
+  if (/^#example\/?$/i.test(hashStr.trim())) {
     loadExampleRoute(store);
     return true;
   }
