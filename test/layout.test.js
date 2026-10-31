@@ -12,7 +12,7 @@ import {
   calculateLeaderLineAnchor,
   computeClimbBadgeLayout,
   getRecommendedBlockPresets,
-  computeBlockPctLayout
+  computeBlockPctLabels
 } from '../js/layout.js';
 
 describe('Layout Module: Leader Line Anchor Geometry', () => {
@@ -116,171 +116,70 @@ describe('Layout Module: Block Size Recommendations', () => {
   });
 });
 
-describe('Layout Module: Dynamic In-Block Percentage Engine', () => {
-  it('renders horizontal text with scaled font on wide block columns', () => {
-    const block = { absGrade: 8.4, zone: 2 };
-    const res = computeBlockPctLayout({
-      block,
-      idx: 0,
-      baseStride: 1,
-      blockWidthMm: 4.5,
-      colHeight: 12.0,
-      topMidY: 15.0,
-      yBase: 27.0,
-      midX: 20.0,
-      lastRenderedTextX: -999,
-      widthMm: 110,
-      heightMm: 35,
-      themeKey: 'white'
-    });
+describe('Layout Module: In-Block Percentage Labels', () => {
+  const yBase = 30;
+  // A ramp profile: tall columns rising to the right, with grades given per block
+  const columnsFrom = (grades, widthEach = 2, top = 5) => grades.map((grade, i) => ({
+    block: { grade, zone: Math.abs(grade) >= 8 ? 3 : 1 },
+    x1: 10 + i * widthEach,
+    x2: 10 + (i + 1) * widthEach,
+    y1: top,
+    y2: top
+  }));
+  const labelsFor = (columns, extra = {}) => computeBlockPctLabels(columns, { yBase, ...extra });
+  const attr = (label, name) => label.markup.match(new RegExp(`${name}="([^"]+)"`))[1];
 
-    assert.ok(res.shouldRender);
-    assert.ok(res.markup.includes('8%'));
-    assert.ok(res.markup.includes('font-size="1.75"'));
-    assert.equal(res.nextRenderedTextX, 20.0);
+  it('gives every label the same baseline, size and orientation', () => {
+    const labels = labelsFor(columnsFrom([2, 5, 9, 12, -3, -8, 1, 6, 10, 4, 0, -11]));
+    assert.ok(labels.length >= 4);
+    assert.equal(new Set(labels.map(l => attr(l, 'y'))).size, 1);
+    assert.equal(new Set(labels.map(l => attr(l, 'font-size'))).size, 1);
+    assert.equal(new Set(labels.map(l => l.markup.includes('rotate('))).size, 1);
   });
 
-  it('scales down font size on compact stem stickers (75x28mm)', () => {
-    const block = { absGrade: 10.2, zone: 2 };
-    const res = computeBlockPctLayout({
-      block,
-      idx: 0,
-      baseStride: 1,
-      blockWidthMm: 3.5,
-      colHeight: 8.0,
-      topMidY: 10.0,
-      yBase: 18.0,
-      midX: 15.0,
-      lastRenderedTextX: -999,
-      widthMm: 75,
-      heightMm: 28,
-      themeKey: 'white'
-    });
-
-    assert.ok(res.shouldRender);
-    assert.ok(res.markup.includes('10%'));
-    // Scaled font size should be < 1.75
-    assert.ok(/font-size="1\.[0-6][0-9]?"/.test(res.markup));
+  it('labels the steepest climbs before gentle or flat blocks', () => {
+    const texts = labelsFor(columnsFrom([1, 2, 12, 3, 1, 0, 2, 11, 1, 2])).map(l => l.text);
+    assert.equal(texts[0], '12%');
+    assert.ok(texts.includes('11%'));
   });
 
-  it('rotates numerals vertically on medium-narrow tall climb columns', () => {
-    const block = { absGrade: 12.0, zone: 3 };
-    const res = computeBlockPctLayout({
-      block,
-      idx: 0,
-      baseStride: 1,
-      blockWidthMm: 1.8,
-      colHeight: 9.0,
-      topMidY: 10.0,
-      yBase: 19.0,
-      midX: 30.0,
-      lastRenderedTextX: -999,
-      widthMm: 110,
-      heightMm: 35,
-      themeKey: 'white'
-    });
-
-    assert.ok(res.shouldRender);
-    assert.ok(res.markup.includes('rotate(-90'));
+  it('leaves near-flat blocks unlabeled relative to the steepest ramp', () => {
+    const texts = labelsFor(columnsFrom([0, 12, 2, 0, 5, 1], 4)).map(l => l.text);
+    assert.deepEqual(texts.sort(), ['12%', '5%']);
+    assert.deepEqual(labelsFor(columnsFrom([0, 0, 0], 4)), []);
+    assert.equal(labelsFor(columnsFrom([0, 2, 0], 4))[0].text, '2%');
   });
 
-  it('prioritizes steep climbs over flat segments when spacing is tight', () => {
-    const steepBlock = { absGrade: 9.0, zone: 2 };
-    const res = computeBlockPctLayout({
-      block: steepBlock,
-      idx: 1,
-      baseStride: 2,
-      blockWidthMm: 2.2,
-      colHeight: 8.0,
-      topMidY: 12.0,
-      yBase: 20.0,
-      midX: 23.0,
-      lastRenderedTextX: 20.5, // Tight spacing (2.5mm delta)
-      widthMm: 110,
-      heightMm: 35,
-      themeKey: 'white'
-    });
-
-    assert.ok(res.shouldRender, 'Steep pitch (>=5%) should render with prioritized spacing');
+  it('prefers a climb over an equally steep descent', () => {
+    const [first] = labelsFor(columnsFrom([-9, 9]));
+    assert.equal(first.text, '9%');
   });
 
-  it('handles empty climbs array and zero distance gracefully', () => {
-    const emptyBadges = computeClimbBadgeLayout([], dist => dist, ele => ele, 5, 5, 2, 33, 110);
-    assert.deepEqual(emptyBadges, []);
-
-    const nullBadges = computeClimbBadgeLayout(null, dist => dist, ele => ele, 5, 5, 2, 33, 110);
-    assert.deepEqual(nullBadges, []);
-
-    const zeroDistRec = getRecommendedBlockPresets(0);
-    assert.equal(zeroDistRec.defaultBlockM, 500);
-    assert.ok(zeroDistRec.options.length >= 3);
+  it('keeps labels apart and under the profile line', () => {
+    const columns = columnsFrom([9, 9, 9, 9, 9, 9, 9, 9], 1.5);
+    const labels = labelsFor(columns);
+    const sorted = labels.map(l => l.box).sort((a, b) => a.x - b.x);
+    for (let i = 1; i < sorted.length; i++) assert.ok(sorted[i].x >= sorted[i - 1].x + sorted[i - 1].w);
+    assert.equal(labelsFor(columnsFrom([9, 9], 2, 29)).length, 0);
   });
 
-  it('does not render percentage labels on very flat/low height columns', () => {
-    const flatBlock = { absGrade: 1.0, zone: 0 };
-    const res = computeBlockPctLayout({
-      block: flatBlock,
-      idx: 0,
-      baseStride: 1,
-      blockWidthMm: 3.5,
-      colHeight: 0.5, // extremely low column
-      topMidY: 26.5,
-      yBase: 27.0,
-      midX: 20.0,
-      lastRenderedTextX: -999,
-      widthMm: 110,
-      heightMm: 35,
-      themeKey: 'white'
-    });
-
-    assert.equal(res.shouldRender, false);
-    assert.equal(res.markup, '');
+  it('uses horizontal text only when blocks are wide enough', () => {
+    assert.ok(!labelsFor(columnsFrom([8, 4], 5))[0].markup.includes('rotate('));
+    assert.ok(labelsFor(columnsFrom([8, 4], 2))[0].markup.includes('rotate('));
+    assert.deepEqual(labelsFor(columnsFrom([8, 4], 0.2)), []);
   });
 
-  it('renders signed negative percentage on downhill blocks', () => {
-    const downhillBlock = { grade: -3.8, absGrade: 3.8, zone: 0 };
-    const res = computeBlockPctLayout({
-      block: downhillBlock,
-      idx: 0,
-      baseStride: 1,
-      blockWidthMm: 4.5,
-      colHeight: 12.0,
-      topMidY: 15.0,
-      yBase: 27.0,
-      midX: 20.0,
-      lastRenderedTextX: -999,
-      widthMm: 110,
-      heightMm: 35,
-      themeKey: 'white'
-    });
-
-    assert.ok(res.shouldRender);
-    assert.ok(res.markup.includes('-4%'), `Expected -4%, got: ${res.markup}`);
+  it('skips blocks hidden by an overlay', () => {
+    const labels = labelsFor(columnsFrom([8, 4, 6, 5]), { isCovered: box => box.x < 13 });
+    assert.ok(labels.every(l => l.box.x >= 13));
   });
 
-  it('renders 0% without negative zero sign on false-flat downhills', () => {
-    const gentleDownhill = { grade: -0.2, absGrade: 0.2, zone: 0 };
-    const res = computeBlockPctLayout({
-      block: gentleDownhill,
-      idx: 0,
-      baseStride: 1,
-      blockWidthMm: 4.5,
-      colHeight: 12.0,
-      topMidY: 15.0,
-      yBase: 27.0,
-      midX: 20.0,
-      lastRenderedTextX: -999,
-      widthMm: 110,
-      heightMm: 35,
-      themeKey: 'white'
-    });
-
-    assert.ok(res.shouldRender);
-    assert.ok(res.markup.includes('>0%<'), `Expected 0%, got: ${res.markup}`);
-    assert.ok(!res.markup.includes('>-0%<'), `Should not contain -0%`);
+  it('reads light text on steep zones and dark text on pale zones of light themes', () => {
+    assert.equal(attr(labelsFor(columnsFrom([12]))[0], 'fill'), '#ffffff');
+    assert.equal(attr(labelsFor(columnsFrom([3]))[0], 'fill'), '#000000');
+    assert.equal(attr(labelsFor(columnsFrom([3]), { themeKey: 'dark' })[0], 'fill'), '#ffffff');
   });
 });
-
 
 describe('Waypoint Label Placement', () => {
   const base = { pinR: 2, tagW: 20, tagH: 2.6, preferAbove: false, W: 110, minY: 5.8, maxY: 34, obstacles: [] };

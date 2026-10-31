@@ -34,7 +34,7 @@ export { WAYPOINT_CONFIG } from './renderer/waypoints-config.js';
 export { escapeXml };
 
 // Re-export layout computation for backward compatibility
-export { computeClimbBadgeLayout, computeBlockPctLayout } from './layout.js';
+export { computeClimbBadgeLayout, computeBlockPctLabels } from './layout.js';
 
 /**
  * Main vector SVG rendering pipeline for elevation stickers.

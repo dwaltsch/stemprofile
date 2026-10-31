@@ -129,7 +129,7 @@ describe('Renderer Module: SVG Profile Generation', () => {
     const pctMatches = (svg.match(/<text[^>]*>[0-9]+%<\/text>/g) || []);
     // Out of 60 blocks, it should render at most ~30-35 labels (stride/spacing applied)
     assert.ok(pctMatches.length <= 35, `Expected <= 35 labels on 60 blocks, got ${pctMatches.length}`);
-    assert.ok(pctMatches.length >= 10, `Expected >= 10 labels, got ${pctMatches.length}`);
+    assert.ok(pctMatches.length >= 5, `Expected >= 5 labels, got ${pctMatches.length}`);
   });
 
   it('keeps waypoint labels on the sticker at both route ends', () => {

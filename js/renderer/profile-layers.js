@@ -7,7 +7,7 @@
 
 import { resolveTheme, getClimbCategoryColor } from './themes.js';
 import { WAYPOINT_CONFIG, renderWaypointGlyph } from './waypoints-config.js';
-import { calculateLeaderLineAnchor, computeBlockPctLayout, computeClimbBadgeLayout, placeWaypointLabel } from '../layout.js';
+import { calculateLeaderLineAnchor, computeBlockPctLabels, computeClimbBadgeLayout, placeWaypointLabel } from '../layout.js';
 import { escapeXml } from '../escape.js';
 import { getInterpolatedEle } from '../signal.js';
 import { getUnitFactors, getUnitLabels } from '../units.js';
@@ -107,10 +107,7 @@ export function renderBlockColumns(ctx) {
 
   let topPath = `M ${toX(blocks[0].startDist).toFixed(2)} ${toY(blocks[0].startEle).toFixed(2)}`;
 
-  // Stride & density calculation so percentage numbers never clutter or overlap
-  const avgBlockWidthMm = plotW / Math.max(1, blocks.length);
-  const baseStride = avgBlockWidthMm >= 3.2 ? 1 : (avgBlockWidthMm >= 1.6 ? 2 : Math.max(2, Math.ceil(3.2 / avgBlockWidthMm)));
-  let lastRenderedTextX = -999;
+  const pctColumns = [];
 
   blocks.forEach((b, idx) => {
     const x1 = toX(b.startDist);
@@ -137,34 +134,18 @@ export function renderBlockColumns(ctx) {
         `;
     }
 
-    // Block Percentage Text (Dynamic responsive roadbook rendering based on sticker size)
-    if (settings.showBlockPct !== false) {
-      const topMidY = (y1 + y2) / 2;
-      const colHeight = yBase - topMidY;
-      const midX = (x1 + x2) / 2;
-
-      const pctResult = computeBlockPctLayout({
-        block: b,
-        idx,
-        baseStride,
-        blockWidthMm,
-        colHeight,
-        topMidY,
-        yBase,
-        midX,
-        lastRenderedTextX,
-        widthMm: W,
-        heightMm: H,
-        themeKey
-      });
-
-      // A hidden percentage leaves its slot free for the next block
-      if (pctResult.shouldRender && !isCoveredByLabel(ctx, pctResult.textBox)) {
-        blockTextLabels += pctResult.markup;
-        lastRenderedTextX = pctResult.nextRenderedTextX;
-      }
-    }
+    pctColumns.push({ block: b, x1, x2, y1, y2 });
   });
+
+  if (settings.showBlockPct !== false) {
+    blockTextLabels = computeBlockPctLabels(pctColumns, {
+      yBase,
+      widthMm: W,
+      heightMm: H,
+      themeKey,
+      isCovered: box => isCoveredByLabel(ctx, box)
+    }).map(label => label.markup).join('');
+  }
 
   return { body: blocksPolygons + blockDividers + blockTextLabels, topPath };
 }

@@ -440,100 +440,81 @@ function segmentHitsBox(s, b) {
 }
 
 /**
- * Computes dynamic in-block gradient percentage layout, sizing, and orientation
- * based on physical sticker dimensions, column height, and block width.
+ * Chooses which blocks show their gradient and lays the labels out as one set:
+ * a single orientation and font size per sticker, all on the same baseline,
+ * with the steepest ramps claiming their spot first and climbs ahead of descents.
+ * Blocks that are nearly flat for this route stay unlabeled.
  *
- * @param {Object} params - Layout computation parameters
- * @returns {{ shouldRender: boolean, markup: string, nextRenderedTextX: number, textBox?: {x: number, y: number, w: number, h: number} }}
+ * @param {Array<{block: Object, x1: number, x2: number, y1: number, y2: number}>} columns - Block columns in mm
+ * @param {Object} options
+ * @param {number} options.yBase - Profile base line Y in mm
+ * @param {number} [options.widthMm=110] - Sticker width in mm
+ * @param {number} [options.heightMm=35] - Sticker height in mm
+ * @param {string} [options.themeKey='white'] - Active theme
+ * @param {function({x: number, y: number, w: number, h: number}): boolean} [options.isCovered] - Whether an overlay hides a box
+ * @returns {Array<{text: string, markup: string, box: {x: number, y: number, w: number, h: number}}>} Labels to draw
  */
-export function computeBlockPctLayout({
-  block,
-  idx,
-  baseStride = 1,
-  blockWidthMm,
-  colHeight,
-  topMidY,
-  yBase,
-  midX,
-  lastRenderedTextX = -999,
-  widthMm = 110,
-  heightMm = 35,
-  themeKey = 'white'
-}) {
+export function computeBlockPctLabels(columns, { yBase, widthMm = 110, heightMm = 35, themeKey = 'white', isCovered = () => false }) {
+  if (!columns || columns.length === 0) return [];
+
   const sizeScale = Math.min(1.4, Math.max(0.72, Math.min(widthMm / 110, heightMm / 35)));
-  const isCompactHeight = heightMm <= 28;
+  const avgWidthMm = columns.reduce((sum, c) => sum + (c.x2 - c.x1), 0) / columns.length;
+  if (avgWidthMm < 0.42 * sizeScale) return [];
 
-  const minSpacingMm = blockWidthMm >= (3.2 * sizeScale)
-    ? (2.8 * sizeScale)
-    : (blockWidthMm >= (2.0 * sizeScale) ? (3.4 * sizeScale) : (4.2 * sizeScale));
+  const isHorizontal = avgWidthMm >= 2.8 * sizeScale;
+  const fontSize = (isHorizontal ? 1.75 : (avgWidthMm >= 1.3 * sizeScale ? 1.5 : 1.25)) * sizeScale;
+  const charW = fontSize * 0.62;
+  const baselineY = yBase - 0.7 * sizeScale;
+  const gapMm = (isHorizontal ? 0.8 : 1.3) * sizeScale;
+  const hasLightText = (block) => !((block.zone <= 1) && ['white', 'tour', 'giro', 'gravel'].includes(themeKey));
 
-  const hasSpacing = (lastRenderedTextX === -999) || (midX - lastRenderedTextX >= minSpacingMm);
-  const isStride = (baseStride === 1) || (idx % baseStride === 0);
-  const isKeyPitch = (block.absGrade >= 5.0) && (midX - lastRenderedTextX >= (minSpacingMm * 0.65));
+  const graded = columns.map(column => {
+    const rawGrade = column.block.grade !== undefined ? column.block.grade : (column.block.absGrade || 0);
+    return { ...column, rawGrade, grade: Math.round(rawGrade) || 0 };
+  });
 
-  const minRequiredHeight = isCompactHeight ? (1.6 * sizeScale) : (2.0 * sizeScale);
-  const shouldRender = (isStride || isKeyPitch) && (hasSpacing || isKeyPitch) && (colHeight >= minRequiredHeight);
+  // Near-flat blocks say nothing next to the route's real ramps
+  const steepest = Math.max(...graded.map(c => Math.abs(c.rawGrade)));
+  const minGrade = Math.max(1, steepest * 0.25);
+  const candidates = graded
+    .filter(c => Math.abs(c.grade) >= minGrade)
+    .map(c => ({ ...c, importance: Math.abs(c.rawGrade) * (c.rawGrade > 0 ? 1.5 : 1) }))
+    .sort((a, b) => b.importance - a.importance);
 
-  if (!shouldRender) {
-    return { shouldRender: false, markup: '', nextRenderedTextX: lastRenderedTextX };
+  const labels = [];
+
+  for (const { block, x1, x2, grade } of candidates) {
+    const text = `${grade}%`;
+    const midX = (x1 + x2) / 2;
+    const textLen = text.length * charW;
+    const box = isHorizontal
+      ? { x: midX - textLen / 2, y: baselineY - fontSize * 0.8, w: textLen, h: fontSize }
+      : { x: midX - fontSize / 2, y: baselineY - textLen, w: fontSize, h: textLen };
+
+    // Stay under the profile line across the whole label, not just this block
+    const surfaceY = columns
+      .filter(c => c.x2 > box.x && c.x1 < box.x + box.w)
+      .reduce((lowest, c) => Math.max(lowest, c.y1, c.y2), 0);
+    if (box.y < surfaceY + 0.5) continue;
+
+    const crowded = labels.some(({ box: other }) =>
+      box.x < other.x + other.w + gapMm && box.x + box.w + gapMm > other.x);
+    if (crowded || isCovered(box)) continue;
+
+    const light = hasLightText(block);
+    const paint = `fill="${light ? '#ffffff' : '#000000'}" stroke="${light ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.92)'}" stroke-width="${((light ? 0.34 : 0.42) * sizeScale).toFixed(2)}" stroke-linejoin="round" paint-order="stroke fill"`;
+    const font = `font-size="${fontSize.toFixed(2)}" font-weight="900" font-family="system-ui, -apple-system, sans-serif"`;
+    const textX = isHorizontal ? midX : midX + fontSize * 0.36;
+    const placement = isHorizontal
+      ? `text-anchor="middle"`
+      : `text-anchor="start" transform="rotate(-90, ${textX.toFixed(2)}, ${baselineY.toFixed(2)})"`;
+
+    labels.push({
+      text,
+      box,
+      markup: `<text x="${textX.toFixed(2)}" y="${baselineY.toFixed(2)}" ${placement} ${paint} ${font}>${text}</text>`
+    });
   }
 
-  const rawGrade = block.grade !== undefined ? block.grade : (block.absGrade || 0);
-  const roundedGrade = Math.round(rawGrade);
-  const gradeVal = Object.is(roundedGrade, -0) || roundedGrade === 0 ? 0 : roundedGrade;
-  const gradeText = `${gradeVal}%`;
-
-  // Dynamic adaptive contrast based on zone and theme brightness
-  const isLightBackground = (block.zone <= 1) && (themeKey === 'white' || themeKey === 'tour' || themeKey === 'giro' || themeKey === 'gravel');
-  const textFill = isLightBackground ? '#000000' : '#ffffff';
-  const strokeColor = isLightBackground ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.85)';
-  const strokeWidth = ((isLightBackground ? 0.42 : 0.34) * sizeScale).toFixed(2);
-
-  let labelMarkup = '';
-  let textY = topMidY;
-
-  if (blockWidthMm >= (2.8 * sizeScale)) {
-    // Wide block: Horizontal text with outline halo
-    const fontSize = (1.75 * sizeScale).toFixed(2);
-    textY = Math.min(yBase - 1.0 * sizeScale, topMidY + (colHeight * (isCompactHeight ? 0.42 : 0.45)));
-    labelMarkup = `
-      <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" fill="${textFill}" stroke="${strokeColor}" stroke-width="${strokeWidth}" stroke-linejoin="round" paint-order="stroke fill" font-size="${fontSize}" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${gradeText}</text>
-    `;
-  } else if (blockWidthMm >= (1.3 * sizeScale)) {
-    // Medium block: Compact horizontal or vertical text depending on available height
-    if (colHeight >= (5.0 * sizeScale)) {
-      const fontSize = (1.5 * sizeScale).toFixed(2);
-      textY = (topMidY + yBase) / 2;
-      labelMarkup = `
-        <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" transform="rotate(-90, ${midX.toFixed(2)}, ${textY.toFixed(2)})" fill="${textFill}" stroke="${strokeColor}" stroke-width="${strokeWidth}" stroke-linejoin="round" paint-order="stroke fill" font-size="${fontSize}" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${gradeText}</text>
-      `;
-    } else {
-      const fontSize = (1.35 * sizeScale).toFixed(2);
-      textY = Math.min(yBase - 0.7 * sizeScale, topMidY + (colHeight * 0.48));
-      labelMarkup = `
-        <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" fill="${textFill}" stroke="${strokeColor}" stroke-width="${strokeWidth}" stroke-linejoin="round" paint-order="stroke fill" font-size="${fontSize}" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${gradeText}</text>
-      `;
-    }
-  } else if (blockWidthMm >= (0.42 * sizeScale)) {
-    // Narrow block: Vertical text like Grand Tour roadbooks
-    if (colHeight >= (3.5 * sizeScale)) {
-      const fontSize = (1.25 * sizeScale).toFixed(2);
-      textY = (topMidY + yBase) / 2;
-      labelMarkup = `
-        <text x="${midX.toFixed(2)}" y="${textY.toFixed(2)}" transform="rotate(-90, ${midX.toFixed(2)}, ${textY.toFixed(2)})" fill="${textFill}" stroke="${strokeColor}" stroke-width="${strokeWidth}" stroke-linejoin="round" paint-order="stroke fill" font-size="${fontSize}" font-weight="900" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${gradeText}</text>
-      `;
-    }
-  }
-
-  const isVertical = labelMarkup.includes('rotate(');
-  const textBox = isVertical
-    ? { x: midX - 1, y: textY - 2.5 * sizeScale, w: 2, h: 5 * sizeScale }
-    : { x: midX - 2.4 * sizeScale, y: textY - 1.8 * sizeScale, w: 4.8 * sizeScale, h: 2.2 * sizeScale };
-
-  return {
-    shouldRender: Boolean(labelMarkup),
-    markup: labelMarkup,
-    nextRenderedTextX: labelMarkup ? midX : lastRenderedTextX,
-    textBox
-  };
+  return labels;
 }
