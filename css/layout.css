@@ -379,3 +379,21 @@ input[type="range"]::-webkit-slider-thumb:hover {
   color: var(--text-primary);
 }
 
+
+/* ==========================================================================
+   App Footer
+   ========================================================================== */
+.app-footer {
+  flex-shrink: 0;
+  padding: 0.25rem 1rem;
+  border-top: 1px solid var(--border-color);
+  background-color: var(--bg-header);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.app-footer a {
+  color: inherit;
+  text-decoration: underline;
+}

@@ -234,7 +234,7 @@ body.modal-open {
     min-height: auto !important;
   }
 
-  header, aside, .stats-strip, #cursor-tip, .actions, .preview-stage, .modal-backdrop, .toast-container, .stage-zoom-controls, .stage-drop-hint {
+  header, footer, aside, .stats-strip, #cursor-tip, .actions, .preview-stage, .modal-backdrop, .toast-container, .stage-zoom-controls, .stage-drop-hint {
     display: none !important;
   }
 
