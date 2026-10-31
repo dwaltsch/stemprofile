@@ -593,23 +593,41 @@ describe('Fueling Panel UI: Card Rendering & Editable Fields', () => {
 });
 
 describe('Fueling Module: Ultra-Distance & Loop Course Robustness', () => {
-  it('generates a realistic, GI-safe plan on 300km loop course (Bodensee Platin)', async () => {
-    const fs = await import('node:fs');
-    if (!fs.existsSync('testdata/PLATIN_2026_020926.gpx')) {
-      return;
-    }
+  it('generates a realistic, GI-safe plan on 300km loop course', async () => {
     const { parseGPX } = await import('../js/parser.js');
     const { processTrackSignal, matchWaypointsToTrack } = await import('../js/signal.js');
 
-    const xml = fs.readFileSync('testdata/PLATIN_2026_020926.gpx', 'utf8');
+    // Synthetic 305 km circle with a 3 km Cat 4 climb every 40 km, starting and finishing on the same spot
+    const centerLat = 45, centerLon = 7, radiusKm = 48.5, n = 3050;
+    const kmPerDegLon = 111.2 * Math.cos(centerLat * Math.PI / 180);
+    const onCircle = (i) => {
+      const angle = (i % n) / n * 2 * Math.PI;
+      return {
+        lat: (centerLat + radiusKm * Math.sin(angle) / 111.2).toFixed(6),
+        lon: (centerLon + radiusKm * Math.cos(angle) / kmPerDegLon).toFixed(6)
+      };
+    };
+    const elevation = (km) => {
+      const intoClimb = (km + 20) % 40;
+      if (intoClimb < 3) return 400 + intoClimb * 33;
+      if (intoClimb < 6) return 499 - (intoClimb - 3) * 33;
+      return 400;
+    };
+    const trkpts = Array.from({ length: n + 1 }, (_, i) => {
+      const { lat, lon } = onCircle(i);
+      return `<trkpt lat="${lat}" lon="${lon}"><ele>${elevation(i / 10).toFixed(1)}</ele></trkpt>`;
+    }).join('');
+    const finish = onCircle(0);
+    const xml = `<?xml version="1.0"?><gpx version="1.1"><wpt lat="${finish.lat}" lon="${finish.lon}"><name>Finish</name></wpt><trk><trkseg>${trkpts}</trkseg></trk></gpx>`;
+
     const parsed = parseGPX(xml);
     const { points, stats, climbs } = processTrackSignal(parsed.coords);
     const waypoints = matchWaypointsToTrack(parsed.rawWaypoints, parsed.coords, points);
 
-    // Verify Altenrhein matched to finish on loop
-    const altenrhein = waypoints.find(w => w.label.includes('Altenrhein'));
-    assert.ok(altenrhein, 'Altenrhein waypoint should exist');
-    assert.ok(altenrhein.distM > 300000, `Expected finish distance > 300km, got ${altenrhein.distM}`);
+    // Verify finish matched to the end of the loop, not the start
+    const finishWpt = waypoints.find(w => w.label.includes('Finish'));
+    assert.ok(finishWpt, 'Finish waypoint should exist');
+    assert.ok(finishWpt.distM > 300000, `Expected finish distance > 300km, got ${finishWpt.distM}`);
 
     const plan = generateDefaultFuelPlan({
       points,
