@@ -6,7 +6,7 @@
 
 Free, no sign-up, and your route never leaves your browser.
 
-### [Open StemProfile](https://dwaltsch.github.io/stemprofile/) · [Try an example route](https://dwaltsch.github.io/stemprofile/#example)
+### [Open StemProfile](https://dwaltsch.github.io/stemprofile/) · [Try an example route](https://dwaltsch.github.io/stemprofile/#example) · [How it works](https://dwaltsch.github.io/stemprofile/info/)
 
 [![Tests](https://github.com/dwaltsch/stemprofile/actions/workflows/test.yml/badge.svg)](https://github.com/dwaltsch/stemprofile/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
