@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Static page: no scripts at all, so the policy is stricter than the builder's. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; img-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>Bike Elevation Profile Stickers from GPX | StemProfile</title>
+  <meta name="description" content="How to make a printable elevation profile sticker for your stem or top tube from a GPX, TCX or FIT file: sizes, printing, climb categories and race cues.">
+  <link rel="canonical" href="https://dwaltsch.github.io/stemprofile/info/">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="StemProfile">
+  <meta property="og:title" content="Bike Elevation Profile Stickers from GPX">
+  <meta property="og:description" content="How to make a printable elevation profile sticker for your stem or top tube from a GPX, TCX or FIT file.">
+  <meta property="og:url" content="https://dwaltsch.github.io/stemprofile/info/">
+  <meta property="og:image" content="https://dwaltsch.github.io/stemprofile/docs/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <link rel="stylesheet" href="info.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="../">StemProfile</a>
+    <a class="button button-small" href="../">Open the builder</a>
+  </header>
+
+  <main>
+    <article>
+      <h1>Elevation profile stickers for your bike</h1>
+      <p class="lead">Your head unit shows the next few hundred meters. A sticker on your stem or top tube shows the whole day at a glance: how long the climb is, how steep it gets, and where the next bottle is.</p>
+      <p>StemProfile turns a GPX, TCX or FIT route into a printable sticker in the style of Grand Tour roadbooks. It is free, needs no sign-up, and your route never leaves your browser.</p>
+      <p class="actions">
+        <a class="button" href="../">Make your sticker</a>
+        <a href="../#example">Try an example route</a>
+      </p>
+
+      <figure>
+        <img src="../docs/sticker-example.svg" alt="Example elevation sticker showing four categorized climbs, gradient-colored kilometer blocks and feed cues">
+      </figure>
+
+      <h2>How to make an elevation sticker from a GPX file</h2>
+      <ol>
+        <li><strong>Export your route.</strong> GPX, TCX and FIT files all work, so exports from Strava, Komoot, Garmin and RideWithGPS are fine.</li>
+        <li><strong>Pick a size.</strong> Choose a preset that fits your bike, or enter your own width and height.</li>
+        <li><strong>Add your race plan.</strong> Click the profile to place feed zones, bottles, sprints and hazards. Waypoints in your file are picked up automatically.</li>
+        <li><strong>Print it.</strong> Print to scale on sticker paper with crop marks, or export a file for a print shop.</li>
+      </ol>
+
+      <h2>What size should a stem or top tube sticker be?</h2>
+      <p>It depends on the flat area of your bike, so measure it before you print. These presets are a good starting point:</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th scope="col">Sticker</th><th scope="col">Size</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Top tube</td><td>110 × 35 mm</td></tr>
+            <tr><td>Long top tube</td><td>130 × 35 mm</td></tr>
+            <tr><td>Slim stem</td><td>100 × 28 mm</td></tr>
+            <tr><td>Compact stem</td><td>75 × 30 mm</td></tr>
+            <tr><td>Fueling cue sheet, top tube</td><td>35 × 115 mm</td></tr>
+            <tr><td>Fueling cue sheet, compact</td><td>30 × 95 mm</td></tr>
+            <tr><td>Fueling cue sheet, long</td><td>35 × 140 mm</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Long, hilly routes are easier to read on a wider sticker. If a course will not fit legibly on one, use a longer gradient block or add a separate sticker for each climb.</p>
+
+      <h2>Reading the profile: gradient blocks</h2>
+      <p>The profile is split into gradient-colored blocks of 2.5 km, 1 km, 500 m or any custom length, with the percentage printed inside each one. Steeper blocks stand out, so you can see where a climb kicks up without doing any math on the bike.</p>
+
+      <h2>How climbs are categorized</h2>
+      <p>Climbs are detected automatically and rated from Cat 4 to HC (hors catégorie), the same labels used in road racing. The score is the climb's length in kilometers multiplied by its average gradient in percent, squared. A big enough elevation gain also earns the category on its own.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th scope="col">Category</th><th scope="col">Score</th><th scope="col">Or elevation gain</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>HC</td><td>600 or more</td><td>800 m or more</td></tr>
+            <tr><td>Cat 1</td><td>300 to 599</td><td>500 m or more</td></tr>
+            <tr><td>Cat 2</td><td>150 to 299</td><td>250 m or more</td></tr>
+            <tr><td>Cat 3</td><td>75 to 149</td><td>120 m or more</td></tr>
+            <tr><td>Cat 4</td><td>20 to 74</td><td>40 m or more, at 3% or steeper over at least 500 m</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>For example, a climb of 8 km at 6% scores 288, which makes it a Cat 2.</p>
+      <figure>
+        <img src="../docs/screenshots/climb-detail.png" width="2160" height="1350" loading="lazy" alt="Climb Detail view with one zoomed gradient sticker per climb">
+        <figcaption>Climb Detail: one zoomed sticker per climb, with segment gradients and distance to the summit.</figcaption>
+      </figure>
+
+      <h2>Race day fueling stickers</h2>
+      <p>The Fueling view builds a vertical cue sheet with carb and fluid targets, showing when to eat by kilometer. Timing comes from a cycling power model, so cues account for going slower uphill instead of assuming a steady speed.</p>
+      <figure>
+        <img src="../docs/screenshots/fueling.png" width="2160" height="1350" loading="lazy" alt="Fueling view with a vertical cue sheet sticker and an hourly carb plan">
+        <figcaption>A fueling cue sheet with an hourly carb plan.</figcaption>
+      </figure>
+
+      <h2>How to print a bike sticker at the right size</h2>
+      <ul>
+        <li><strong>At home:</strong> Print Studio lays out 1 to 8 copies on A4 or US Letter with crop marks. Print at 100% and check the 50 mm scale ruler on the sheet with a real ruler.</li>
+        <li><strong>On a label printer:</strong> export a 300 DPI PNG.</li>
+        <li><strong>On a plotter or vinyl cutter:</strong> export an SVG, or send it to a print shop.</li>
+      </ul>
+      <p>Rain and sweat wear paper down quickly. Use waterproof sticker paper or cover the print with clear tape, and clean the frame before sticking it on so the edges stay down.</p>
+      <figure>
+        <img src="../docs/screenshots/print-studio.png" width="2160" height="1350" loading="lazy" alt="Print Studio showing an A4 page preview with crop marks and a scale ruler">
+        <figcaption>Print Studio: true-size sheets with crop marks.</figcaption>
+      </figure>
+
+      <h2>Common questions</h2>
+      <h3>Is StemProfile free?</h3>
+      <p>Yes. There is no account and no paid tier, and it is open source under the MIT license.</p>
+      <h3>Is my route uploaded anywhere?</h3>
+      <p>No. Everything runs in your browser, with no backend and no analytics. Share links carry the elevation profile, your cues and settings, but no GPS positions.</p>
+      <h3>Do I need to install anything?</h3>
+      <p>No. It runs in any modern browser.</p>
+      <h3>Can I use miles and feet?</h3>
+      <p>Yes. Stickers can use metric or imperial units, and there are seven themes to choose from.</p>
+
+      <p class="actions">
+        <a class="button" href="../">Make your sticker</a>
+      </p>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <a href="../">Builder</a>
+    <a href="https://github.com/dwaltsch/stemprofile" rel="noopener noreferrer">StemProfile on GitHub</a>
+  </footer>
+</body>
+</html>

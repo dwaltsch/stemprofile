@@ -46,3 +46,35 @@ describe('Assets: Version Stamps', () => {
     assert.equal(versioned.length, 10, '9 stylesheets + app.js');
   });
 });
+
+describe('Assets: Info Page', () => {
+  const infoDir = path.join(root, 'info');
+  const info = fs.readFileSync(path.join(infoDir, 'index.html'), 'utf8');
+
+  it('every local link and asset resolves to a real file', () => {
+    const refs = [...info.matchAll(/(?:href|src)="([^"]+)"/g)].map(m => m[1])
+      .filter(ref => !/^https?:/.test(ref));
+    assert.ok(refs.length > 0);
+    for (const ref of refs) {
+      const target = path.resolve(infoDir, ref.split('#')[0]);
+      assert.ok(fs.existsSync(target), `${ref} does not exist`);
+    }
+  });
+
+  it('links back to the builder and the builder links to it', () => {
+    assert.match(info, /href="\.\.\/"/);
+    assert.match(html, /href="info\/"/);
+  });
+
+  it('has no scripts, matching its script-free CSP', () => {
+    assert.doesNotMatch(info, /<script/);
+    assert.match(info, /default-src 'none'/);
+  });
+
+  it('the sitemap lists exactly the canonical URL of each page', () => {
+    const sitemap = fs.readFileSync(path.join(root, 'sitemap.xml'), 'utf8');
+    const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
+    const canonical = page => page.match(/<link rel="canonical" href="([^"]+)"/)[1];
+    assert.deepEqual(locs, [canonical(html), canonical(info)]);
+  });
+});
