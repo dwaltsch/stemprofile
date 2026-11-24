@@ -13,6 +13,8 @@ import {
   generateDefaultFuelPlan,
   calculateHourlyIntake
 } from '../js/fueling.js';
+import { defaultAmountsFor } from '../js/fueling.js';
+import { createStore } from '../js/store.js';
 
 describe('Fueling Module: Presets & Config', () => {
   it('defines valid default configuration with 60-80g CHO target', () => {
@@ -725,3 +727,49 @@ describe('Fueling Module: Ultra-Distance & Loop Course Robustness', () => {
 
 
 
+
+describe('Fueling: product defaults and item edits', () => {
+  const route = Array.from({ length: 600 }, (_, i) => ({ lat: 45 + i * 0.0005, lon: 6, ele: 300 + 200 * Math.sin(i / 80) }));
+
+  it('defaultAmountsFor covers every item type from one table', () => {
+    const defs = { gelCarbs: 22, hcGelCarbs: 45, caffGelCarbs: 28, barCarbs: 38, bottleCarbs: 60, bottleFluidMl: 750 };
+    assert.deepEqual(defaultAmountsFor('gel', defs), { carbsG: 22, fluidMl: 0 });
+    assert.deepEqual(defaultAmountsFor('hc', defs), { carbsG: 45, fluidMl: 0 });
+    assert.deepEqual(defaultAmountsFor('bottle_super', defs), { carbsG: 108, fluidMl: 1125 });
+    assert.deepEqual(defaultAmountsFor('feed_zone', defs), { carbsG: 60, fluidMl: 750 });
+    assert.deepEqual(defaultAmountsFor('water', defs), { carbsG: 0, fluidMl: 750 });
+    assert.deepEqual(defaultAmountsFor('salt', defs), { carbsG: 0, fluidMl: 0 }, 'preset, not a gel default');
+    assert.deepEqual(defaultAmountsFor('chews', defs), { carbsG: 30, fluidMl: 0 });
+  });
+
+  it('applying new product defaults updates every bottle and gel type but leaves chews alone', () => {
+    const s = createStore();
+    s.setTrack({ title: 'd', coords: route });
+    for (const type of ['bottle_super', 'water', 'feed_zone', 'chews']) s.addFuelItem({ distM: 1000, type, name: type, carbsG: 1, fluidMl: 1 });
+    s.updateProductDefaults({ bottleCarbs: 50, bottleFluidMl: 600 }, true);
+    const by = t => s.getState().fueling.items.find(it => it.name === t);
+    assert.deepEqual([by('bottle_super').carbsG, by('bottle_super').fluidMl], [90, 900]);
+    assert.deepEqual([by('water').carbsG, by('water').fluidMl], [0, 600]);
+    assert.deepEqual([by('feed_zone').carbsG, by('feed_zone').fluidMl], [50, 600]);
+    assert.deepEqual([by('chews').carbsG, by('chews').fluidMl], [1, 1]);
+  });
+
+  it('updateFuelItem keeps only editable fields, clamped', () => {
+    const s = createStore();
+    s.setTrack({ title: 'd', coords: route });
+    const item = s.addFuelItem({ distM: 2000, type: 'gel', name: 'x', notes: 'n'.repeat(500) });
+    assert.equal(item.notes.length, 200, 'notes are clamped on add');
+    s.updateFuelItem(item.id, { carbsG: -5, fluidMl: 1e9, notes: 'y'.repeat(999), type: 'plutonium', id: 'hijack', timeSec: -1, enabled: 'no' });
+    const it = s.getState().fueling.items.find(i => i.id === item.id);
+    assert.ok(it, 'id cannot be overwritten');
+    assert.equal(it.carbsG, 0);
+    assert.equal(it.fluidMl, 3000);
+    assert.equal(it.notes.length, 200);
+    assert.equal(it.type, 'gel');
+    assert.ok(it.timeSec >= 0);
+    assert.equal(it.enabled, true);
+    const before = s.canUndo();
+    s.updateFuelItem(item.id, { bogus: 1 });
+    assert.equal(s.canUndo(), before, 'an empty edit records nothing');
+  });
+});

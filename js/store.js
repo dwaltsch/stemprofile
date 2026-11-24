@@ -23,13 +23,16 @@ import {
   detectTerrainHazard,
   getStatePacing,
   sanitizeSavedFuelingPlan,
-  sanitizeSharedFueling
+  sanitizeSharedFueling,
+  defaultAmountsFor,
+  PRODUCT_DEFAULT_TYPES,
+  FUEL_PRESETS
 } from './fueling.js';
 
 /**
  * @typedef {Object} StemStore
  * @property {function(function(Object, string): void): function(): void} subscribe - Subscribes listener callback
- * @property {function(): Object} getState - Returns current state snapshot
+ * @property {function(): Object} getState - Returns the live state (read-only by convention)
  * @property {function({ title?: string, coords: Array<Object|Array<number>>, rawWaypoints?: Array<Object> }): void} setTrack - Sets active track coordinates
  * @property {function(Object, boolean=): void} updateSettings - Updates settings
  * @property {function(number, string=, string=): Object} addWaypoint - Adds waypoint pin
@@ -47,6 +50,38 @@ import {
  * @property {function(number, number): (Object|null)} addManualClimb - Marks a climb by hand
  * @property {function(string|number): void} removeManualClimb - Removes a manual climb
  */
+
+const MAX_ITEM_CARBS_G = 500;
+const MAX_ITEM_FLUID_ML = 3000;
+const MAX_NOTE_CHARS = 200;
+const FUEL_ITEM_TYPES = new Set([...Object.keys(FUEL_PRESETS), 'hc', 'caff', 'bottle']);
+
+/** A finite amount clamped to [0, max], or the fallback. */
+function clampAmount(v, max, fallback) {
+  return typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(0, v)) : fallback;
+}
+
+/**
+ * Keeps only the fuel item fields the UI may edit, with types checked and
+ * values clamped like saved / shared plans (fueling/sanitize.js).
+ *
+ * @param {Object} partial - Requested changes
+ * @returns {Object} Safe changes (possibly empty)
+ */
+function sanitizeFuelItemPatch(partial) {
+  const p = partial && typeof partial === 'object' ? partial : {};
+  const out = {};
+  if (typeof p.distM === 'number' && Number.isFinite(p.distM)) out.distM = Math.max(0, Math.round(p.distM));
+  if (typeof p.name === 'string') out.name = clampText(p.name, MAX_LABEL_CHARS);
+  if (typeof p.notes === 'string') out.notes = clampText(p.notes, MAX_NOTE_CHARS);
+  if (FUEL_ITEM_TYPES.has(p.type)) out.type = p.type;
+  if (typeof p.icon === 'string') out.icon = p.icon.slice(0, 8);
+  if (typeof p.shortCode === 'string') out.shortCode = p.shortCode.slice(0, 8);
+  if (p.carbsG !== undefined) out.carbsG = clampAmount(Number(p.carbsG), MAX_ITEM_CARBS_G, 0);
+  if (p.fluidMl !== undefined) out.fluidMl = clampAmount(Number(p.fluidMl), MAX_ITEM_FLUID_ML, 0);
+  if (typeof p.enabled === 'boolean') out.enabled = p.enabled;
+  return out;
+}
 
 /**
  * Creates and initializes a reactive application store instance.
@@ -181,11 +216,17 @@ export function createStore(initialSettings = {}) {
     }
   }
 
+  /**
+   * Storage key for the current route's fuel plan. Derived from the route
+   * itself (length, point count, first / last elevation), not the title, so
+   * renaming the sticker keeps the plan and reloading the file finds it again.
+   */
   function getStorageKey() {
-    if (!state.stats) return null;
-    const title = state.settings.title || 'route';
-    const dist = Math.round(state.stats.totalDist);
-    return `${PLAN_KEY_PREFIX}${title}_${dist}`;
+    if (!state.stats || state.rawCoords.length < 2) return null;
+    const first = state.rawCoords[0];
+    const last = state.rawCoords[state.rawCoords.length - 1];
+    const ele = c => Math.round(Number(c.ele) || 0);
+    return `${PLAN_KEY_PREFIX}route_${Math.round(state.stats.totalDist)}_${state.rawCoords.length}_${ele(first)}_${ele(last)}`;
   }
 
   function saveFuelingPlan() {
@@ -320,7 +361,9 @@ export function createStore(initialSettings = {}) {
     },
 
     /**
-     * Returns a snapshot of the current state.
+     * Returns the live state object (not a copy, so reads are free).
+     * Treat it as read-only: changes made to it directly skip undo history,
+     * plan saving and subscriber notifications. Use the store methods instead.
      *
      * @returns {Object} Application state
      */
@@ -656,24 +699,8 @@ export function createStore(initialSettings = {}) {
       const distM = Math.max(0, itemData.distM || 0);
       const timeSec = fuelTimeAt(distM);
       const hazard = detectTerrainHazard(state.points, distM, state.climbs, state.fueling);
-      const defs = state.fueling.productDefaults || DEFAULT_FUEL_PRODUCT_DEFAULTS;
 
-      let defaultCarbs = 25;
-      let defaultFluid = 0;
-      const t = (itemData.type || 'gel').toLowerCase();
-      if (t === 'gel') defaultCarbs = defs.gelCarbs ?? 25;
-      else if (t === 'gel_high_carb' || t === 'hc') defaultCarbs = defs.hcGelCarbs ?? 40;
-      else if (t === 'caff_gel' || t === 'caff') defaultCarbs = defs.caffGelCarbs ?? 30;
-      else if (t === 'bottle_mix' || t === 'bottle') {
-        defaultCarbs = defs.bottleCarbs ?? 40;
-        defaultFluid = defs.bottleFluidMl ?? 500;
-      } else if (t === 'bottle_super') {
-        defaultCarbs = Math.round((defs.bottleCarbs ?? 40) * 1.8);
-        defaultFluid = Math.round((defs.bottleFluidMl ?? 500) * 1.5);
-      } else if (t === 'bar') defaultCarbs = defs.barCarbs ?? 35;
-      else if (t === 'chews' || t === 'food') defaultCarbs = 30;
-      else if (t === 'water') { defaultCarbs = 0; defaultFluid = defs.bottleFluidMl ?? 500; }
-      else if (t === 'feed_zone') { defaultCarbs = defs.bottleCarbs ?? 40; defaultFluid = defs.bottleFluidMl ?? 500; }
+      const defaults = defaultAmountsFor(itemData.type || 'gel', state.fueling.productDefaults);
 
       const newItem = {
         id: generateFuelId(),
@@ -683,9 +710,9 @@ export function createStore(initialSettings = {}) {
         name: clampText((itemData.name || 'Fuel Item').trim(), MAX_LABEL_CHARS),
         type: itemData.type || 'gel',
         icon: itemData.icon || '⚡',
-        carbsG: typeof itemData.carbsG === 'number' ? itemData.carbsG : defaultCarbs,
-        fluidMl: typeof itemData.fluidMl === 'number' ? itemData.fluidMl : defaultFluid,
-        notes: (itemData.notes || '').trim(),
+        carbsG: clampAmount(itemData.carbsG, MAX_ITEM_CARBS_G, defaults.carbsG),
+        fluidMl: clampAmount(itemData.fluidMl, MAX_ITEM_FLUID_ML, defaults.fluidMl),
+        notes: clampText(String(itemData.notes || '').trim(), MAX_NOTE_CHARS),
         grade: hazard.grade,
         isHazard: hazard.isHazard,
         hazardType: hazard.type,
@@ -709,13 +736,12 @@ export function createStore(initialSettings = {}) {
     updateFuelItem(id, partial) {
       const it = state.fueling.items.find(item => item.id === id);
       if (!it) return;
-      checkpoint(`fuel:${id}:${Object.keys(partial).sort().join(',')}`);
+      const changes = sanitizeFuelItemPatch(partial);
+      if (Object.keys(changes).length === 0) return;
+      checkpoint(`fuel:${id}:${Object.keys(changes).sort().join(',')}`);
+      Object.assign(it, changes);
 
-      Object.assign(it, partial);
-      if (partial.name !== undefined) it.name = clampText(partial.name, MAX_LABEL_CHARS);
-
-      if (partial.distM !== undefined) {
-        it.distM = Math.max(0, Math.round(partial.distM));
+      if (changes.distM !== undefined) {
         it.timeSec = fuelTimeAt(it.distM);
         it.timeStr = formatElapsedSeconds(it.timeSec);
         const hazard = detectTerrainHazard(state.points, it.distM, state.climbs, state.fueling);
@@ -790,17 +816,9 @@ export function createStore(initialSettings = {}) {
       };
 
       if (applyToExisting && Array.isArray(state.fueling.items)) {
-        const defs = state.fueling.productDefaults;
-        state.fueling.items.forEach(it => {
-          const type = (it.type || '').toLowerCase();
-          if (type === 'gel') it.carbsG = defs.gelCarbs ?? 25;
-          else if (type === 'gel_high_carb' || type === 'hc') it.carbsG = defs.hcGelCarbs ?? 40;
-          else if (type === 'caff_gel' || type === 'caff') it.carbsG = defs.caffGelCarbs ?? 30;
-          else if (type === 'bottle_mix' || type === 'bottle') {
-            it.carbsG = defs.bottleCarbs ?? 40;
-            it.fluidMl = defs.bottleFluidMl ?? 500;
-          } else if (type === 'bar') it.carbsG = defs.barCarbs ?? 35;
-        });
+        state.fueling.items
+          .filter(it => PRODUCT_DEFAULT_TYPES.has(String(it.type || '').toLowerCase()))
+          .forEach(it => Object.assign(it, defaultAmountsFor(it.type, state.fueling.productDefaults)));
       }
 
       saveFuelingPlan();

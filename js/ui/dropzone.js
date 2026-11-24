@@ -89,11 +89,6 @@ export function handleRouteFile(file, store) {
   }
 }
 
-/**
- * Backward-compatible alias for handleRouteFile.
- */
-export const handleGPXFile = handleRouteFile;
-
 let lastPickerOpenTimestamp = 0;
 
 /**

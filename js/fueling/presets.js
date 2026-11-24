@@ -146,6 +146,35 @@ export const FUEL_PRESETS = {
   }
 };
 
+/** Item types whose amounts come from the rider's product defaults (the rest use their preset). */
+export const PRODUCT_DEFAULT_TYPES = new Set(['gel', 'gel_high_carb', 'hc', 'caff_gel', 'caff', 'bar', 'bottle_mix', 'bottle', 'bottle_super', 'feed_zone', 'water']);
+
+/**
+ * Carbs and fluid a new item of `type` gets, from the rider's product defaults
+ * where one applies (gels, bars, bottles) and the preset otherwise.
+ *
+ * @param {string} type - Item type (preset id or short alias: hc, caff, bottle)
+ * @param {Object} [defs=DEFAULT_FUEL_PRODUCT_DEFAULTS] - Product defaults
+ * @returns {{ carbsG: number, fluidMl: number }}
+ */
+export function defaultAmountsFor(type, defs = DEFAULT_FUEL_PRODUCT_DEFAULTS) {
+  const d = { ...DEFAULT_FUEL_PRODUCT_DEFAULTS, ...(defs || {}) };
+  switch ((type || 'gel').toLowerCase()) {
+    case 'gel': return { carbsG: d.gelCarbs, fluidMl: 0 };
+    case 'gel_high_carb': case 'hc': return { carbsG: d.hcGelCarbs, fluidMl: 0 };
+    case 'caff_gel': case 'caff': return { carbsG: d.caffGelCarbs, fluidMl: 0 };
+    case 'bar': return { carbsG: d.barCarbs, fluidMl: 0 };
+    case 'bottle_mix': case 'bottle': return { carbsG: d.bottleCarbs, fluidMl: d.bottleFluidMl };
+    case 'bottle_super': return { carbsG: Math.round(d.bottleCarbs * 1.8), fluidMl: Math.round(d.bottleFluidMl * 1.5) };
+    case 'feed_zone': return { carbsG: d.bottleCarbs, fluidMl: d.bottleFluidMl };
+    case 'water': return { carbsG: 0, fluidMl: d.bottleFluidMl };
+    default: {
+      const preset = FUEL_PRESETS[type];
+      return preset ? { carbsG: preset.carbsG, fluidMl: preset.fluidMl } : { carbsG: d.gelCarbs, fluidMl: 0 };
+    }
+  }
+}
+
 /**
  * Generates an 8-character unique alphanumeric ID.
  * @returns {string} Unique ID

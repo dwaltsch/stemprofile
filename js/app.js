@@ -29,20 +29,8 @@ import { runSection, installGlobalErrorHandlers } from './ui/error-boundary.js';
 import { beginLoad, isLatestLoad } from './load-guard.js';
 import { registerServiceWorker, initFileLaunch } from './offline.js';
 
-// Backward compatibility exports
+// The app's store instance (used by tests to drive the wired-up UI)
 export { store };
-export { getRecommendedBlockPresets } from './layout.js';
-export { updateBlockSizePills } from './ui/controls.js';
-export { openRouteFilePicker } from './ui/dropzone.js';
-
-/**
- * Backward compatibility helper for toggling climb label visibility.
- *
- * @param {string|number} climbId - ID of climb
- */
-export function toggleClimbLabelVisibility(climbId) {
-  store.toggleClimbVisibility(climbId);
-}
 
 /**
  * Side panels that need re-rendering per store event. Events not listed here
@@ -190,6 +178,10 @@ export function initApp() {
     if (window.location.hash && window.location.hash.length > 5) {
       loadFromUrlHash(window.location.hash).then(success => {
         if (!success) updateUI();
+      }).catch(err => {
+        console.error('Failed to load shared route from URL hash:', err);
+        showToast('Could not open that link.', 'error');
+        updateUI();
       });
     }
   });

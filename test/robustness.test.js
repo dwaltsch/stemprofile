@@ -351,6 +351,17 @@ describe('Robustness: Saved Fuel Plans', () => {
     return store.getState().fueling;
   }
 
+  it('keeps a hand-edited plan when the sticker is renamed and the file reloaded', () => withStorage(() => {
+    const first = createStore();
+    first.setTrack({ title: 'Saved', coords });
+    first.updateSettings({ title: 'Renamed stage' });
+    first.addFuelItem({ distM: 1234, type: 'bar', name: 'Renamed plan bar' });
+    const again = createStore();
+    again.setTrack({ title: 'Saved', coords });
+    assert.ok(again.getState().fueling.items.some(it => it.name === 'Renamed plan bar'));
+    assert.equal([...storage.keys()].filter(k => k.startsWith('stemprofile_fuel_')).length, 1, 'one plan per route');
+  }));
+
   it('falls back to a fresh plan for structurally broken entries', () => withStorage(() => {
     for (const bad of ['{"items":"abc"}', 'not json', '{"items":[]}', 'null', '{"items":[null, 5, "x"]}']) {
       const fueling = loadWithSavedPlan(bad);

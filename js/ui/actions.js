@@ -16,6 +16,29 @@ import { getUnitFactors } from '../units.js';
 import { distanceAtClientX } from '../renderer/profile-layers.js';
 import { setHTML } from './html.js';
 
+/** Original markup of buttons currently showing a confirmation, so repeat clicks never capture the confirmation. */
+const flashOriginals = new WeakMap();
+
+/**
+ * Shows confirmation markup on a button for a moment, then restores it.
+ * Repeat clicks restart the timer instead of saving the confirmation as the "original".
+ *
+ * @param {HTMLElement} btn
+ * @param {string} html - Static confirmation markup
+ * @param {number} ms - How long to show it
+ */
+export function flashButton(btn, html, ms) {
+  const pending = flashOriginals.get(btn);
+  if (pending) clearTimeout(pending.timer);
+  const original = pending ? pending.original : btn.innerHTML;
+  setHTML(btn, html);
+  const timer = setTimeout(() => {
+    setHTML(btn, original);
+    flashOriginals.delete(btn);
+  }, ms);
+  flashOriginals.set(btn, { original, timer });
+}
+
 /**
  * Initializes workbench click interactions and export dialog buttons.
  *
@@ -118,11 +141,9 @@ export function initActions(store) {
   if (btnShareLink) {
     btnShareLink.addEventListener('click', async () => {
       try {
-        const orig = btnShareLink.innerHTML;
-        setHTML(btnShareLink, `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Link Copied!`);
         await copyShareableLink(store.getState());
+        flashButton(btnShareLink, `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Link Copied!`, 1800);
         showToast('Share link copied to clipboard', 'success');
-        setTimeout(() => setHTML(btnShareLink, orig), 1800);
       } catch (err) {
         showToast('Failed to generate share link: ' + err.message, 'error');
       }
@@ -144,10 +165,8 @@ export function initActions(store) {
     btnCopy.addEventListener('click', () => {
       copySVG(store.getState(), err => {
         if (!err) {
-          const orig = btnCopy.innerHTML;
-          setHTML(btnCopy, `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!`);
+          flashButton(btnCopy, `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!`, 1400);
           showToast('SVG markup copied to clipboard', 'success');
-          setTimeout(() => setHTML(btnCopy, orig), 1400);
         } else {
           showToast('Failed to copy SVG: ' + err.message, 'error');
         }
