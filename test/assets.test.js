@@ -12,7 +12,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { stampIndexHtml, listModules, cspHash } from '../scripts/stamp-assets.mjs';
+import { stampIndexHtml, stampServiceWorker, listModules, listPageAssets, cspHash, STATIC_PRECACHE } from '../scripts/stamp-assets.mjs';
+import { canUseServiceWorker, registerServiceWorker, initFileLaunch } from '../js/offline.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
@@ -44,6 +45,75 @@ describe('Assets: Version Stamps', () => {
   it('stylesheets and the entry script carry content hashes', () => {
     const versioned = html.match(/(?:href|src)="(?:css|js)\/[\w-]+\.(?:css|js)\?v=[0-9a-f]{10}"/g) || [];
     assert.equal(versioned.length, 10, '9 stylesheets + app.js');
+  });
+});
+
+describe('Assets: Offline Copy (service worker & manifest)', () => {
+  const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+  const precache = JSON.parse(sw.match(/const PRECACHE = (\[[\s\S]*?\]);/)[1]);
+
+  it('sw.js is stamped for the current page (run `just stamp` if this fails)', () => {
+    assert.ok(stampServiceWorker(sw, html, root) === sw, 'sw.js precache is stale: run `just stamp`');
+  });
+
+  it('precaches every asset the page loads, and every precached file exists', () => {
+    const assets = listPageAssets(html);
+    assert.ok(assets.length >= listModules(root).length + 9, 'all modules and stylesheets found');
+    for (const url of assets) assert.ok(precache.includes(url), `${url} is not precached`);
+    for (const url of precache) {
+      const file = url.split('?')[0].replace(/\/$/, '/index.html');
+      assert.ok(fs.existsSync(path.join(root, file)), `${url} does not exist`);
+    }
+    for (const url of STATIC_PRECACHE) assert.ok(precache.includes(url));
+  });
+
+  it('sw.js is a valid classic script', () => {
+    assert.doesNotThrow(() => new Function(sw));
+  });
+
+  it('the manifest is linked, valid and points at real files', () => {
+    assert.match(html, /<link rel="manifest" href="manifest\.webmanifest">/);
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.webmanifest'), 'utf8'));
+    assert.equal(manifest.start_url, './');
+    assert.equal(manifest.scope, './');
+    assert.ok(manifest.icons.length > 0);
+    for (const icon of manifest.icons) assert.ok(fs.existsSync(path.join(root, icon.src)), icon.src);
+    const exts = manifest.file_handlers.flatMap(h => Object.values(h.accept).flat());
+    assert.deepEqual(exts.sort(), ['.fit', '.gpx', '.tcx']);
+  });
+
+  it('the CSP lets the page register its own worker and manifest only', () => {
+    assert.match(html, /worker-src 'self'/);
+    assert.match(html, /manifest-src 'self'/);
+  });
+
+  it('registers ./sw.js after load, only in secure contexts', () => {
+    const calls = [];
+    const listeners = {};
+    const env = {
+      isSecureContext: true,
+      document: { readyState: 'loading' },
+      navigator: { serviceWorker: { register: url => { calls.push(url); return Promise.resolve(); } } },
+      addEventListener: (type, fn) => { listeners[type] = fn; }
+    };
+    assert.equal(registerServiceWorker(env), true);
+    assert.deepEqual(calls, [], 'waits for load');
+    listeners.load();
+    assert.deepEqual(calls, ['./sw.js']);
+    assert.equal(canUseServiceWorker({ ...env, isSecureContext: false }), false);
+    assert.equal(canUseServiceWorker({ navigator: {} }), false);
+  });
+
+  it('opens the file the installed app was launched with', async () => {
+    let consumer = null;
+    const env = { launchQueue: { setConsumer: fn => { consumer = fn; } } };
+    assert.equal(initFileLaunch({}, env), true);
+    let opened = false;
+    // An unsupported extension is refused by handleRouteFile before any store access
+    await consumer({ files: [{ getFile: async () => { opened = true; return { name: 'notes.txt', size: 3 }; } }] });
+    assert.ok(opened);
+    await consumer({ files: [] });
+    assert.equal(initFileLaunch({}, {}), false);
   });
 });
 

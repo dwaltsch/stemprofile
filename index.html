@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- Content Security Policy: only same-origin scripts, no plugins / forms / base rewriting.
        Inline styles stay allowed (templates use style attributes); blob:/data: images are needed for PNG export. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-5nSIlURZwlP8JG2Fl1Xnoi5UFqRN4Mv6zJ8eRsr1714='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-EhXrzjyO0WWdSOWFx3ajH7M6oHpJvicQ8ZhQueckeGc='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <title>StemProfile — Elevation Stickers for Your Stem or Top Tube</title>
   <meta name="description" content="Turn any GPX, TCX or FIT file into a printable, race-ready elevation sticker for your bike. Free, no sign-up, and your route never leaves your browser.">
@@ -21,6 +21,8 @@
   <meta property="og:image:alt" content="A cycling elevation sticker with categorized climbs and gradient-colored blocks">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#2563eb">
   <!-- Order matters: later files override earlier ones, exactly as the former single styles.css -->
   <link rel="stylesheet" href="css/base.css?v=0ef4fefddd">
   <link rel="stylesheet" href="css/header.css?v=bdbbbdbcdf">
@@ -980,7 +982,7 @@
   <script type="importmap">
 {
   "imports": {
-    "./js/app.js": "./js/app.js?v=93802bf844",
+    "./js/app.js": "./js/app.js?v=65112d350f",
     "./js/escape.js": "./js/escape.js?v=6ce228fc6d",
     "./js/example-route.js": "./js/example-route.js?v=e294ff2c2f",
     "./js/export.js": "./js/export.js?v=2b0a1c68ef",
@@ -998,6 +1000,7 @@
     "./js/layout.js": "./js/layout.js?v=0289b288c5",
     "./js/limits.js": "./js/limits.js?v=c83110c61e",
     "./js/load-guard.js": "./js/load-guard.js?v=07a6ce2829",
+    "./js/offline.js": "./js/offline.js?v=9d6420923a",
     "./js/parser.js": "./js/parser.js?v=b65c84f4af",
     "./js/parsers/fit.js": "./js/parsers/fit.js?v=b38baa408e",
     "./js/parsers/gpx.js": "./js/parsers/gpx.js?v=0447d8d036",
@@ -1046,6 +1049,6 @@
 }
   </script>
   <!-- /asset-stamp:importmap -->
-  <script type="module" src="js/app.js?v=93802bf844"></script>
+  <script type="module" src="js/app.js?v=65112d350f"></script>
 </body>
 </html>

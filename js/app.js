@@ -27,6 +27,7 @@ import { initActions, syncHistoryButtons } from './ui/actions.js';
 import { setMobileTab as setMobileTabView, initMobileTabs } from './ui/mobile-tabs.js';
 import { runSection, installGlobalErrorHandlers } from './ui/error-boundary.js';
 import { beginLoad, isLatestLoad } from './load-guard.js';
+import { registerServiceWorker, initFileLaunch } from './offline.js';
 
 // Backward compatibility exports
 export { store };
@@ -167,6 +168,10 @@ export function initApp() {
       }
     }
   });
+
+  // Offline copy & files opened with the installed app
+  registerServiceWorker();
+  initFileLaunch(store);
 
   // Initial Hash Routing
   const incomingHash = window.location.hash || window.location.search;
