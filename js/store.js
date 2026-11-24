@@ -8,7 +8,7 @@
  * @module store
  */
 
-import { processTrackSignal, matchWaypointsToTrack, dropPositionSpikes } from './signal.js';
+import { processTrackSignal, matchWaypointsToTrack, dropPositionSpikes, detectClimbs, applyManualClimbs, adoptClimbIds, climbIdFor, sanitizeManualClimbs, MAX_MANUAL_CLIMBS, measureClimb } from './signal.js';
 import { DEFAULT_SETTINGS, sanitizePayload, clampSettings, downsampleCoords } from './share.js';
 import { PLAN_KEY_PREFIX, savePlan, loadPlan } from './plan-storage.js';
 import { MAX_ROUTE_KM, MAX_TRACK_POINTS, MAX_IMPORTED_WAYPOINTS, MAX_TITLE_CHARS, MAX_LABEL_CHARS, clampText } from './limits.js';
@@ -44,6 +44,8 @@ import {
  * @property {function(): boolean} canUndo - Whether undo is available
  * @property {function(): boolean} canRedo - Whether redo is available
  * @property {function(boolean): void} setClimbDetail - Toggles climb detail mode
+ * @property {function(number, number): (Object|null)} addManualClimb - Marks a climb by hand
+ * @property {function(string|number): void} removeManualClimb - Removes a manual climb
  */
 
 /**
@@ -124,15 +126,45 @@ export function createStore(initialSettings = {}) {
   function restoreSnapshot(snap) {
     const needsReprocess = snap.settings.smoothingWindow !== state.settings.smoothingWindow ||
       snap.settings.blockSizeM !== state.settings.blockSizeM;
+    const needsClimbs = climbSettingsDiffer(snap.settings, state.settings);
     state.settings = snap.settings;
     state.waypoints = snap.waypoints;
     state.fueling = snap.fueling;
     if (needsReprocess && state.rawCoords.length >= 2) {
       reprocess(false);
       retimeFuelItems();
+    } else if (needsClimbs && state.points.length >= 2) {
+      refreshClimbs();
+      retimeFuelItems();
     }
     lastGroup = null;
     saveFuelingPlan();
+  }
+
+  function climbSettingsDiffer(a, b) {
+    return a.climbMinGainM !== b.climbMinGainM ||
+      JSON.stringify(a.manualClimbs || []) !== JSON.stringify(b.manualClimbs || []);
+  }
+
+  /** Climb detection options from the current settings. */
+  function climbOptions() {
+    return { minGainM: state.settings.climbMinGainM, manualClimbs: state.settings.manualClimbs };
+  }
+
+  /** Climb ids the settings refer to (hidden badges, dragged badge positions). */
+  function referencedClimbIds() {
+    const ids = (state.settings.hiddenClimbIds || []).map(Number);
+    for (const key of Object.keys(state.settings.customPositions || {})) {
+      if (key.startsWith('climb-')) ids.push(Number(key.slice(6)));
+    }
+    return ids;
+  }
+
+  /** Re-runs climb detection on the current profile (after a climb setting changed). */
+  function refreshClimbs() {
+    const detected = detectClimbs(state.points, state.settings.climbMinGainM);
+    state.climbs = adoptClimbIds(applyManualClimbs(state.points, detected, state.settings.manualClimbs), referencedClimbIds());
+    if (state.stats) state.stats = { ...state.stats, climbsCount: state.climbs.length };
   }
 
   function settingsDiffer(partial) {
@@ -222,7 +254,7 @@ export function createStore(initialSettings = {}) {
 
     if (isNewGPX) {
       // Determine initial track distance & sticker width to choose recommended block size preset
-      const initial = processTrackSignal(state.rawCoords, state.settings.smoothingWindow, 1000);
+      const initial = processTrackSignal(state.rawCoords, state.settings.smoothingWindow, 1000, { minGainM: state.settings.climbMinGainM });
       const recommended = getRecommendedBlockPresets(
         initial.stats ? initial.stats.totalDist : 0,
         state.settings.widthMm,
@@ -230,17 +262,21 @@ export function createStore(initialSettings = {}) {
       );
       state.settings.blockSizeM = recommended.defaultBlockM;
       state.settings.customPositions = {};
+      // Climb edits belong to the previous route
+      state.settings.hiddenClimbIds = [];
+      state.settings.manualClimbs = [];
     }
 
     const { points, stats, climbs, blocks } = processTrackSignal(
       state.rawCoords,
       state.settings.smoothingWindow,
-      state.settings.blockSizeM
+      state.settings.blockSizeM,
+      climbOptions()
     );
 
     state.points = points;
     state.stats = stats;
-    state.climbs = climbs;
+    state.climbs = adoptClimbIds(climbs, referencedClimbIds());
     state.blocks = blocks;
 
     if (isNewGPX) {
@@ -373,6 +409,8 @@ export function createStore(initialSettings = {}) {
       if (settingsDiffer(partialSettings)) {
         checkpoint('settings:' + Object.keys(partialSettings).sort().join(','));
       }
+      const prevSettings = state.settings;
+      if ('manualClimbs' in partialSettings) partialSettings.manualClimbs = sanitizeManualClimbs(partialSettings.manualClimbs);
       const prevSmoothing = state.settings.smoothingWindow;
       const prevBlockSize = state.settings.blockSizeM;
 
@@ -387,6 +425,9 @@ export function createStore(initialSettings = {}) {
 
       if (needsReprocess && state.rawCoords.length >= 2) {
         reprocess(false);
+        retimeFuelItems();
+      } else if (climbSettingsDiffer(prevSettings, state.settings) && state.points.length >= 2) {
+        refreshClimbs();
         retimeFuelItems();
       }
 
@@ -466,6 +507,45 @@ export function createStore(initialSettings = {}) {
     },
 
     /**
+     * Marks a climb by hand. It replaces any detected climb it overlaps, so two
+     * detected climbs can be merged into one, or one split into two.
+     *
+     * @param {number} startM - Foot of the climb in metres
+     * @param {number} summitM - Summit in metres
+     * @returns {Object|null} The new climb, or null when the stretch is not a climb
+     */
+    addManualClimb(startM, summitM) {
+      if (state.points.length < 2) return null;
+      const climb = measureClimb(state.points, startM, summitM);
+      const current = state.settings.manualClimbs || [];
+      if (!climb || current.length >= MAX_MANUAL_CLIMBS) return null;
+      checkpoint();
+      state.settings.manualClimbs = sanitizeManualClimbs([...current, [startM, summitM]]);
+      refreshClimbs();
+      retimeFuelItems();
+      notify('climbs:updated');
+      return state.climbs.find(c => c.manual && c.id === climb.id) || climb;
+    },
+
+    /**
+     * Removes a manual climb; the detected climbs it replaced come back.
+     *
+     * @param {string|number} climbId - Id of the manual climb
+     */
+    removeManualClimb(climbId) {
+      const id = Number(climbId);
+      const current = state.settings.manualClimbs || [];
+      const next = current.filter(([, summitM]) => climbIdFor(summitM) !== id);
+      if (next.length === current.length) return;
+      checkpoint();
+      state.settings.manualClimbs = next;
+      state.settings.hiddenClimbIds = (state.settings.hiddenClimbIds || []).filter(h => Number(h) !== id);
+      refreshClimbs();
+      retimeFuelItems();
+      notify('climbs:updated');
+    },
+
+    /**
      * Saves user-dragged coordinate override for a badge or waypoint.
      *
      * @param {string} dragId - Unique drag element ID (e.g. 'climb-1' or 'wpt-123')
@@ -508,6 +588,8 @@ export function createStore(initialSettings = {}) {
       state.rawWaypoints = [];
       state.waypoints = payload.waypoints || [];
 
+      // Per-route edits never carry over from the previous route
+      state.settings = { ...state.settings, hiddenClimbIds: [], manualClimbs: [], customPositions: {} };
       if (payload.settings) {
         state.settings = {
           ...state.settings,

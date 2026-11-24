@@ -266,6 +266,16 @@ export function serializeBinaryState(appState) {
   buf.push(hc.length);
   for (const id of hc) writeVarint(buf, id);
 
+  // 4b. Climb detection threshold and the rider's own climbs (decametres: foot, length)
+  writeVarint(buf, Math.round(s.climbMinGainM || DEFAULT_SETTINGS.climbMinGainM));
+  const manual = (Array.isArray(s.manualClimbs) ? s.manualClimbs : []).slice(0, 255);
+  buf.push(manual.length);
+  for (const [startM, summitM] of manual) {
+    const startDam = Math.round(startM / 10);
+    writeVarint(buf, startDam);
+    writeVarint(buf, Math.round(summitM / 10) - startDam);
+  }
+
   // 5. Waypoints
   const wpts = Array.isArray(appState.waypoints) ? appState.waypoints : [];
   buf.push(Math.min(255, wpts.length));
@@ -365,6 +375,16 @@ export function deserializeBinaryState(bytes) {
       hiddenClimbIds.push(readVarint(bytes, offsetObj));
     }
 
+    // 4b. Climb detection threshold and manual climbs (validated in sanitizePayload)
+    const climbMinGainM = readVarint(bytes, offsetObj);
+    const nManual = readByte(bytes, offsetObj);
+    const manualClimbs = [];
+    for (let i = 0; i < nManual; i++) {
+      const startDam = readVarint(bytes, offsetObj);
+      const lenDam = readVarint(bytes, offsetObj);
+      manualClimbs.push([startDam * 10, (startDam + lenDam) * 10]);
+    }
+
     // 5. Waypoints
     if (offsetObj.offset >= bytes.length) return null;
     const nWpts = bytes[offsetObj.offset++];
@@ -435,7 +455,9 @@ export function deserializeBinaryState(bytes) {
       showWaypointLabels,
       showCutGuidelines,
       showBlockPct,
-      hiddenClimbIds
+      hiddenClimbIds,
+      climbMinGainM,
+      manualClimbs
     };
 
     return {

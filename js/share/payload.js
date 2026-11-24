@@ -6,6 +6,7 @@
 
 import { DEFAULT_SETTINGS, THEME_NAMES, WPT_TYPE_NAMES, clampSettings, SHARE_PROTOCOL_VERSION } from './constants.js';
 import { base64UrlToUint8 } from './compression.js';
+import { sanitizeManualClimbs } from '../signal/climbs.js';
 import { deserializeBinaryState } from './binary.js';
 
 /** Longest share link payload accepted (real links are a few hundred to a few thousand chars). */
@@ -120,6 +121,7 @@ export function sanitizePayload(payload) {
   if (Array.isArray(raw.hiddenClimbIds)) {
     settings.hiddenClimbIds = raw.hiddenClimbIds.filter(id => Number.isFinite(id) || (typeof id === 'string' && SAFE_ID_RE.test(id)));
   }
+  if (raw.manualClimbs !== undefined) settings.manualClimbs = sanitizeManualClimbs(raw.manualClimbs);
   if (raw.customPositions && typeof raw.customPositions === 'object') {
     settings.customPositions = {};
     for (const [key, pos] of Object.entries(raw.customPositions)) {

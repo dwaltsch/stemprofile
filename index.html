@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- Content Security Policy: only same-origin scripts, no plugins / forms / base rewriting.
        Inline styles stay allowed (templates use style attributes); blob:/data: images are needed for PNG export. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-s8fW94Gcsr5u6GYbkp2uHTb9YB93vJ4h1lRsZim2gCs='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-5nSIlURZwlP8JG2Fl1Xnoi5UFqRN4Mv6zJ8eRsr1714='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <title>StemProfile — Elevation Stickers for Your Stem or Top Tube</title>
   <meta name="description" content="Turn any GPX, TCX or FIT file into a printable, race-ready elevation sticker for your bike. Free, no sign-up, and your route never leaves your browser.">
@@ -26,7 +26,7 @@
   <link rel="stylesheet" href="css/header.css?v=bdbbbdbcdf">
   <link rel="stylesheet" href="css/layout.css?v=6ed9976a74">
   <link rel="stylesheet" href="css/stage.css?v=604181e9b1">
-  <link rel="stylesheet" href="css/panels.css?v=b4fe2454d0">
+  <link rel="stylesheet" href="css/panels.css?v=61e226e0ca">
   <link rel="stylesheet" href="css/print.css?v=e148540ef1">
   <link rel="stylesheet" href="css/toast.css?v=fa321537b9">
   <link rel="stylesheet" href="css/responsive.css?v=25803fddef">
@@ -577,6 +577,35 @@
             </table>
             <div class="climbs-empty-hint" id="climbs-empty-hint">No sustained climbs detected in track.</div>
           </div>
+
+          <details class="climb-editor" id="climb-editor">
+            <summary>Edit climbs</summary>
+            <div class="field">
+              <div class="field-label">
+                <label for="slider-climb-gain">Smallest climb (gain)</label>
+                <span id="label-climb-gain" class="field-value-badge">35 m</span>
+              </div>
+              <input type="range" id="slider-climb-gain" min="10" max="400" step="5" value="35">
+            </div>
+            <div class="field-grid">
+              <div class="field">
+                <label class="field-label" for="input-climb-start"><span>Foot (<span class="climb-dist-unit">km</span>)</span></label>
+                <input type="number" id="input-climb-start" min="0" step="0.1" placeholder="e.g. 12.0">
+              </div>
+              <div class="field">
+                <label class="field-label" for="input-climb-summit"><span>Summit (<span class="climb-dist-unit">km</span>)</span></label>
+                <input type="number" id="input-climb-summit" min="0" step="0.1" placeholder="e.g. 18.5">
+              </div>
+            </div>
+            <button type="button" class="btn btn-secondary" id="btn-add-climb" style="width:100%; justify-content:center;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              Add Climb
+            </button>
+            <p class="climb-editor-hint">A climb you add replaces the detected climbs it overlaps: span two to merge them, or add two to split one.</p>
+          </details>
         </div>
 
         <!-- Section 3: Roadbook Gradient Zones Legend -->
@@ -951,7 +980,7 @@
   <script type="importmap">
 {
   "imports": {
-    "./js/app.js": "./js/app.js?v=e3f8e2cea0",
+    "./js/app.js": "./js/app.js?v=93802bf844",
     "./js/escape.js": "./js/escape.js?v=6ce228fc6d",
     "./js/example-route.js": "./js/example-route.js?v=e294ff2c2f",
     "./js/export.js": "./js/export.js?v=2b0a1c68ef",
@@ -981,21 +1010,21 @@
     "./js/renderer/themes.js": "./js/renderer/themes.js?v=38413d4242",
     "./js/renderer/waypoints-config.js": "./js/renderer/waypoints-config.js?v=024dee0631",
     "./js/share.js": "./js/share.js?v=3f85f31a8d",
-    "./js/share/binary.js": "./js/share/binary.js?v=3fc9d6382f",
+    "./js/share/binary.js": "./js/share/binary.js?v=823dd25cbe",
     "./js/share/compression.js": "./js/share/compression.js?v=658289d9c9",
-    "./js/share/constants.js": "./js/share/constants.js?v=06457c2e94",
-    "./js/share/payload.js": "./js/share/payload.js?v=3b6ff17cb4",
+    "./js/share/constants.js": "./js/share/constants.js?v=532b21487d",
+    "./js/share/payload.js": "./js/share/payload.js?v=9a6b38fac2",
     "./js/share/simplify.js": "./js/share/simplify.js?v=8bb563b801",
-    "./js/signal.js": "./js/signal.js?v=263efe0a56",
+    "./js/signal.js": "./js/signal.js?v=c31baa6d7d",
     "./js/signal/blocks.js": "./js/signal/blocks.js?v=55823c2d4b",
-    "./js/signal/climbs.js": "./js/signal/climbs.js?v=a29a635406",
+    "./js/signal/climbs.js": "./js/signal/climbs.js?v=463b0d7ca0",
     "./js/signal/despike.js": "./js/signal/despike.js?v=38e3bf5fd4",
     "./js/signal/geo.js": "./js/signal/geo.js?v=3c9d9ea410",
     "./js/signal/smooth.js": "./js/signal/smooth.js?v=4ccb20a4c5",
     "./js/signal/waypoint-match.js": "./js/signal/waypoint-match.js?v=eb1d402509",
-    "./js/store.js": "./js/store.js?v=9bfc7ebd07",
+    "./js/store.js": "./js/store.js?v=1070af9f64",
     "./js/ui/actions.js": "./js/ui/actions.js?v=df90c08af7",
-    "./js/ui/climbs-panel.js": "./js/ui/climbs-panel.js?v=f2244685a6",
+    "./js/ui/climbs-panel.js": "./js/ui/climbs-panel.js?v=c78f3dd20d",
     "./js/ui/controls.js": "./js/ui/controls.js?v=9e23dd9ca1",
     "./js/ui/drag-engine.js": "./js/ui/drag-engine.js?v=e453071300",
     "./js/ui/dropzone.js": "./js/ui/dropzone.js?v=0e22e139d3",
@@ -1017,6 +1046,6 @@
 }
   </script>
   <!-- /asset-stamp:importmap -->
-  <script type="module" src="js/app.js?v=e3f8e2cea0"></script>
+  <script type="module" src="js/app.js?v=93802bf844"></script>
 </body>
 </html>

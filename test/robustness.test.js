@@ -498,7 +498,7 @@ describe('Robustness: Malformed Files & Hostile Payloads', () => {
 
   it('binary links with absurd varint deltas are rejected', async () => {
     const huge = [0xff, 0xff, 0xff, 0xff, 0x0f];
-    const bytes = new Uint8Array([4, 0, 0, 0, 10, 0, 100, 3, ...huge, 2, ...huge, 2, 0, 0, 110, 35, 3, 232, 7, 0, 0, /* fuel section: */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    const bytes = new Uint8Array([4, 0, 0, 0, 10, 0, 100, 3, ...huge, 2, ...huge, 2, 0, 0, 110, 35, 3, 232, 7, 0, /* climbs: */ 0, 0, /* waypoints: */ 0, /* fuel section: */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     const payload = await deserializeHashToState('#stage=' + await compressPayload(bytes));
     assert.equal(createStore().loadPayload(payload), false);
   });

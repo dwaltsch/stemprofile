@@ -80,6 +80,42 @@
   opacity: 0.55;
 }
 
+.climb-editor {
+  margin-top: 0.6rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0.5rem;
+}
+
+.climb-editor > summary {
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  padding: 0.2rem 0;
+}
+
+.climb-editor[open] > summary {
+  margin-bottom: 0.5rem;
+}
+
+.climb-editor .btn {
+  margin-top: 0.4rem;
+}
+
+.climb-editor-hint {
+  font-size: 0.66rem;
+  color: var(--text-dim);
+  margin: 0.45rem 0 0;
+  line-height: 1.4;
+}
+
+.climb-manual-tag {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  margin-left: 0.25rem;
+}
+
 .climbs-empty-hint {
   font-size: 0.7rem;
   color: var(--text-dim);

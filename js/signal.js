@@ -14,7 +14,7 @@
 import { buildSpatialBlocks } from './signal/blocks.js';
 import { calcHaversine } from './signal/geo.js';
 import { despikeElevations } from './signal/despike.js';
-import { detectClimbs } from './signal/climbs.js';
+import { detectClimbs, applyManualClimbs } from './signal/climbs.js';
 import { smoothByDistance, smoothingWindowM, gradesByDistance, climbingTotals, maxSustainedAscent, GRADE_HALF_WINDOW_M, SUSTAINED_SPAN_M, SUSTAINED_MIN_SPAN_M } from './signal/smooth.js';
 import { normalizeCoordinates } from './units.js';
 
@@ -79,7 +79,8 @@ export * from './signal/smooth.js';
 
 /**
  * @typedef {Object} DetectedClimb
- * @property {number} id - Unique climb identifier
+ * @property {number} id - Stable climb id: summit position in decametres (see climbIdFor / adoptClimbIds)
+ * @property {boolean} [manual] - Marked by the rider rather than detected
  * @property {'HC'|'Cat 1'|'Cat 2'|'Cat 3'|'Cat 4'} category - Official UCI climb category
  * @property {number} startKm - Distance of climb start in kilometers
  * @property {number} summitKm - Distance of climb summit/crest in kilometers
@@ -98,9 +99,11 @@ export * from './signal/smooth.js';
  * @param {GpxCoordinate[]} coords - Raw GPS track coordinates
  * @param {number} [smoothingWindow=7] - Smoothing setting; the window is smoothingWindowM(setting) metres of route
  * @param {number} [blockSizeM=1000] - Roadbook block segment size in meters (0 for continuous)
+ * @param {{ minGainM?: number, manualClimbs?: Array<[number, number]> }} [climbOptions] - Climb detection
+ *   threshold and the rider's own climbs ([startM, summitM] pairs)
  * @returns {{ points: ProfilePoint[], stats: RouteStats|null, climbs: DetectedClimb[], blocks: SpatialBlock[] }}
  */
-export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 1000) {
+export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 1000, climbOptions = {}) {
   if (!coords || coords.length < 2) {
     return { points: [], stats: null, climbs: [], blocks: [] };
   }
@@ -173,7 +176,7 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
 
   // 6. Spatial Blocks & Climbs
   const blocks = buildSpatialBlocks(points, runningDist, blockSizeM);
-  const climbs = detectClimbs(points);
+  const climbs = applyManualClimbs(points, detectClimbs(points, climbOptions.minGainM), climbOptions.manualClimbs);
 
   const stats = {
     totalDist: runningDist,

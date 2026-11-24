@@ -29,7 +29,9 @@ export const DEFAULT_SETTINGS = {
   showWaypointLabels: true,
   showCutGuidelines: true,
   printCopies: 2,
-  hiddenClimbIds: []
+  climbMinGainM: 35,
+  hiddenClimbIds: [],
+  manualClimbs: []
 };
 
 /**
@@ -45,7 +47,8 @@ export const SETTING_LIMITS = {
   radiusMm: [0, 10],
   smoothingWindow: [1, 21],
   blockSizeM: [50, 25000], // 0 (continuous mode) is also allowed
-  printCopies: [1, 16]
+  printCopies: [1, 16],
+  climbMinGainM: [10, 400]
 };
 
 /**

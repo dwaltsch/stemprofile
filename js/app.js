@@ -15,7 +15,7 @@ import { initTheme } from './ui/theme.js';
 import { initDropzone, loadExampleRoute } from './ui/dropzone.js';
 import { initControls, syncFormControls, updateBlockSizePills } from './ui/controls.js';
 import { initWaypointsPanel, renderWaypointsList } from './ui/waypoints-panel.js';
-import { renderClimbsTable } from './ui/climbs-panel.js';
+import { renderClimbsTable, initClimbEditor, syncClimbEditor } from './ui/climbs-panel.js';
 import { initFuelingPanel, renderFuelingPanel } from './ui/fueling-panel.js';
 import { initDragEngine } from './ui/drag-engine.js';
 import { bindTooltipHover } from './ui/tooltip.js';
@@ -79,7 +79,10 @@ export function updateUI(event) {
   if (panels.has('controls')) runSection('controls', () => syncFormControls(state));
 
   // 2. Update Panels & Overlays
-  if (panels.has('climbs')) runSection('climbs panel', () => renderClimbsTable(store));
+  if (panels.has('climbs')) {
+    runSection('climbs panel', () => renderClimbsTable(store));
+    runSection('climb editor', () => syncClimbEditor(state));
+  }
   if (panels.has('waypoints')) runSection('waypoints panel', () => renderWaypointsList(store));
   if (panels.has('fueling')) runSection('fueling panel', () => renderFuelingPanel(store));
   // The hidden print matrix is built on demand (beforeprint, Cmd+P, Print Studio), not on every update:
@@ -141,6 +144,7 @@ export function initApp() {
   initDropzone(store);
   initControls(store);
   initWaypointsPanel(store);
+  initClimbEditor(store);
   initFuelingPanel(store);
   initDragEngine(store);
   initPrintModal(store);

@@ -2,12 +2,15 @@
  * Climbs Table & Interactive Inspector UI Module
  *
  * Renders categorized climbs table, manages bi-directional cross-highlighting
- * with the vector profile, and handles badge visibility toggling.
+ * with the vector profile, handles badge visibility toggling, and the climb
+ * editor (detection threshold, manual climbs).
  *
  * @module ui/climbs-panel
  */
 
 import { setHTML } from './html.js';
+import { showToast } from './toast.js';
+import { getUnitFactors, getUnitLabels, formatElevation } from '../units.js';
 
 /**
  * Highlights or unhighlights a climb segment on both the SVG profile and sidebar table.
@@ -64,17 +67,25 @@ export function renderClimbsTable(store) {
     const catClass = c.category.toLowerCase().replace(/\s+/g, '-');
     const rowClass = isHidden ? 'climb-label-hidden' : '';
 
+    const manualTag = c.manual ? '<span class="climb-manual-tag" title="Added by you">✎</span>' : '';
+    const removeBtn = c.manual
+      ? `<button class="climb-toggle-btn" data-action="remove-climb" data-climb-id="${c.id}" title="Remove this climb" aria-label="Remove climb ${c.startKm.toFixed(1)} to ${c.summitKm.toFixed(1)}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>`
+      : '';
+
     html += `
       <tr data-climb-id="${c.id}" class="${rowClass}">
-        <td><span class="cat-pill ${catClass}">${c.category}</span></td>
+        <td><span class="cat-pill ${catClass}">${c.category}</span>${manualTag}</td>
         <td>${c.startKm.toFixed(1)} → ${c.summitKm.toFixed(1)}k</td>
         <td>${c.lengthKm.toFixed(1)}km</td>
         <td style="font-weight:700; color:var(--z2);">${c.avgGrade}%</td>
         <td>+${c.gainM}m</td>
         <td>${c.summitEle}m</td>
-        <td style="text-align:right;">
-          <button class="climb-toggle-btn ${isHidden ? 'hidden-badge' : ''}" data-action="toggle-climb" data-climb-id="${c.id}" title="${isHidden ? 'Show climb badge on sticker' : 'Hide climb badge from sticker'}">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <td style="text-align:right; white-space:nowrap;">
+          ${removeBtn}
+          <button class="climb-toggle-btn ${isHidden ? 'hidden-badge' : ''}" data-action="toggle-climb" data-climb-id="${c.id}" title="${isHidden ? 'Show climb badge on sticker' : 'Hide climb badge from sticker'}" aria-pressed="${isHidden ? 'false' : 'true'}" aria-label="Climb badge on sticker">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
               ${!isHidden
                 ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>'
                 : '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>'
@@ -101,10 +112,11 @@ export function renderClimbsTable(store) {
     });
 
     row.addEventListener('click', e => {
-      const toggleBtn = e.target.closest('.climb-toggle-btn');
-      if (toggleBtn) {
+      const actionBtn = e.target.closest('.climb-toggle-btn');
+      if (actionBtn) {
         e.stopPropagation();
-        store.toggleClimbVisibility(climbId);
+        if (actionBtn.dataset.action === 'remove-climb') store.removeManualClimb(climbId);
+        else store.toggleClimbVisibility(climbId);
         return;
       }
 
@@ -118,5 +130,71 @@ export function renderClimbsTable(store) {
         if (svgEl) svgEl.classList.add('active');
       }
     });
+  });
+}
+
+/**
+ * Syncs the climb editor's threshold label and distance units with the settings.
+ *
+ * @param {Object} state - Store state
+ */
+export function syncClimbEditor(state) {
+  const s = state.settings;
+  const slider = document.getElementById('slider-climb-gain');
+  const label = document.getElementById('label-climb-gain');
+  if (slider) slider.value = s.climbMinGainM;
+  if (label) label.textContent = formatElevation(s.climbMinGainM, s.units);
+  const unit = getUnitLabels(s.units).dist;
+  document.querySelectorAll('.climb-dist-unit').forEach(el => { el.textContent = unit; });
+}
+
+/**
+ * Binds the climb editor: detection threshold slider and the manual climb form.
+ *
+ * @param {import('../store.js').StemStore} store - Application store
+ */
+export function initClimbEditor(store) {
+  const slider = document.getElementById('slider-climb-gain');
+  const label = document.getElementById('label-climb-gain');
+  if (slider) {
+    slider.addEventListener('input', e => {
+      const v = parseInt(e.target.value, 10);
+      if (label) label.textContent = formatElevation(v, store.getState().settings.units);
+      store.updateSettings({ climbMinGainM: v });
+    });
+  }
+
+  const btn = document.getElementById('btn-add-climb');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const state = store.getState();
+    if (!state.stats) {
+      showToast('Please load a route first.', 'warning');
+      return;
+    }
+    const startIn = document.getElementById('input-climb-start');
+    const summitIn = document.getElementById('input-climb-summit');
+    const { dFactor } = getUnitFactors(state.settings.units);
+    const start = parseFloat(startIn && startIn.value);
+    const summit = parseFloat(summitIn && summitIn.value);
+    const routeEnd = state.stats.totalDist * dFactor;
+    if (!Number.isFinite(start) || !Number.isFinite(summit) || start < 0 || summit > routeEnd + 0.05) {
+      showToast(`Enter a foot and summit between 0 and ${routeEnd.toFixed(1)}.`, 'warning');
+      (startIn || btn).focus();
+      return;
+    }
+    if (summit <= start) {
+      showToast('The summit must come after the foot of the climb.', 'warning');
+      if (summitIn) summitIn.focus();
+      return;
+    }
+    const climb = store.addManualClimb(start / dFactor, Math.min(summit / dFactor, state.stats.totalDist));
+    if (!climb) {
+      showToast('That stretch does not go uphill (or is under 100 m).', 'warning');
+      return;
+    }
+    if (startIn) startIn.value = '';
+    if (summitIn) summitIn.value = '';
+    showToast(`Added ${climb.category} climb (+${formatElevation(climb.gainM, state.settings.units)})`, 'success');
   });
 }
