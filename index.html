@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- Content Security Policy: only same-origin scripts, no plugins / forms / base rewriting.
        Inline styles stay allowed (templates use style attributes); blob:/data: images are needed for PNG export. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-EhXrzjyO0WWdSOWFx3ajH7M6oHpJvicQ8ZhQueckeGc='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-DFRCYkiqDwNs1RPi+zuJkAj7YvoQIOFbJukyIccRmys='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <title>StemProfile — Elevation Stickers for Your Stem or Top Tube</title>
   <meta name="description" content="Turn any GPX, TCX or FIT file into a printable, race-ready elevation sticker for your bike. Free, no sign-up, and your route never leaves your browser.">
@@ -24,10 +24,10 @@
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#2563eb">
   <!-- Order matters: later files override earlier ones, exactly as the former single styles.css -->
-  <link rel="stylesheet" href="css/base.css?v=0ef4fefddd">
+  <link rel="stylesheet" href="css/base.css?v=a44f1f00d9">
   <link rel="stylesheet" href="css/header.css?v=bdbbbdbcdf">
   <link rel="stylesheet" href="css/layout.css?v=6ed9976a74">
-  <link rel="stylesheet" href="css/stage.css?v=604181e9b1">
+  <link rel="stylesheet" href="css/stage.css?v=51aa0e5890">
   <link rel="stylesheet" href="css/panels.css?v=61e226e0ca">
   <link rel="stylesheet" href="css/print.css?v=e148540ef1">
   <link rel="stylesheet" href="css/toast.css?v=fa321537b9">
@@ -95,7 +95,7 @@
         <span class="btn-text">Load Route</span>
       </button>
 
-      <button class="btn btn-icon" id="btn-theme-toggle" title="Toggle Light/Dark Theme">
+      <button type="button" class="btn btn-icon" id="btn-theme-toggle" title="Toggle Light/Dark Theme" aria-label="Toggle dark mode">
         <!-- Sun icon (shown in dark mode) -->
         <svg class="icon-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="5"></circle>
@@ -357,7 +357,7 @@
 
           <div class="field">
             <div class="field-label">
-              <span>Elevation Smoothing</span>
+              <label for="slider-smoothing">Elevation Smoothing</label>
               <span id="label-smoothing" class="field-value-badge">105 m</span>
             </div>
             <input type="range" id="slider-smoothing" min="1" max="21" step="2" value="7">
@@ -821,7 +821,7 @@
           </svg>
           <h2 id="print-dialog-title">Print Studio &amp; Sheet Setup</h2>
         </div>
-        <button type="button" class="modal-close-btn" id="btn-close-print-modal" title="Close dialog (Esc)">
+        <button type="button" class="modal-close-btn" id="btn-close-print-modal" title="Close dialog (Esc)" aria-label="Close Print Studio">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -1025,25 +1025,25 @@
     "./js/signal/geo.js": "./js/signal/geo.js?v=3c9d9ea410",
     "./js/signal/smooth.js": "./js/signal/smooth.js?v=4ccb20a4c5",
     "./js/signal/waypoint-match.js": "./js/signal/waypoint-match.js?v=eb1d402509",
-    "./js/store.js": "./js/store.js?v=1070af9f64",
+    "./js/store.js": "./js/store.js?v=91b304af90",
     "./js/ui/actions.js": "./js/ui/actions.js?v=df90c08af7",
     "./js/ui/climbs-panel.js": "./js/ui/climbs-panel.js?v=c78f3dd20d",
     "./js/ui/controls.js": "./js/ui/controls.js?v=9e23dd9ca1",
-    "./js/ui/drag-engine.js": "./js/ui/drag-engine.js?v=e453071300",
+    "./js/ui/drag-engine.js": "./js/ui/drag-engine.js?v=fca5b4f4e7",
     "./js/ui/dropzone.js": "./js/ui/dropzone.js?v=0e22e139d3",
     "./js/ui/error-boundary.js": "./js/ui/error-boundary.js?v=342d6b4ae3",
     "./js/ui/fueling-panel.js": "./js/ui/fueling-panel.js?v=d15b632109",
     "./js/ui/fueling/drag-sort.js": "./js/ui/fueling/drag-sort.js?v=4a101d8627",
-    "./js/ui/fueling/list.js": "./js/ui/fueling/list.js?v=79f637ca0a",
+    "./js/ui/fueling/list.js": "./js/ui/fueling/list.js?v=667db57a09",
     "./js/ui/html.js": "./js/ui/html.js?v=1106958617",
     "./js/ui/mobile-tabs.js": "./js/ui/mobile-tabs.js?v=1f91f9dc17",
-    "./js/ui/print-modal.js": "./js/ui/print-modal.js?v=4bb4b7ce75",
+    "./js/ui/print-modal.js": "./js/ui/print-modal.js?v=263cb379d5",
     "./js/ui/stats-strip.js": "./js/ui/stats-strip.js?v=dc65d7f29d",
     "./js/ui/theme.js": "./js/ui/theme.js?v=8438e58000",
-    "./js/ui/toast.js": "./js/ui/toast.js?v=e7241d2ff0",
+    "./js/ui/toast.js": "./js/ui/toast.js?v=45c9489365",
     "./js/ui/tooltip.js": "./js/ui/tooltip.js?v=88b17c0ec0",
-    "./js/ui/waypoints-panel.js": "./js/ui/waypoints-panel.js?v=ce0d8632a3",
-    "./js/ui/workbench.js": "./js/ui/workbench.js?v=f735d41e7f",
+    "./js/ui/waypoints-panel.js": "./js/ui/waypoints-panel.js?v=8a0469a676",
+    "./js/ui/workbench.js": "./js/ui/workbench.js?v=a70a7d9580",
     "./js/units.js": "./js/units.js?v=2f2be43df5"
   }
 }

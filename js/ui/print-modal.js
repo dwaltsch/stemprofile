@@ -22,6 +22,8 @@ import { setHTML } from './html.js';
 
 let activePrintConfig = { ...DEFAULT_PRINT_CONFIG };
 let currentStore = null;
+/** Element focused before the dialog opened; focus returns there on close. */
+let returnFocusTo = null;
 let currentPage = null;
 
 const MM_TO_CSS_PX = 96 / 25.4;
@@ -121,7 +123,8 @@ export function openPrintModal(store) {
   document.body.classList.add('modal-open');
   updatePrintModalPreview(store);
 
-  // Trap focus / focus on print button
+  // Focus the print button; Tab is kept inside the dialog (see initPrintModal) and closing returns focus
+  returnFocusTo = document.activeElement;
   const triggerBtn = document.getElementById('btn-trigger-print');
   if (triggerBtn) setTimeout(() => triggerBtn.focus(), 50);
 }
@@ -135,6 +138,30 @@ export function closePrintModal() {
 
   modal.style.display = 'none';
   document.body.classList.remove('modal-open');
+  if (returnFocusTo && typeof returnFocusTo.focus === 'function' && document.contains(returnFocusTo)) returnFocusTo.focus();
+  returnFocusTo = null;
+}
+
+/**
+ * Keeps Tab / Shift+Tab focus inside an open dialog.
+ *
+ * @param {KeyboardEvent} e
+ * @param {Element} dialog
+ */
+export function trapFocus(e, dialog) {
+  if (e.key !== 'Tab' || !dialog) return;
+  const focusable = Array.from(dialog.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+    .filter(el => !el.disabled && el.offsetParent !== null);
+  if (focusable.length === 0) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (e.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+    e.preventDefault();
+    first.focus();
+  }
 }
 
 /**
@@ -211,9 +238,9 @@ export function initPrintModal(store) {
 
   // Escape key closes modal
   window.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && modal && modal.style.display === 'flex') {
-      closePrintModal();
-    }
+    if (!modal || modal.style.display !== 'flex') return;
+    if (e.key === 'Escape') closePrintModal();
+    else trapFocus(e, modal.querySelector('[role="dialog"]'));
   });
 
   // Sticker Type pills

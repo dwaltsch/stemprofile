@@ -12,6 +12,7 @@ import { renderProfileSVG } from '../renderer.js';
 import { renderFuelingSVG } from '../fueling-renderer.js';
 import { getDetailClimbs, getEligibleDetailClimbs, renderClimbDetailSVG } from '../renderer/climb-detail.js';
 import { setHTML } from './html.js';
+import { enhanceDraggableLabels } from './drag-engine.js';
 
 /**
  * Renders the active sticker preview (or empty-state prompt) into #svg-host.
@@ -33,6 +34,7 @@ export function renderPreview(state) {
         setHTML(svgHost, renderClimbDetailPreview(state));
       } else {
         setHTML(svgHost, renderProfileSVG(state));
+        enhanceDraggableLabels(svgHost, state);
       }
     } else {
       setHTML(svgHost, `

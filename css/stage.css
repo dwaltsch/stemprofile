@@ -343,3 +343,17 @@ main.stage-area {
 .empty-example-btn:hover {
   text-decoration: underline;
 }
+
+/* Keyboard focus on a movable sticker label */
+.draggable-label:focus {
+  outline: none;
+}
+
+.draggable-label:focus-visible {
+  filter: drop-shadow(0 0 2px var(--accent)) drop-shadow(0 0 1px var(--accent));
+}
+
+.draggable-label:focus-visible rect {
+  stroke: var(--accent) !important;
+  stroke-width: 0.65 !important;
+}

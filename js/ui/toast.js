@@ -22,11 +22,15 @@ export function showToast(message, type = 'info', durationMs = 2500) {
     container = document.createElement('div');
     container.id = 'toast-container';
     container.className = 'toast-container';
+    // Screen readers announce toasts as they appear (errors interrupt, see role="alert" below)
+    container.setAttribute('role', 'status');
+    container.setAttribute('aria-live', 'polite');
     document.body.appendChild(container);
   }
 
   const toast = document.createElement('div');
   toast.className = `toast-pill toast-${type}`;
+  if (type === 'error') toast.setAttribute('role', 'alert');
 
   let iconSvg = '';
   if (type === 'success') {

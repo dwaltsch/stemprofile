@@ -36,7 +36,7 @@ import {
  * @property {function(string): void} removeWaypoint - Removes waypoint pin by ID
  * @property {function(string): void} toggleWaypoint - Toggles waypoint pin visibility
  * @property {function(string|number): void} toggleClimbVisibility - Toggles climb badge visibility
- * @property {function(string, { x: number, y: number }): void} setCustomPosition - Saves custom drag position
+ * @property {function(string, { x: number, y: number }, string=): void} setCustomPosition - Saves custom drag position
  * @property {function(): void} resetCustomPositions - Resets custom drag positions
  * @property {function(Object): boolean} loadPayload - Restores payload state
  * @property {function(): boolean} undo - Reverts the last user edit
@@ -550,9 +550,10 @@ export function createStore(initialSettings = {}) {
      *
      * @param {string} dragId - Unique drag element ID (e.g. 'climb-1' or 'wpt-123')
      * @param {{ x: number, y: number }} pos - SVG millimeter coordinates
+     * @param {string|null} [group=null] - Undo merge key (keyboard nudges of one label merge into one step)
      */
-    setCustomPosition(dragId, pos) {
-      checkpoint();
+    setCustomPosition(dragId, pos, group = null) {
+      checkpoint(group);
       if (!state.settings.customPositions) {
         state.settings.customPositions = {};
       }

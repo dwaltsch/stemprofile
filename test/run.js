@@ -29,6 +29,7 @@ const SUITES = [
   './history.test.js',
   './climb-detail.test.js',
   './climb-editing.test.js',
+  './a11y.test.js',
   './robustness.test.js',
   './assets.test.js',
   './fuzz.test.js'

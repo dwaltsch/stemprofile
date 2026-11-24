@@ -225,7 +225,7 @@ export function renderFuelingPanel(store) {
           <div class="fuel-card-meta-row">
             <div class="fuel-card-meta-left">
               ${indexBadgeMarkup}
-              <select class="fuel-type-select ${badgeClass}" data-action="edit-type" data-id="${escapeHtml(item.id)}" title="Product type (Click to change)" draggable="false">
+              <select class="fuel-type-select ${badgeClass}" data-action="edit-type" data-id="${escapeHtml(item.id)}" title="Product type (Click to change)" aria-label="Product type" draggable="false">
                 <option value="gel" ${isGel ? 'selected' : ''}>GEL</option>
                 <option value="bottle_mix" ${isMix ? 'selected' : ''}>MIX</option>
                 <option value="bar" ${isBar ? 'selected' : ''}>BAR</option>
@@ -240,8 +240,8 @@ export function renderFuelingPanel(store) {
                 <input type="number" class="fuel-carbs-input" aria-label="Carbs" data-action="edit-carbs" data-id="${escapeHtml(item.id)}" value="${item.carbsG || 0}" min="0" max="140" step="5" draggable="false">
                 <span>g</span>
               </div>
-              <button type="button" class="fuel-del-btn" data-action="delete" data-id="${escapeHtml(item.id)}" title="Remove item">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <button type="button" class="fuel-del-btn" data-action="delete" data-id="${escapeHtml(item.id)}" title="Remove item" aria-label="Remove ${escapeHtml(item.name || 'item')}">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <polyline points="3 6 5 6 21 6"></polyline>
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                 </svg>
@@ -250,7 +250,7 @@ export function renderFuelingPanel(store) {
           </div>
 
           <div class="fuel-card-name-row">
-            <input type="text" class="fuel-name-input" data-action="edit-name" data-id="${escapeHtml(item.id)}" value="${escapeHtml(item.name || '')}" placeholder="Item name (e.g. Maurten Gel 100)" maxlength="40" draggable="false" title="Click to edit name" autocomplete="off" spellcheck="false">
+            <input type="text" class="fuel-name-input" data-action="edit-name" data-id="${escapeHtml(item.id)}" value="${escapeHtml(item.name || '')}" placeholder="Item name (e.g. Maurten Gel 100)" maxlength="40" draggable="false" title="Click to edit name" aria-label="Item name" autocomplete="off" spellcheck="false">
           </div>
 
           ${hazardMarkup ? `<div class="fuel-card-hazard-row">${hazardMarkup}</div>` : ''}
