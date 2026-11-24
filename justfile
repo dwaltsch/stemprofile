@@ -21,7 +21,7 @@ test-one-process:
 test-file file:
     node --test {{file}}
 
-# Re-stamp asset versions + CSP hash in index.html (after changing js/ or css/)
+# Re-stamp asset versions + CSP hash in index.html and the offline precache in sw.js (after changing js/ or css/)
 stamp:
     node scripts/stamp-assets.mjs
 

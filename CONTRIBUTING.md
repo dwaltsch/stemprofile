@@ -13,7 +13,7 @@ just serve   # or: python3 -m http.server 8000
 ## Before opening a pull request
 
 ```bash
-node scripts/stamp-assets.mjs   # after changing anything in js/ or css/
+node scripts/stamp-assets.mjs   # after changing anything in js/ or css/ (updates index.html and sw.js)
 node --test
 node test/run.js
 ```

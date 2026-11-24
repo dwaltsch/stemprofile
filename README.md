@@ -51,7 +51,7 @@ Your head unit shows the next few hundred meters. A sticker shows the whole day 
 
 **Reads like a roadbook**
 - Gradient-colored blocks of 2.5 km, 1 km, 500 m or any custom length, with the percentage inside each one
-- Climbs detected and categorized automatically, from Cat 4 to HC
+- Climbs detected and categorized automatically, from Cat 4 to HC; merge, split or add climbs by hand
 - Badges that move out of each other's way on busy mountain stages
 - Climb Detail stickers: one zoomed sticker per climb, with segment gradients and distance to the summit
 
@@ -66,9 +66,10 @@ Your head unit shows the next few hundred meters. A sticker shows the whole day 
 - Seven sticker themes, metric or imperial units
 
 **Stays out of your way**
-- Share links carry the elevation profile, your cues and settings, but no GPS positions
+- Share links carry the elevation profile, your cues, fuel plan and settings, but no GPS positions
 - Undo and redo for every edit
-- Nothing to install: it runs in any modern browser
+- Nothing to install: it runs in any modern browser, and keeps working offline after your first visit (or install it as an app)
+- Keyboard friendly: move any sticker label with the arrow keys
 
 ## Privacy
 
