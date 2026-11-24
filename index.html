@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- Content Security Policy: only same-origin scripts, no plugins / forms / base rewriting.
        Inline styles stay allowed (templates use style attributes); blob:/data: images are needed for PNG export. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-T5EyK278rY55xeWTxINcZC5pHiYlouG2dlg0LZHhjds='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-Yl6SQWbj3STiIG+/vAZpiHllA/ePg65y0yqXhv7LPp8='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <title>StemProfile — Elevation Stickers for Your Stem or Top Tube</title>
   <meta name="description" content="Turn any GPX, TCX or FIT file into a printable, race-ready elevation sticker for your bike. Free, no sign-up, and your route never leaves your browser.">
@@ -355,8 +355,8 @@
 
           <div class="field">
             <div class="field-label">
-              <span>Moving Avg Smoothing</span>
-              <span id="label-smoothing" class="field-value-badge">7 pt</span>
+              <span>Elevation Smoothing</span>
+              <span id="label-smoothing" class="field-value-badge">105 m</span>
             </div>
             <input type="range" id="slider-smoothing" min="1" max="21" step="2" value="7">
           </div>
@@ -986,16 +986,17 @@
     "./js/share/constants.js": "./js/share/constants.js?v=6920456c1f",
     "./js/share/payload.js": "./js/share/payload.js?v=ec2e78b28a",
     "./js/share/simplify.js": "./js/share/simplify.js?v=8bb563b801",
-    "./js/signal.js": "./js/signal.js?v=aedb89346e",
+    "./js/signal.js": "./js/signal.js?v=263efe0a56",
     "./js/signal/blocks.js": "./js/signal/blocks.js?v=55823c2d4b",
-    "./js/signal/climbs.js": "./js/signal/climbs.js?v=21fe472f73",
+    "./js/signal/climbs.js": "./js/signal/climbs.js?v=a29a635406",
     "./js/signal/despike.js": "./js/signal/despike.js?v=38e3bf5fd4",
     "./js/signal/geo.js": "./js/signal/geo.js?v=3c9d9ea410",
+    "./js/signal/smooth.js": "./js/signal/smooth.js?v=4ccb20a4c5",
     "./js/signal/waypoint-match.js": "./js/signal/waypoint-match.js?v=eb1d402509",
     "./js/store.js": "./js/store.js?v=279ba2b82e",
     "./js/ui/actions.js": "./js/ui/actions.js?v=df90c08af7",
     "./js/ui/climbs-panel.js": "./js/ui/climbs-panel.js?v=f2244685a6",
-    "./js/ui/controls.js": "./js/ui/controls.js?v=7f45e0cb4d",
+    "./js/ui/controls.js": "./js/ui/controls.js?v=9e23dd9ca1",
     "./js/ui/drag-engine.js": "./js/ui/drag-engine.js?v=e453071300",
     "./js/ui/dropzone.js": "./js/ui/dropzone.js?v=0e22e139d3",
     "./js/ui/error-boundary.js": "./js/ui/error-boundary.js?v=342d6b4ae3",

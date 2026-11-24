@@ -10,6 +10,8 @@
 import { getRecommendedBlockPresets } from '../layout.js';
 import { setHTML } from './html.js';
 import { SETTING_LIMITS } from '../share/constants.js';
+import { smoothingWindowM } from '../signal/smooth.js';
+import { formatElevation } from '../units.js';
 
 /**
  * Updates the block size segmented pill buttons to reflect stage distance and active settings.
@@ -130,7 +132,7 @@ export function syncFormControls(state) {
   const smSlider = document.getElementById('slider-smoothing');
   const smLabel = document.getElementById('label-smoothing');
   if (smSlider) smSlider.value = s.smoothingWindow;
-  if (smLabel) smLabel.textContent = `${s.smoothingWindow} pt`;
+  if (smLabel) smLabel.textContent = formatElevation(smoothingWindowM(s.smoothingWindow), s.units);
 
   // Theme & Units
   const themeSelect = document.getElementById('select-theme');
@@ -274,7 +276,7 @@ export function initControls(store) {
   if (smSlider && smLabel) {
     smSlider.addEventListener('input', e => {
       const v = parseInt(e.target.value, 10);
-      smLabel.textContent = `${v} pt`;
+      smLabel.textContent = formatElevation(smoothingWindowM(v), store.getState().settings.units);
       store.updateSettings({ smoothingWindow: v }, true);
     });
   }

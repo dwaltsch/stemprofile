@@ -4,6 +4,8 @@
  * @module signal/climbs
  */
 
+import { maxSustainedAscent, SUSTAINED_SPAN_M, SUSTAINED_MIN_SPAN_M } from './smooth.js';
+
 /**
  * Detects sustained categorized climbs along a route.
  *
@@ -32,7 +34,8 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 500, minGradePc
   let inClimb = false;
   let startIdx = 0;
   let climbPeakIdx = 0;
-  let runningGain = 0;
+  let dists = null;
+  let eles = null;
   let dipAccumulator = 0;
   let i = 1;
 
@@ -42,12 +45,11 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 500, minGradePc
     const deltaE = currE - prevE;
 
     if (!inClimb) {
-      // Trigger climb detection upon positive gradient onset
-      if (deltaE > 0.3 && points[i].grade >= minGradePct) {
+      // Trigger on a rising point whose ~100 m gradient is climbing (no per-step size: spacing varies)
+      if (deltaE > 0 && points[i].grade >= minGradePct) {
         inClimb = true;
         startIdx = i - 1;
         climbPeakIdx = i;
-        runningGain = deltaE;
         dipAccumulator = 0;
       }
       i++;
@@ -55,7 +57,6 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 500, minGradePc
       if (currE > points[climbPeakIdx].smoothEle) {
         // New highest peak within current climb
         climbPeakIdx = i;
-        runningGain += (currE - points[climbPeakIdx - 1].smoothEle);
         dipAccumulator = 0;
       } else {
         // Accumulate descent dip to identify false flats vs true downhill
@@ -74,10 +75,12 @@ export function detectClimbs(points, minGainM = 35, minLengthM = 500, minGradePc
         const difficultyScore = (climbLen / 1000) * Math.pow(avgGrade, 2);
 
         if ((difficultyScore >= 20 || climbGain >= 40) && climbLen >= minLengthM && avgGrade >= minGradePct && climbGain >= minGainM) {
-          let maxG = 0;
-          for (let k = startIdx; k <= climbPeakIdx; k++) {
-            if (points[k].grade > maxG) maxG = points[k].grade;
+          // Same sustained ~50 m measure as the route's max gradient, so a climb never quotes a steeper pitch
+          if (!dists) {
+            dists = points.map(p => p.dist);
+            eles = points.map(p => p.smoothEle);
           }
+          const maxG = maxSustainedAscent(dists, eles, SUSTAINED_SPAN_M, SUSTAINED_MIN_SPAN_M, startIdx, Math.max(startIdx, climbPeakIdx - 1));
 
           // Calibrated category brackets
           let category = 'Cat 4';

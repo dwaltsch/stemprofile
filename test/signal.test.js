@@ -15,7 +15,10 @@ import {
   processTrackSignal,
   despikeElevations,
   matchWaypointsToTrack,
-  EARTH_RADIUS_METERS
+  EARTH_RADIUS_METERS,
+  smoothByDistance,
+  gradesByDistance,
+  climbingTotals
 } from '../js/signal.js';
 
 describe('Signal Module: Geodesy & Interpolation', () => {
@@ -432,5 +435,64 @@ describe('Signal Module: Waypoint Classification', () => {
     assert.equal(matched[2].type, 'summit');
     assert.equal(matched[3].type, 'sprint');
     assert.equal(matched[4].type, 'caution');
+  });
+});
+
+describe('Signal Module: Distance-Domain Filters (sampling independence)', () => {
+  // 40 km route: flat, an 8 km climb at 6 % (480 m), then a 5 % descent
+  function syntheticRoute(stepM, noiseM, seed = 1) {
+    let s = seed;
+    const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647 - 0.5; };
+    const coords = [];
+    for (let d = 0; d <= 40000; d += stepM) {
+      let e = 200;
+      if (d > 10000 && d < 18000) e += (d - 10000) * 0.06;
+      else if (d >= 18000) e += 480 - Math.min(480, (d - 18000) * 0.05);
+      coords.push({ dist: d, ele: e + noiseM * 2 * rnd() });
+    }
+    return coords;
+  }
+
+  it('reports the same gain, climb and max grade at 1 m, 5 m and 50 m spacing with ±1 m sensor noise', () => {
+    for (const step of [1, 5, 50]) {
+      const { stats, climbs } = processTrackSignal(syntheticRoute(step, 1), 7, 1000);
+      assert.ok(Math.abs(stats.elevGain - 480) < 25, `step ${step} m: gain ${stats.elevGain.toFixed(0)} m, expected ~480 m`);
+      assert.ok(Math.abs(stats.elevLoss - 480) < 25, `step ${step} m: loss ${stats.elevLoss.toFixed(0)} m`);
+      assert.equal(climbs.length, 1, `step ${step} m: ${climbs.length} climbs`);
+      assert.equal(climbs[0].category, 'Cat 2');
+      assert.ok(Math.abs(climbs[0].gainM - 480) < 15, `step ${step} m: climb gain ${climbs[0].gainM}`);
+      assert.ok(stats.maxGrade > 5 && stats.maxGrade < 8, `step ${step} m: max grade ${stats.maxGrade}`);
+    }
+  });
+
+  it('never quotes a climb max grade steeper than the route max grade', () => {
+    const { stats, climbs } = processTrackSignal(syntheticRoute(2, 1, 7), 7, 1000);
+    assert.ok(climbs.length > 0);
+    for (const c of climbs) assert.ok(c.maxGrade <= stats.maxGrade, `climb ${c.maxGrade} > route ${stats.maxGrade}`);
+  });
+
+  it('smoothByDistance keeps constants and straight slopes unchanged at any spacing', () => {
+    const dists = [0, 1, 3, 10, 60, 61, 200, 450];
+    assert.deepEqual(smoothByDistance(dists, dists.map(() => 42), 105), dists.map(() => 42));
+    const slope = dists.map(d => 100 + d * 0.08);
+    const out = smoothByDistance(dists, slope, 30);
+    // Interior points with a full window are unchanged; mean of a line over a symmetric window is the line
+    for (const i of [4, 5, 6]) assert.ok(Math.abs(out[i] - slope[i]) < 1e-9, `point ${i}: ${out[i]} vs ${slope[i]}`);
+  });
+
+  it('gradesByDistance measures the slope over a fixed baseline whatever the spacing', () => {
+    const dense = Array.from({ length: 1001 }, (_, i) => i);
+    const sparse = [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
+    for (const d of [dense, sparse]) {
+      const g = gradesByDistance(d, d.map(x => x * 0.07), 50);
+      assert.ok(g.every(x => Math.abs(x - 7) < 1e-9));
+    }
+  });
+
+  it('climbingTotals ignores jitter below the threshold but counts real rises in full', () => {
+    assert.deepEqual(climbingTotals([100, 101, 100, 101.5, 100, 101, 100]), { gain: 0, loss: 0 });
+    assert.deepEqual(climbingTotals([100, 100.5, 110, 109, 110.5, 90, 95]), { gain: 10.5 + 5, loss: 20.5 });
+    assert.deepEqual(climbingTotals([100, 99.5, 100, 130]), { gain: 30.5, loss: 0 });
+    assert.deepEqual(climbingTotals([]), { gain: 0, loss: 0 });
   });
 });

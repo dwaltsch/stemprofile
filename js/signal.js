@@ -3,7 +3,7 @@
  *
  * Implements core geospatial and digital signal processing algorithms:
  * 1. Cumulative Haversine Distance ($R = 6,371,000\text{ m}$)
- * 2. Moving Average Elevation Smoothing (eliminates GPS quantization jitter)
+ * 2. Distance-window Elevation Smoothing, gradients and hysteresis climbing totals
  * 3. Spatial Discretization (uniform roadbook kilometer/block columns)
  * 4. UCI Pro Climb Categorization & Peak Detection (HC, Cat 1, 2, 3, 4)
  * 5. Waypoint Proximity Matching & Semantic Classification
@@ -15,6 +15,7 @@ import { buildSpatialBlocks } from './signal/blocks.js';
 import { calcHaversine } from './signal/geo.js';
 import { despikeElevations } from './signal/despike.js';
 import { detectClimbs } from './signal/climbs.js';
+import { smoothByDistance, smoothingWindowM, gradesByDistance, climbingTotals, maxSustainedAscent, GRADE_HALF_WINDOW_M, SUSTAINED_SPAN_M, SUSTAINED_MIN_SPAN_M } from './signal/smooth.js';
 import { normalizeCoordinates } from './units.js';
 
 export * from './signal/geo.js';
@@ -22,6 +23,7 @@ export * from './signal/blocks.js';
 export * from './signal/climbs.js';
 export * from './signal/despike.js';
 export * from './signal/waypoint-match.js';
+export * from './signal/smooth.js';
 
 /**
  * @typedef {Object} ProfilePoint
@@ -94,7 +96,7 @@ export * from './signal/waypoint-match.js';
  * detects climbs, and discretizes spatial blocks.
  *
  * @param {GpxCoordinate[]} coords - Raw GPS track coordinates
- * @param {number} [smoothingWindow=7] - Moving average window size in points (must be odd)
+ * @param {number} [smoothingWindow=7] - Smoothing setting; the window is smoothingWindowM(setting) metres of route
  * @param {number} [blockSizeM=1000] - Roadbook block segment size in meters (0 for continuous)
  * @returns {{ points: ProfilePoint[], stats: RouteStats|null, climbs: DetectedClimb[], blocks: SpatialBlock[] }}
  */
@@ -124,112 +126,25 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
   // 1b. Adaptive Elevation Despiking (Rejects isolated impulse glitches)
   const cleanedEles = despikeElevations(normCoords, cumDistances);
 
-  // 2. Moving Average Elevation Smoothing (eliminates barometric/GPS jitter)
-  const W = Math.max(1, smoothingWindow);
-  const halfW = Math.floor(W / 2);
-  const smoothedEles = new Array(N);
+  // 2. Distance-window moving average (eliminates barometric/GPS jitter whatever the point spacing)
+  const smoothedEles = smoothByDistance(cumDistances, cleanedEles, smoothingWindowM(smoothingWindow));
 
-  for (let i = 0; i < N; i++) {
-    let sum = 0;
-    let count = 0;
-    const start = Math.max(0, i - halfW);
-    const end = Math.min(N - 1, i + halfW);
-    for (let j = start; j <= end; j++) {
-      sum += cleanedEles[j];
-      count++;
-    }
-    smoothedEles[i] = sum / count;
-  }
+  // 3. Point gradients over a fixed ~100 m baseline (shorter on very short tracks)
+  const gradeHalfM = Math.min(GRADE_HALF_WINDOW_M, Math.max(2.5, runningDist / 8));
+  const grades = gradesByDistance(cumDistances, smoothedEles, gradeHalfM);
 
-  // 3. Robust Baseline Slope Calculation
-  const rawGrades = new Array(N).fill(0);
-  for (let i = 1; i < N; i++) {
-    // Compute slope over a stable ~20-30m baseline window
-    let bIdx = i - 1;
-    while (bIdx > 0 && (cumDistances[i] - cumDistances[bIdx]) < 15) {
-      bIdx--;
-    }
-    let fIdx = i;
-    while (fIdx < N - 1 && (cumDistances[fIdx] - cumDistances[i]) < 15) {
-      fIdx++;
-    }
-
-    let baseD = cumDistances[fIdx] - cumDistances[bIdx];
-    let baseE = smoothedEles[fIdx] - smoothedEles[bIdx];
-
-    // If baseD is too small because points are clustered or track is short:
-    // expand window further to find a stable baseline of at least 15-20m if track permits
-    if (baseD < 15 && runningDist >= 15) {
-      while (bIdx > 0 && baseD < 20) {
-        bIdx--;
-        baseD = cumDistances[fIdx] - cumDistances[bIdx];
-      }
-      while (fIdx < N - 1 && baseD < 20) {
-        fIdx++;
-        baseD = cumDistances[fIdx] - cumDistances[bIdx];
-      }
-      baseE = smoothedEles[fIdx] - smoothedEles[bIdx];
-    }
-
-    let g = 0;
-    if (baseD >= 5) {
-      g = (baseE / baseD) * 100;
-    } else if (runningDist > 0) {
-      // For ultra-short tracks under 5m, use whole track grade
-      const wholeD = cumDistances[N - 1] - cumDistances[0];
-      const wholeE = smoothedEles[N - 1] - smoothedEles[0];
-      g = wholeD > 2 ? (wholeE / wholeD) * 100 : 0;
-    }
-
-    if (!isFinite(g) || isNaN(g)) g = 0;
-
-    // Clamp instantaneous slope to physical bounds
-    if (g > 35) g = 35;
-    if (g < -35) g = -35;
-    rawGrades[i] = g;
-  }
-
-  // 4. Rolling 5-Sample Gradient Moving Average Filter (eliminates false GPS spikes)
-  const filteredGrades = new Array(N);
-  const gHalf = 2; // 5-sample window
-  for (let i = 0; i < N; i++) {
-    let sumG = 0;
-    let countG = 0;
-    const s = Math.max(0, i - gHalf);
-    const e = Math.min(N - 1, i + gHalf);
-    for (let j = s; j <= e; j++) {
-      sumG += rawGrades[j];
-      countG++;
-    }
-    const avgG = countG > 0 ? (sumG / countG) : 0;
-    filteredGrades[i] = isFinite(avgG) ? avgG : 0;
-  }
-
-  // 5. Points Assembly & Sustained Max Gradient Calculation
+  // 4. Points assembly & gradient zones
   const points = [];
-  let totalGain = 0;
-  let totalLoss = 0;
   let minEle = smoothedEles[0];
   let maxEle = smoothedEles[0];
 
   for (let i = 0; i < N; i++) {
-    const dist = cumDistances[i];
-    const rawEle = normCoords[i].ele;
     const smoothEle = smoothedEles[i];
-    const grade = filteredGrades[i];
-
     if (smoothEle < minEle) minEle = smoothEle;
     if (smoothEle > maxEle) maxEle = smoothEle;
 
-    if (i > 0) {
-      const deltaE = smoothEle - smoothedEles[i - 1];
-      if (deltaE > 0) totalGain += deltaE;
-      else totalLoss += Math.abs(deltaE);
-    }
-
-    const safeGrade = isFinite(grade) ? grade : 0;
-    const absG = Math.abs(safeGrade);
-
+    const grade = grades[i];
+    const absG = Math.abs(grade);
     // 4-tier pro cycling gradient classification
     let zone = 0;
     if (absG < 5) zone = 0;       // Zone 1: Flat / False Flat
@@ -237,38 +152,21 @@ export function processTrackSignal(coords, smoothingWindow = 7, blockSizeM = 100
     else if (absG < 12) zone = 2; // Zone 3: Steep Climb
     else zone = 3;                // Zone 4: Severe Gradient
 
-    points.push({ dist, rawEle, smoothEle, grade: parseFloat(safeGrade.toFixed(1)), zone });
+    points.push({ dist: cumDistances[i], rawEle: normCoords[i].ele, smoothEle, grade: parseFloat(grade.toFixed(1)), zone });
   }
 
-  // Sustained Max Gradient: Evaluated over sustained distance to avoid micro-spikes.
-  // Grand Tour and pro roadbooks evaluate max climb pitch over 50-100m.
-  // For short tracks (< 100m), adapt the minimum span proportionally to track length.
-  const targetSpan = Math.min(50, Math.max(15, runningDist * 0.25));
-  const minSpan = Math.min(30, Math.max(10, runningDist * 0.15));
+  // 5. Climbing totals with hysteresis, so sensor jitter adds no phantom metres
+  const { gain: totalGain, loss: totalLoss } = climbingTotals(smoothedEles);
 
-  let maxSustainedGrade = 0;
-  for (let i = 0; i < N; i++) {
-    let j = i;
-    while (j < N - 1 && (cumDistances[j] - cumDistances[i]) < targetSpan) {
-      j++;
-    }
-    const spanD = cumDistances[j] - cumDistances[i];
-    if (spanD >= minSpan) {
-      // Max gradient is the steepest ASCENT slope (positive climbing pitch)
-      const deltaE = smoothedEles[j] - smoothedEles[i];
-      if (deltaE > 0) {
-        const spanG = (deltaE / spanD) * 100;
-        if (isFinite(spanG) && spanG > maxSustainedGrade) {
-          maxSustainedGrade = spanG;
-        }
-      }
-    }
-  }
+  // Sustained max gradient over ~50 m (roadbooks quote max pitch over 50-100 m);
+  // short tracks (< 100 m) use proportionally shorter spans
+  const targetSpan = Math.min(SUSTAINED_SPAN_M, Math.max(15, runningDist * 0.25));
+  const minSpan = Math.min(SUSTAINED_MIN_SPAN_M, Math.max(10, runningDist * 0.15));
+  let maxSustainedGrade = maxSustainedAscent(cumDistances, smoothedEles, targetSpan, minSpan);
 
-  // Fallback for short tracks where spanD might be smaller than minSpan (e.g. runningDist < 10m)
+  // Fallback for tracks too short for any span
   if (maxSustainedGrade === 0 && totalGain > 0 && runningDist > 0) {
-    const avgRouteGrade = (totalGain / runningDist) * 100;
-    maxSustainedGrade = isFinite(avgRouteGrade) ? avgRouteGrade : 0;
+    maxSustainedGrade = (totalGain / runningDist) * 100;
   }
 
   const maxGrade = Math.min(35.0, isFinite(maxSustainedGrade) ? parseFloat(maxSustainedGrade.toFixed(1)) : 0);
