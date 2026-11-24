@@ -2,7 +2,7 @@
  * Share & Compression Test Suite
  *
  * Tests 3D polyline delta encoding, coordinate downsampling,
- * adaptive profile curve simplification, packed binary protocol (v3),
+ * adaptive profile curve simplification, packed binary protocol (v4),
  * and ultra-short URL hash serialization.
  */
 
@@ -18,6 +18,7 @@ import {
   deserializeHashToState,
   DEFAULT_SETTINGS
 } from '../js/share.js';
+import { createStore } from '../js/store.js';
 
 describe('Share Module: Boundary Validation Helper (safeReadSlice)', () => {
   it('safely slices bytes and clamps bounds', () => {
@@ -52,7 +53,7 @@ describe('Share Module: Adaptive Profile Curve Simplification', () => {
   });
 });
 
-describe('Share Module: Binary Protocol (Version 3)', () => {
+describe('Share Module: Binary Protocol (Version 4)', () => {
   it('serializes and deserializes full state with settings, climbs, and waypoints', () => {
     const state = {
       title: 'Queen Stage 19 - Galibier',
@@ -77,7 +78,7 @@ describe('Share Module: Binary Protocol (Version 3)', () => {
 
     const binary = serializeBinaryState(state);
     assert.ok(binary instanceof Uint8Array);
-    assert.equal(binary[0], 3); // Protocol v3
+    assert.equal(binary[0], 4); // Protocol v4
 
     const restored = deserializeBinaryState(binary);
     assert.ok(restored !== null);
@@ -94,11 +95,11 @@ describe('Share Module: Binary Protocol (Version 3)', () => {
     // Null, empty, or too short buffer
     assert.equal(deserializeBinaryState(null), null);
     assert.equal(deserializeBinaryState(new Uint8Array(0)), null);
-    assert.equal(deserializeBinaryState(new Uint8Array([3, 1, 2])), null);
+    assert.equal(deserializeBinaryState(new Uint8Array([4, 1, 2])), null);
     assert.equal(deserializeBinaryState(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])), null); // wrong magic version
 
     // Truncated title length header claiming 100 bytes when only 5 exist
-    const corruptedTitle = new Uint8Array([3, 100, 65, 66, 67, 68]);
+    const corruptedTitle = new Uint8Array([4, 100, 65, 66, 67, 68]);
     assert.equal(deserializeBinaryState(corruptedTitle), null);
 
     // Truncated point count
@@ -166,5 +167,89 @@ describe('Share Module: Full Round-Trip Hash Serialization', () => {
     assert.equal(await deserializeHashToState('#stage=!!!invalid@@@base64==='), null);
     assert.equal(await deserializeHashToState('#stage=AQID'), null); // Valid base64, but invalid payload
     assert.equal(await deserializeHashToState('#data=123'), null);
+  });
+});
+
+describe('Share Module: Fuel Plan in Links', () => {
+  const coords = Array.from({ length: 1200 }, (_, i) => [45 + i * 0.0004, 6, 300 + 250 * Math.sin(i / 90)]);
+
+  function loadedStore(title = 'Fuel route') {
+    const s = createStore();
+    s.setTrack({ title, coords });
+    return s;
+  }
+
+  it('carries hand-edited fuel items, notes and fueling settings', () => {
+    const sender = loadedStore();
+    sender.updateFuelSettings({ targetCarbsPerHour: 95, avgSpeedKmh: 31.5, pacingMode: 'constant', mode: 'time' });
+    sender.addFuelItem({ distM: 12345, type: 'bar', name: 'Rice cake 🍙', carbsG: 33, fluidMl: 0, notes: 'before the climb' });
+    const restored = deserializeBinaryState(serializeBinaryState(sender.getState()));
+    const receiver = createStore();
+    assert.equal(receiver.loadPayload(restored), true);
+
+    const f = receiver.getState().fueling;
+    assert.equal(f.targetCarbsPerHour, 95);
+    assert.equal(f.avgSpeedKmh, 31.5);
+    assert.equal(f.pacingMode, 'constant');
+    assert.equal(f.mode, 'time');
+    assert.equal(f.customized, true);
+    assert.equal(f.items.length, sender.getState().fueling.items.length);
+    const cake = f.items.find(it => it.name === 'Rice cake 🍙');
+    assert.ok(cake, 'edited item survives');
+    assert.equal(cake.distM, 12350); // 10 m resolution
+    assert.equal(cake.carbsG, 33);
+    assert.equal(cake.notes, 'before the climb');
+    assert.ok(cake.timeSec > 0, 'items are re-timed on the receiving side');
+  });
+
+  it('sends an untouched generated plan exactly as the sender sees it', () => {
+    const sender = loadedStore();
+    const receiver = createStore();
+    receiver.loadPayload(deserializeBinaryState(serializeBinaryState(sender.getState())));
+    const f = receiver.getState().fueling;
+    assert.equal(f.customized, false);
+    assert.deepEqual(
+      f.items.map(it => [it.distM, it.type, it.carbsG]),
+      sender.getState().fueling.items.map(it => [Math.round(it.distM / 10) * 10, it.type, it.carbsG])
+    );
+  });
+
+  it('generates a plan when a link has no fuel items', () => {
+    const sender = loadedStore();
+    const payload = deserializeBinaryState(serializeBinaryState({ ...sender.getState(), fueling: { ...sender.getState().fueling, items: [] } }));
+    const receiver = createStore();
+    receiver.loadPayload(payload);
+    assert.ok(receiver.getState().fueling.items.length > 0);
+  });
+
+  it('replaces the previous route\'s plan when a link is opened', () => {
+    const receiver = createStore();
+    receiver.setTrack({ title: 'Long', coords: Array.from({ length: 3000 }, (_, i) => [46 + i * 0.0004, 7, 500]) });
+    const shortRoute = createStore();
+    shortRoute.setTrack({ title: 'Short', coords: coords.slice(0, 300) });
+    receiver.loadPayload(deserializeBinaryState(serializeBinaryState(shortRoute.getState())));
+    const { fueling, stats } = receiver.getState();
+    assert.ok(fueling.items.length > 0, 'a plan is generated for the shared route');
+    assert.ok(fueling.items.every(it => it.distM <= stats.totalDist), 'no items beyond the shared route');
+  });
+
+  it('drops shared fuel items beyond the route end', () => {
+    const sender = loadedStore();
+    const payload = deserializeBinaryState(serializeBinaryState(sender.getState()));
+    payload.fueling = { customized: true, items: [{ distM: 1e7, type: 'gel', name: 'far' }, { distM: 1000, type: 'nope', name: 'x', carbsG: 1e9 }] };
+    const receiver = createStore();
+    receiver.loadPayload(payload);
+    const items = receiver.getState().fueling.items;
+    assert.equal(items.length, 1);
+    assert.equal(items[0].type, 'gel');
+    assert.equal(items[0].carbsG, 500);
+  });
+
+  it('keeps long multi-byte titles intact (length prefix never overflows a byte)', () => {
+    const sender = loadedStore('Étape ' + '⛰'.repeat(110));
+    const restored = deserializeBinaryState(serializeBinaryState(sender.getState()));
+    assert.ok(restored, 'link still decodes');
+    assert.ok(restored.title.startsWith('Étape ⛰'));
+    assert.ok(!restored.title.includes('�'), 'no broken UTF-8 sequence');
   });
 });

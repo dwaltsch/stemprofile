@@ -19,7 +19,7 @@ describe('Fueling Module: Presets & Config', () => {
     assert.strictEqual(DEFAULT_FUELING_CONFIG.targetCarbsPerHour, 75);
     assert.ok(DEFAULT_FUELING_CONFIG.targetCarbsPerHour >= 60 && DEFAULT_FUELING_CONFIG.targetCarbsPerHour <= 80);
     assert.strictEqual(DEFAULT_FUELING_CONFIG.avgSpeedKmh, 25);
-    assert.strictEqual(DEFAULT_FUELING_CONFIG.displayMode, 'km');
+    assert.strictEqual(DEFAULT_FUELING_CONFIG.mode, 'km');
     assert.strictEqual(DEFAULT_FUELING_CONFIG.hazardClimbThreshold, 8.5);
     assert.strictEqual(DEFAULT_FUELING_CONFIG.hazardDescentThreshold, -5.0);
   });

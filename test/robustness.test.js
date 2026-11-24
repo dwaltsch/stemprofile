@@ -47,8 +47,8 @@ function rawPayload({ t, coords, s, w }) {
   return { title: t, coords, settings: s, waypoints: w };
 }
 
-/** Builds a real v3 share link for a loaded store state. */
-async function v3LinkFor(state) {
+/** Builds a real share link for a loaded store state. */
+async function linkFor(state) {
   return serializeStateToHash(state);
 }
 
@@ -142,24 +142,24 @@ describe('Robustness: Share Link Size Limits', () => {
     assert.equal(await decompressPayload('A'.repeat(MAX_LINK_CHARS + 1)), null);
   });
 
-  it('still decodes normal v3 links', async () => {
+  it('still decodes normal share links', async () => {
     const source = createStore();
     source.setTrack({ title: 'ok', coords: routeCoords });
-    const payload = await deserializeHashToState(await v3LinkFor(source.getState()));
+    const payload = await deserializeHashToState(await linkFor(source.getState()));
     assert.equal(payload.title, 'ok');
     assert.equal(createStore().loadPayload(payload), true);
   });
 
-  it('a crafted v3 link with blockSizeM: 1 still renders bounded', async () => {
+  it('a crafted share link with blockSizeM: 1 still renders bounded', async () => {
     const source = createStore();
     source.setTrack({ title: 'x', coords: routeCoords });
     const hostile = { ...source.getState(), settings: { ...source.getState().settings, blockSizeM: 1 } };
     const store = createStore();
-    assert.equal(store.loadPayload(await deserializeHashToState(await v3LinkFor(hostile))), true);
+    assert.equal(store.loadPayload(await deserializeHashToState(await linkFor(hostile))), true);
     assert.ok(store.getState().blocks.length <= MAX_SPATIAL_BLOCKS);
   });
 
-  it('rejects old JSON-format links (only the v3 binary format is accepted)', async () => {
+  it('rejects old JSON-format links (only the current binary format is accepted)', async () => {
     const json = new TextEncoder().encode(JSON.stringify({ t: 'x', coords: routeCoords }));
     assert.equal(await deserializeHashToState('#stage=' + await compressPayload(json)), null);
   });
@@ -496,9 +496,9 @@ describe('Robustness: Malformed Files & Hostile Payloads', () => {
     assertCleanError(() => parseRouteFile(truncated.buffer, 'a.fit'));
   });
 
-  it('v3 binary links with absurd varint deltas are rejected', async () => {
+  it('binary links with absurd varint deltas are rejected', async () => {
     const huge = [0xff, 0xff, 0xff, 0xff, 0x0f];
-    const bytes = new Uint8Array([3, 0, 0, 0, 10, 0, 100, 3, ...huge, 2, ...huge, 2, 0, 0, 110, 35, 3, 232, 7, 0, 0]);
+    const bytes = new Uint8Array([4, 0, 0, 0, 10, 0, 100, 3, ...huge, 2, ...huge, 2, 0, 0, 110, 35, 3, 232, 7, 0, 0, /* fuel section: */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     const payload = await deserializeHashToState('#stage=' + await compressPayload(bytes));
     assert.equal(createStore().loadPayload(payload), false);
   });
@@ -593,7 +593,7 @@ describe('Robustness: Concurrent Loads', () => {
 });
 
 describe('Privacy: Share Links', () => {
-  it('v3 links carry distance and elevation only, never GPS positions', async () => {
+  it('share links carry distance and elevation only, never GPS positions', async () => {
     const home = { lat: 47.36912, lon: 8.53842 };
     const coords = Array.from({ length: 400 }, (_, i) => ({ lat: home.lat + i * 0.0005, lon: home.lon + i * 0.0003, ele: 400 + i }));
     const store = createStore();
@@ -641,11 +641,11 @@ describe('Robustness: Fuzzer-Found Hangs (regressions)', () => {
     assert.ok(store.getState().fueling.items.length > 0);
   });
 
-  it('v3 links with decreasing or out-of-range distances are rejected', () => {
+  it('links with decreasing or out-of-range distances are rejected', () => {
     const source = createStore();
     source.setTrack({ title: '', coords: routeCoords });
     const valid = serializeBinaryState(source.getState());
-    // Layout: [3, titleLen=0, totalD(3), startE(2), nPts, then (deltaD, deltaE) zigzag varints...]
+    // Layout: [4, titleLen=0, totalD(3), startE(2), nPts, then (deltaD, deltaE) zigzag varints...]
     const nPts = valid[7];
     let off = 8;
     const readVarint = () => { let r = 0, shift = 0, b; do { b = valid[off++]; r |= (b & 0x7f) << shift; shift += 7; } while (b & 0x80); return (r >>> 1) ^ -(r & 1); };

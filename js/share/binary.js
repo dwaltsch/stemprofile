@@ -1,14 +1,31 @@
 /**
- * Packed binary share protocol (version 3): serializes and deserializes app state to a Uint8Array.
+ * Packed binary share protocol (version 4): serializes and deserializes app state to a Uint8Array.
+ *
+ * Layout: version, title, profile curve, settings, hidden climbs, waypoints, fuel plan.
  *
  * @module share/binary
  */
 
-import { DEFAULT_SETTINGS, THEME_INDEX, THEME_NAMES, WPT_TYPE_INDEX, WPT_TYPE_NAMES } from './constants.js';
+import { DEFAULT_SETTINGS, THEME_INDEX, THEME_NAMES, WPT_TYPE_INDEX, WPT_TYPE_NAMES, SHARE_PROTOCOL_VERSION, FUEL_TYPE_NAMES, FUEL_DEFAULT_KEYS } from './constants.js';
 import { simplifyProfileCurve } from './simplify.js';
 
-/** Largest distance the v3 format can express (3-byte total distance field). */
-const MAX_V3_DISTANCE_M = 0xffffff;
+/** Largest distance the format can express (3-byte total distance field). */
+const MAX_DISTANCE_M = 0xffffff;
+/** Most fuel items a link carries. */
+const MAX_LINK_FUEL_ITEMS = 200;
+const MAX_FUEL_NAME_BYTES = 50;
+const MAX_FUEL_NOTE_BYTES = 120;
+
+// Fuel section flag bits
+const FUEL_FLAG_ITEMS = 1;     // the item list follows
+const FUEL_FLAG_CUSTOMIZED = 8; // the plan was edited by hand
+const FUEL_FLAG_CONSTANT = 2;  // constant-speed pacing instead of terrain-aware
+const FUEL_FLAG_TIME = 4;      // cue sheet shows elapsed time instead of km
+
+// Fuel item flag bits
+const ITEM_FLAG_ENABLED = 1;
+const ITEM_FLAG_AID = 2;
+const ITEM_FLAG_NOTES = 4;
 
 /**
  * Safely extracts a subarray slice from a byte buffer without overflowing bounds.
@@ -34,6 +51,114 @@ function writeVarint(buf, n) {
   buf.push(v & 0x7f);
 }
 
+function writeText(buf, encoder, str, maxBytes) {
+  let bytes = encoder.encode(str || '');
+  if (bytes.length > maxBytes) {
+    // Cut on a character boundary so the label stays valid UTF-8
+    let cut = maxBytes;
+    while (cut > 0 && (bytes[cut] & 0xc0) === 0x80) cut--;
+    bytes = bytes.subarray(0, cut);
+  }
+  buf.push(bytes.length);
+  for (let i = 0; i < bytes.length; i++) buf.push(bytes[i]);
+}
+
+function readText(bytes, offsetObj, decoder) {
+  if (offsetObj.offset >= bytes.length) throw new RangeError('truncated');
+  const len = bytes[offsetObj.offset++];
+  if (offsetObj.offset + len > bytes.length) throw new RangeError('truncated');
+  const str = decoder.decode(safeReadSlice(bytes, offsetObj.offset, len));
+  offsetObj.offset += len;
+  return str;
+}
+
+function readByte(bytes, offsetObj) {
+  if (offsetObj.offset >= bytes.length) throw new RangeError('truncated');
+  return bytes[offsetObj.offset++];
+}
+
+/**
+ * Appends the fuel plan: pacing / target settings, product defaults and the
+ * items. Items are always sent: the receiver only has the simplified profile,
+ * so a plan regenerated there would put cues at slightly different places.
+ */
+function writeFueling(buf, encoder, fueling) {
+  const f = fueling && typeof fueling === 'object' ? fueling : {};
+  const items = Array.isArray(f.items) ? f.items.slice(0, MAX_LINK_FUEL_ITEMS) : [];
+  const withItems = items.length > 0;
+  buf.push((withItems ? FUEL_FLAG_ITEMS : 0) |
+    (f.customized === true ? FUEL_FLAG_CUSTOMIZED : 0) |
+    (f.pacingMode === 'constant' ? FUEL_FLAG_CONSTANT : 0) |
+    (f.mode === 'time' ? FUEL_FLAG_TIME : 0));
+  writeVarint(buf, Math.round(f.targetCarbsPerHour || 75));
+  writeVarint(buf, Math.round((f.avgSpeedKmh || 25) * 10));
+  writeVarint(buf, Math.round(f.aidStationStopMin || 0));
+  const defs = f.productDefaults || {};
+  for (const key of FUEL_DEFAULT_KEYS) writeVarint(buf, Math.round(Number(defs[key]) || 0));
+  if (!withItems) return;
+
+  writeVarint(buf, items.length);
+  let prevDam = 0;
+  for (const it of items) {
+    const dam = Math.max(prevDam, Math.round((it.distM || 0) / 10));
+    writeVarint(buf, dam - prevDam);
+    prevDam = dam;
+    const typeIdx = FUEL_TYPE_NAMES.indexOf(it.type);
+    buf.push(typeIdx >= 0 ? typeIdx : 0);
+    const notes = typeof it.notes === 'string' ? it.notes : '';
+    buf.push((it.enabled !== false ? ITEM_FLAG_ENABLED : 0) |
+      (it.isAidStation === true ? ITEM_FLAG_AID : 0) |
+      (notes ? ITEM_FLAG_NOTES : 0));
+    writeVarint(buf, Math.round(it.carbsG || 0));
+    writeVarint(buf, Math.round(it.fluidMl || 0));
+    writeText(buf, encoder, it.name, MAX_FUEL_NAME_BYTES);
+    if (notes) writeText(buf, encoder, notes, MAX_FUEL_NOTE_BYTES);
+  }
+}
+
+/** Reads the fuel section; values are clamped later by the fueling sanitizer. */
+function readFueling(bytes, offsetObj, decoder) {
+  const flags = readByte(bytes, offsetObj);
+  const fueling = {
+    pacingMode: (flags & FUEL_FLAG_CONSTANT) ? 'constant' : 'terrain',
+    mode: (flags & FUEL_FLAG_TIME) ? 'time' : 'km',
+    targetCarbsPerHour: readVarint(bytes, offsetObj),
+    avgSpeedKmh: readVarint(bytes, offsetObj) / 10,
+    aidStationStopMin: readVarint(bytes, offsetObj),
+    productDefaults: {},
+    customized: Boolean(flags & FUEL_FLAG_CUSTOMIZED),
+    items: []
+  };
+  for (const key of FUEL_DEFAULT_KEYS) fueling.productDefaults[key] = readVarint(bytes, offsetObj);
+  if (!(flags & FUEL_FLAG_ITEMS)) return fueling;
+
+  const n = readVarint(bytes, offsetObj);
+  if (n < 0 || n > MAX_LINK_FUEL_ITEMS) throw new RangeError('too many fuel items');
+  let dam = 0;
+  for (let i = 0; i < n; i++) {
+    const step = readVarint(bytes, offsetObj);
+    if (step < 0) throw new RangeError('fuel items out of order');
+    dam += step;
+    const type = FUEL_TYPE_NAMES[readByte(bytes, offsetObj)] || 'gel';
+    const itemFlags = readByte(bytes, offsetObj);
+    const carbsG = readVarint(bytes, offsetObj);
+    const fluidMl = readVarint(bytes, offsetObj);
+    const name = readText(bytes, offsetObj, decoder);
+    const notes = (itemFlags & ITEM_FLAG_NOTES) ? readText(bytes, offsetObj, decoder) : '';
+    fueling.items.push({
+      distM: dam * 10,
+      type,
+      name,
+      notes,
+      carbsG,
+      fluidMl,
+      isAidStation: Boolean(itemFlags & ITEM_FLAG_AID),
+      enabled: Boolean(itemFlags & ITEM_FLAG_ENABLED)
+    });
+  }
+  return fueling;
+}
+
 function readVarint(bytes, offsetObj) {
   let result = 0;
   let shift = 0;
@@ -57,14 +182,12 @@ function readVarint(bytes, offsetObj) {
  */
 export function serializeBinaryState(appState) {
   const buf = [];
-  buf.push(3); // Magic Protocol Version 3
+  buf.push(SHARE_PROTOCOL_VERSION);
 
   // 1. Title UTF-8
   const titleStr = (appState.settings && appState.settings.title) || appState.title || '';
   const titleEncoder = new TextEncoder();
-  const titleBytes = titleEncoder.encode(titleStr.slice(0, 120));
-  buf.push(titleBytes.length);
-  for (let i = 0; i < titleBytes.length; i++) buf.push(titleBytes[i]);
+  writeText(buf, titleEncoder, titleStr.slice(0, 120), 255);
 
   // 2. Profile Curve (Adaptive Douglas-Peucker)
   let rawPoints = [];
@@ -137,12 +260,11 @@ export function serializeBinaryState(appState) {
   buf.push((blockSize >> 8) & 0xff, blockSize & 0xff);
   buf.push(Math.max(1, Math.min(21, Math.round(s.smoothingWindow || 7))));
 
-  // 4. Hidden Climb Badges
-  const hc = Array.isArray(s.hiddenClimbIds) ? s.hiddenClimbIds : [];
-  buf.push(Math.min(255, hc.length));
-  for (let i = 0; i < hc.length && i < 255; i++) {
-    buf.push(parseInt(hc[i], 10) & 0xff);
-  }
+  // 4. Hidden Climb Badges (climb ids as varints)
+  const hc = (Array.isArray(s.hiddenClimbIds) ? s.hiddenClimbIds : [])
+    .map(id => parseInt(id, 10)).filter(Number.isFinite).slice(0, 255);
+  buf.push(hc.length);
+  for (const id of hc) writeVarint(buf, id);
 
   // 5. Waypoints
   const wpts = Array.isArray(appState.waypoints) ? appState.waypoints : [];
@@ -156,22 +278,23 @@ export function serializeBinaryState(appState) {
     const enBit = w.enabled !== false ? 1 : 0;
     buf.push((enBit << 7) | (typeIdx & 0x7f));
 
-    const lblBytes = titleEncoder.encode((w.label || '').slice(0, 50));
-    buf.push(lblBytes.length);
-    for (let k = 0; k < lblBytes.length; k++) buf.push(lblBytes[k]);
+    writeText(buf, titleEncoder, (w.label || '').slice(0, 50), 255);
   }
+
+  // 6. Fuel plan
+  writeFueling(buf, titleEncoder, appState.fueling);
 
   return new Uint8Array(buf);
 }
 
 /**
- * Deserializes a packed binary Uint8Array buffer back into application state (Protocol v3).
+ * Deserializes a packed binary Uint8Array buffer back into application state (protocol v4).
  *
  * @param {Uint8Array} bytes - Packed binary buffer
  * @returns {Object|null} Normalized application state object
  */
 export function deserializeBinaryState(bytes) {
-  if (!bytes || bytes.length < 8 || bytes[0] !== 3) return null;
+  if (!bytes || bytes.length < 8 || bytes[0] !== SHARE_PROTOCOL_VERSION) return null;
 
   try {
     const offsetObj = { offset: 1 };
@@ -206,7 +329,7 @@ export function deserializeBinaryState(bytes) {
       // otherwise a crafted link makes the dense reconstruction below build millions of points
       if (deltaD < 0) return null;
       prevD += deltaD * 10;
-      if (prevD > MAX_V3_DISTANCE_M) return null;
+      if (prevD > MAX_DISTANCE_M) return null;
       prevE += deltaE / 10.0;
       simplified.push([prevD, prevE]);
     }
@@ -236,10 +359,10 @@ export function deserializeBinaryState(bytes) {
     // 4. Hidden Climbs
     if (offsetObj.offset >= bytes.length) return null;
     const nHc = bytes[offsetObj.offset++];
-    if (offsetObj.offset + nHc > bytes.length) return null;
     const hiddenClimbIds = [];
     for (let i = 0; i < nHc; i++) {
-      hiddenClimbIds.push(bytes[offsetObj.offset++]);
+      if (offsetObj.offset >= bytes.length) return null;
+      hiddenClimbIds.push(readVarint(bytes, offsetObj));
     }
 
     // 5. Waypoints
@@ -270,7 +393,10 @@ export function deserializeBinaryState(bytes) {
       });
     }
 
-    // 6. Dense Coordinate Signal Reconstruction for Smooth Telemetry
+    // 6. Fuel plan
+    const fueling = readFueling(bytes, offsetObj, titleDecoder);
+
+    // 7. Dense Coordinate Signal Reconstruction for Smooth Telemetry
     const denseCoords = [];
     const maxD = simplified[simplified.length - 1][0] || totalD || 1000;
     const stepM = Math.max(50, Math.min(200, maxD / 600));
@@ -316,7 +442,8 @@ export function deserializeBinaryState(bytes) {
       title,
       coords: denseCoords,
       settings,
-      waypoints
+      waypoints,
+      fueling
     };
   } catch (_) {
     return null;

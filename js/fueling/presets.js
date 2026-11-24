@@ -23,7 +23,7 @@ export const DEFAULT_FUELING_CONFIG = {
   targetCarbsPerHour: 75,       // Default within the 60-80g CHO/h bracket
   avgSpeedKmh: 25,              // Default pacing average speed (km/h)
   pacingMode: 'terrain',        // 'terrain' (gradient-aware) or 'constant' speed
-  displayMode: 'km',            // 'km' (default) or 'time'
+  mode: 'km',                   // cue sheet index: 'km' (default) or 'time'
   hazardClimbThreshold: 8.5,    // Grade % above which eating is hazardous
   hazardDescentThreshold: -5.0, // Grade % below which descending is hazardous
   longClimbDistThresholdM: 5000,// 5km+ climb requires mid-climb fueling

@@ -132,5 +132,5 @@ export const SEED_FIT = new Uint8Array(createTestFit({
 const seedStore = createStore();
 seedStore.setTrack({ title: 'Fuzz', coords: pts });
 seedStore.addWaypoint(4000, 'feed', 'Feed');
-export const SEED_V3 = serializeBinaryState(seedStore.getState());
+export const SEED_LINK = serializeBinaryState(seedStore.getState());
 

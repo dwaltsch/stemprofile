@@ -1,10 +1,10 @@
 /**
- * Share payload decoding: bounded decompression, protocol (v3) detection and untrusted-input sanitization.
+ * Share payload decoding: bounded decompression, protocol (v4) detection and untrusted-input sanitization.
  *
  * @module share/payload
  */
 
-import { DEFAULT_SETTINGS, THEME_NAMES, WPT_TYPE_NAMES, clampSettings } from './constants.js';
+import { DEFAULT_SETTINGS, THEME_NAMES, WPT_TYPE_NAMES, clampSettings, SHARE_PROTOCOL_VERSION } from './constants.js';
 import { base64UrlToUint8 } from './compression.js';
 import { deserializeBinaryState } from './binary.js';
 
@@ -80,8 +80,8 @@ export async function decompressPayload(b64url) {
     const payloadData = decompressedBytes || bytes;
     if (!payloadData || payloadData.length === 0) return null;
 
-    // Only the binary protocol (v3) is accepted; older JSON links are intentionally unsupported
-    if (payloadData.length >= 8 && payloadData[0] === 3) {
+    // Only the current binary protocol is accepted; older links are intentionally unsupported
+    if (payloadData.length >= 8 && payloadData[0] === SHARE_PROTOCOL_VERSION) {
       return deserializeBinaryState(payloadData);
     }
     return null;
@@ -144,7 +144,9 @@ export function sanitizePayload(payload) {
     title: typeof payload.title === 'string' ? payload.title.slice(0, 120) : undefined,
     coords: thinEvenly(payload.coords, MAX_SHARED_POINTS),
     settings,
-    waypoints
+    waypoints,
+    // Validated against the route length in the store (fueling/sanitize.js)
+    fueling: payload.fueling && typeof payload.fueling === 'object' ? payload.fueling : null
   };
 }
 

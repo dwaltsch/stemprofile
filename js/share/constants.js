@@ -4,6 +4,9 @@
  * @module share/constants
  */
 
+/** First byte of every share payload. Links in any other format are rejected (no back-compat). */
+export const SHARE_PROTOCOL_VERSION = 4;
+
 /**
  * Standard default settings dictionary used to prune redundant keys during serialization.
  */
@@ -91,3 +94,9 @@ export const WPT_TYPE_INDEX = {
   'checkpoint': 7,
   'custom': 8
 };
+
+/** Fuel item types in share links (index = byte value); order is part of the link format. */
+export const FUEL_TYPE_NAMES = ['gel', 'gel_high_carb', 'caff_gel', 'bottle_mix', 'bottle_super', 'bar', 'chews', 'food', 'feed_zone', 'water', 'salt', 'hc', 'caff', 'bottle'];
+
+/** Product-default keys in share links, in link order. */
+export const FUEL_DEFAULT_KEYS = ['gelCarbs', 'hcGelCarbs', 'caffGelCarbs', 'barCarbs', 'bottleCarbs', 'bottleFluidMl'];

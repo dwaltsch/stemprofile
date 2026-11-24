@@ -22,7 +22,8 @@ import {
   formatElapsedSeconds,
   detectTerrainHazard,
   getStatePacing,
-  sanitizeSavedFuelingPlan
+  sanitizeSavedFuelingPlan,
+  sanitizeSharedFueling
 } from './fueling.js';
 
 /**
@@ -179,6 +180,34 @@ export function createStore(initialSettings = {}) {
       it.hazardType = hazard.type;
       it.hazardMessage = hazard.message;
     });
+  }
+
+  /**
+   * Replaces the fuel plan for a route opened from a share link: the sender's
+   * settings and items when the link has them, otherwise a plan generated for
+   * this route. Never keeps the previous route's items.
+   *
+   * @param {Object|null} shared - Decoded fuel section of the link
+   */
+  function applySharedFueling(shared) {
+    state.fueling = { ...DEFAULT_FUELING_CONFIG, productDefaults: { ...DEFAULT_FUEL_PRODUCT_DEFAULTS }, items: [], customized: false };
+    if (state.points.length < 2 || !state.stats) return;
+    const plan = sanitizeSharedFueling(shared, state.stats.totalDist);
+    if (plan) state.fueling = { ...state.fueling, ...plan.config };
+    if (plan && plan.items) {
+      state.fueling.items = plan.items;
+      state.fueling.customized = plan.customized;
+      retimeFuelItems();
+    } else {
+      state.fueling.items = generateDefaultFuelPlan({
+        points: state.points,
+        stats: state.stats,
+        climbs: state.climbs,
+        waypoints: state.waypoints,
+        config: state.fueling
+      });
+    }
+    saveFuelingPlan();
   }
 
   function reprocess(isNewGPX = false) {
@@ -466,7 +495,8 @@ export function createStore(initialSettings = {}) {
     /**
      * Loads restored application state from a decoded URL hash payload.
      *
-     * @param {Object} payload - { title, coords, settings, waypoints }
+     * @param {Object} payload - { title, coords, settings, waypoints, fueling }
+     * @returns {boolean} Whether the payload described a usable route
      */
     loadPayload(rawPayload) {
       const payload = sanitizePayload(rawPayload);
@@ -489,6 +519,7 @@ export function createStore(initialSettings = {}) {
       }
 
       reprocess(false);
+      applySharedFueling(payload.fueling);
       clearHistory();
       notify('payload:loaded');
       return true;
