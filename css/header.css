@@ -46,18 +46,6 @@ header.app-header {
   color: var(--text-primary);
 }
 
-.brand-tag {
-  font-size: 0.62rem;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  letter-spacing: 0.08em;
-  color: var(--text-dim);
-  background: var(--bg-pill);
-  padding: 1px 4px;
-  border-radius: 3px;
-  border: 1px solid var(--border-color);
-}
-
 /* Route Status Pill */
 .route-pill {
   display: flex;
