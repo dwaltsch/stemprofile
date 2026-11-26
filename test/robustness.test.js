@@ -10,6 +10,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import vm from 'node:vm';
 import './helpers/dom-shim.js';
 import { createStore } from '../js/store.js';
 import { renderFuelingSVG } from '../js/fueling-renderer.js';
@@ -722,5 +723,149 @@ describe('Performance Budgets: Worst Case the Limits Allow', () => {
     assert.ok(ms < 1500, `climb stack took ${ms} ms`);
     const sheet = timed(() => generatePrintSheetMarkup(s));
     assert.ok(sheet.value.count <= MAX_PRINT_CELLS && sheet.ms < 1500);
+  });
+});
+
+describe('Robustness: Offline Cache Tampering', () => {
+  // GitHub Pages serves every project of an account from one origin, and the Cache API is shared by the
+  // whole origin. Another page there can overwrite our cached files; sw.js must never serve such an entry.
+  const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+  const swSource = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+  const BASE = 'https://dwaltsch.github.io/stemprofile/';
+
+  /** The deployed bytes for a URL under BASE, or null (404). */
+  function deployed(href) {
+    const u = new URL(href);
+    if (!u.href.startsWith(BASE)) return null;
+    let rel = u.pathname.slice(new URL(BASE).pathname.length);
+    if (rel === '' || rel.endsWith('/')) rel += 'index.html';
+    const file = path.join(root, rel);
+    return fs.existsSync(file) ? fs.readFileSync(file) : null;
+  }
+
+  /** Loads sw.js into a sandbox with an in-memory Cache API and a fake network. */
+  async function bootWorker({ network = deployed } = {}) {
+    const stores = new Map();
+    const openCache = name => {
+      if (!stores.has(name)) stores.set(name, new Map());
+      const store = stores.get(name);
+      const key = r => (typeof r === 'string' ? r : r.url);
+      return {
+        match: async r => { const hit = store.get(key(r)); return hit ? hit.clone() : undefined; },
+        put: async (r, res) => { store.set(key(r), res.clone()); },
+        addAll: async urls => { for (const u of urls) store.set(new URL(u, BASE).href, await sandbox.fetch(new URL(u, BASE).href)); },
+        delete: async r => store.delete(key(r)),
+        keys: async () => [...store.keys()]
+      };
+    };
+    const state = { online: true, fetched: [] };
+    const handlers = {};
+    const self = {
+      location: new URL(`${BASE}sw.js`),
+      addEventListener: (type, fn) => { handlers[type] = fn; },
+      skipWaiting: async () => {},
+      clients: { claim: async () => {} }
+    };
+    const sandbox = {
+      self,
+      URL, Response, crypto: globalThis.crypto,
+      caches: {
+        open: async name => openCache(name),
+        keys: async () => [...stores.keys()],
+        delete: async name => stores.delete(name)
+      },
+      fetch: async (r) => {
+        const url = typeof r === 'string' ? r : r.url;
+        state.fetched.push(url);
+        if (!state.online) throw new TypeError('Failed to fetch');
+        const body = network(url);
+        return body ? new Response(body, { status: 200 }) : new Response('not found', { status: 404 });
+      }
+    };
+    vm.runInNewContext(swSource, sandbox);
+    const run = (type, extra) => {
+      let pending = null;
+      const event = { ...extra, waitUntil: p => { pending = p; }, respondWith: p => { pending = p; } };
+      handlers[type](event);
+      return pending;
+    };
+    const request = (rel, mode = 'no-cors') => run('fetch', { request: { method: 'GET', url: new URL(rel, BASE).href, mode } });
+    const cacheName = [...swSource.matchAll(/const CACHE_VERSION = '(\w+)'/g)].map(m => `stemprofile-${m[1]}`)[0];
+    return { state, stores, run, request, cache: () => openCache(cacheName) };
+  }
+
+  const appUrl = () => {
+    const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+    return html.match(/src="(js\/app\.js\?v=[0-9a-f]{10})"/)[1];
+  };
+  const text = async res => Buffer.from(await res.arrayBuffer()).toString('utf8');
+  const EVIL = 'document.title = "pwned";';
+
+  it('precaches and verifies every file on install', async () => {
+    const w = await bootWorker();
+    await w.run('install');
+    const keys = await w.cache().keys();
+    assert.ok(keys.length > 60, `${keys.length} files cached`);
+    assert.ok(keys.includes(new URL(appUrl(), BASE).href));
+  });
+
+  it('refuses a cached module another same-origin page overwrote, and repairs the cache', async () => {
+    const w = await bootWorker();
+    await w.run('install');
+    const url = new URL(appUrl(), BASE).href;
+    const original = await text(await (await w.cache()).match(url));
+    // What /evil/ did in the proof of concept: prepend a payload to the cached app.js
+    await w.cache().put(url, new Response(EVIL + original, { headers: { 'Content-Type': 'text/javascript' } }));
+    w.state.fetched.length = 0;
+    const served = await text(await w.request(appUrl()));
+    assert.ok(!served.includes(EVIL), 'tampered copy served');
+    assert.equal(served, original);
+    assert.deepEqual(w.state.fetched, [url], 'fell back to the network');
+    assert.equal(await text(await w.cache().match(url)), original, 'cache repaired with the intact copy');
+  });
+
+  it('serves an intact cached module without touching the network', async () => {
+    const w = await bootWorker();
+    await w.run('install');
+    w.state.fetched.length = 0;
+    w.state.online = false;
+    assert.ok((await text(await w.request(appUrl()))).length > 0);
+    assert.deepEqual(w.state.fetched, []);
+  });
+
+  it('offline, a tampered page or module is not served (the request fails instead)', async () => {
+    const w = await bootWorker();
+    await w.run('install');
+    await w.cache().put(BASE, new Response(`<script>${EVIL}</script>`));
+    await w.cache().put(new URL(appUrl(), BASE).href, new Response(EVIL));
+    w.state.online = false;
+    await assert.rejects(w.request('./?shared', 'navigate'));
+    await assert.rejects(w.request(appUrl()));
+    assert.equal(await w.cache().match(BASE), undefined, 'tampered page evicted');
+  });
+
+  it('offline, the intact app shell still loads for share links', async () => {
+    const w = await bootWorker();
+    await w.run('install');
+    w.state.online = false;
+    const page = await text(await w.request('./?v4=abc', 'navigate'));
+    assert.ok(page.includes('<title>StemProfile'));
+  });
+
+  it('a forged entry under a URL the worker does not know is never served or cached', async () => {
+    const w = await bootWorker();
+    await w.run('install');
+    const forged = new URL('./js/app.js?v=0000000000', BASE).href;
+    await w.cache().put(forged, new Response(EVIL));
+    w.state.online = false;
+    await assert.rejects(w.request('./js/app.js?v=0000000000'));
+    w.state.online = true;
+    await w.request('./js/app.js?v=0000000000');
+    assert.equal(await w.cache().match(forged), undefined);
+  });
+
+  it('install fails (keeping the old worker) when the network returns a different file', async () => {
+    const w = await bootWorker({ network: url => (url.includes('/js/app.js') ? Buffer.from(EVIL) : deployed(url)) });
+    await assert.rejects(w.run('install'), /integrity mismatch/);
   });
 });

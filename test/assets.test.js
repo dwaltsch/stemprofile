@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { stampIndexHtml, stampServiceWorker, listModules, listPageAssets, cspHash, STATIC_PRECACHE } from '../scripts/stamp-assets.mjs';
+import { stampIndexHtml, stampServiceWorker, listModules, listPageAssets, cspHash, sha256Hex, precachedBytes, STATIC_PRECACHE } from '../scripts/stamp-assets.mjs';
 import { canUseServiceWorker, registerServiceWorker, initFileLaunch } from '../js/offline.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -65,6 +65,15 @@ describe('Assets: Offline Copy (service worker & manifest)', () => {
       assert.ok(fs.existsSync(path.join(root, file)), `${url} does not exist`);
     }
     for (const url of STATIC_PRECACHE) assert.ok(precache.includes(url));
+  });
+
+  it('sw.js holds the full SHA-256 of every precached file', () => {
+    const integrity = JSON.parse(sw.match(/const INTEGRITY = (\{[\s\S]*?\});/)[1]);
+    assert.deepEqual(Object.keys(integrity).sort(), [...precache].sort());
+    for (const url of precache) {
+      assert.match(integrity[url], /^[0-9a-f]{64}$/, `${url}: full hash, not the short ?v= stamp`);
+      assert.equal(integrity[url], sha256Hex(precachedBytes(url, html, root)), `${url} hash is stale`);
+    }
   });
 
   it('sw.js is a valid classic script', () => {

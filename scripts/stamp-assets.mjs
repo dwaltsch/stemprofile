@@ -12,8 +12,9 @@
  * - stylesheet links and the entry <script src> get `?v=<hash>`
  * - the import map is an inline script, so its SHA-256 is added to the CSP
  *   script-src (everything else stays 'self' only)
- * - sw.js gets the precache list of every URL the stamped page loads, plus a
- *   cache version, so the offline copy always matches the deployed page
+ * - sw.js gets the precache list of every URL the stamped page loads, the full
+ *   SHA-256 of each of those files and a cache version, so the offline copy
+ *   always matches the deployed page and a tampered cache entry is never served
  *
  * Usage:
  *   node scripts/stamp-assets.mjs           rewrite index.html and sw.js
@@ -117,8 +118,28 @@ export function listPageAssets(html) {
   return [...urls].sort();
 }
 
+/** Full SHA-256 (hex). The 10-character ?v= stamps are too short to resist a forged file. */
+export function sha256Hex(buffer) {
+  return createHash('sha256').update(buffer).digest('hex');
+}
+
 /**
- * Returns sw.js with its precache list and cache version generated from the stamped page.
+ * Exact bytes the server returns for a precached URL ('./' is the stamped page itself).
+ *
+ * @param {string} url - Precache entry, e.g. './js/app.js?v=…' or './info/'
+ * @param {string} stampedHtml - Stamped index.html
+ * @param {string} root - Repository root
+ * @returns {Buffer}
+ */
+export function precachedBytes(url, stampedHtml, root) {
+  if (url === './') return Buffer.from(stampedHtml);
+  const file = url.split('?')[0].replace(/\/$/, '/index.html');
+  return readFileSync(path.join(root, file));
+}
+
+/**
+ * Returns sw.js with its precache list, the SHA-256 of every precached file and the
+ * cache version generated from the stamped page.
  * The version hashes the page itself, so any change to index.html or an asset ships a new worker.
  *
  * @param {string} sw - Current sw.js
@@ -131,7 +152,10 @@ export function stampServiceWorker(sw, stampedHtml, root) {
   const statics = STATIC_PRECACHE.filter(u => !u.endsWith('/')).map(u => readFileSync(path.join(root, u)));
   const version = contentHash(Buffer.concat([Buffer.from(stampedHtml), Buffer.from(precache.join('\n')), ...statics,
     readFileSync(path.join(root, 'info', 'index.html'))]));
-  const block = `${SW_START}\nconst CACHE_VERSION = '${version}';\nconst PRECACHE = ${JSON.stringify(precache, null, 2)};\n${SW_END}`;
+  const integrity = {};
+  for (const url of precache) integrity[url] = sha256Hex(precachedBytes(url, stampedHtml, root));
+  const block = `${SW_START}\nconst CACHE_VERSION = '${version}';\nconst PRECACHE = ${JSON.stringify(precache, null, 2)};\n` +
+    `const INTEGRITY = ${JSON.stringify(integrity, null, 2)};\n${SW_END}`;
   const start = sw.indexOf(SW_START);
   const end = sw.indexOf(SW_END, start);
   if (start === -1 || end === -1) throw new Error('sw.js: precache markers not found');

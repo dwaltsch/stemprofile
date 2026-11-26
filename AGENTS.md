@@ -43,6 +43,6 @@ These rules apply unconditionally across this repository.
   - `test/a11y.test.js`: Keyboard-movable labels, accessible names, announced toasts, dialog focus trap.
   - `test/fuzz.test.js`: Seeded mutation fuzzing of GPX / TCX / FIT / share links through parse, store and render (`just fuzz <n> <seed>` for deep runs). Turn every finding into a regression case in `test/robustness.test.js`.
   - `test/assets.test.js`: `index.html` asset version stamps, import map coverage and its CSP hash are current; `sw.js` precaches every asset; the web manifest is valid. New test files must also be listed in `test/run.js`.
-  - `test/robustness.test.js`: Hostile / broken input: crafted share links (setting clamps, compression bombs, size caps), invalid coordinates, GPS glitches, input size limits, corrupted saved plans, XML entity attacks, CSP compatibility. Add a case here for every new input path.
+  - `test/robustness.test.js`: Hostile / broken input: crafted share links (setting clamps, compression bombs, size caps), invalid coordinates, GPS glitches, input size limits, corrupted saved plans, XML entity attacks, CSP compatibility, offline cache tampering by other pages on the shared github.io origin. Add a case here for every new input path.
 - **Keep Tests Updated:** When introducing new algorithms, formulas, or formats, add corresponding test cases to `test/`.
 
